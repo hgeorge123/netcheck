@@ -1,0 +1,120 @@
+{{- if .Values.admissionPolicy.enabled }}
+{{- $excluded := include "netcheck.excludedNamespaces" . }}
+# RBAC cannot restrict the PodSpec inside jobs/create nor the shape of created
+# ServiceAccounts (see docs/security.md). These policies constrain every
+# Job and ServiceAccount created by the controller identity, whatever happens
+# to the controller, and keep it out of system and excluded namespaces.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ include "netcheck.fullname" . }}-probe-jobs
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["batch"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["jobs"]
+  matchConditions:
+    - name: only-netcheck-controller
+      expression: "request.userInfo.username == '{{ include "netcheck.controllerUser" . }}'"
+  variables:
+    - name: pod
+      expression: "object.spec.template.spec"
+    - name: containers
+      expression: "object.spec.template.spec.containers"
+  validations:
+    - expression: >-
+        !(request.namespace in {{ $excluded }})
+      message: "NetCheck probes cannot run in system or excluded namespaces"
+    - expression: "size(variables.containers) == 1 && variables.containers.all(c, c.image == '{{ include "netcheck.probeImage" . }}')"
+      message: "probe Jobs must run exactly one container with the pinned probe image digest"
+    - expression: "variables.containers.all(c, !has(c.command) && !has(c.args))"
+      message: "the probe entrypoint cannot be overridden"
+    - expression: "(!has(variables.pod.initContainers) || size(variables.pod.initContainers) == 0) && (!has(variables.pod.ephemeralContainers) || size(variables.pod.ephemeralContainers) == 0)"
+      message: "init and ephemeral containers are not allowed"
+    - expression: "!has(variables.pod.volumes) || size(variables.pod.volumes) == 0"
+      message: "probe Pods cannot mount volumes"
+    - expression: "!(has(variables.pod.hostNetwork) && variables.pod.hostNetwork) && !(has(variables.pod.hostPID) && variables.pod.hostPID) && !(has(variables.pod.hostIPC) && variables.pod.hostIPC)"
+      message: "host namespaces are not allowed"
+    - expression: "has(variables.pod.serviceAccountName) && variables.pod.serviceAccountName == '{{ .Values.probe.serviceAccountName }}'"
+      message: "probe Pods must use the dedicated probe ServiceAccount"
+    - expression: "has(variables.pod.automountServiceAccountToken) && variables.pod.automountServiceAccountToken == false"
+      message: "probe Pods must not mount a ServiceAccount token"
+    - expression: "has(variables.pod.securityContext) && has(variables.pod.securityContext.runAsNonRoot) && variables.pod.securityContext.runAsNonRoot == true"
+      message: "probe Pods must run as non-root"
+    - expression: "!has(variables.pod.securityContext.sysctls) || variables.pod.securityContext.sysctls.all(s, s.name == 'net.ipv4.ping_group_range')"
+      message: "probe Pods may only set the safe sysctl net.ipv4.ping_group_range (unprivileged ping/traceroute)"
+    - expression: "has(variables.pod.restartPolicy) && variables.pod.restartPolicy == 'Never'"
+      message: "probe Pods must use restartPolicy Never"
+    - expression: >-
+        variables.containers.all(c, has(c.securityContext)
+        && has(c.securityContext.allowPrivilegeEscalation) && c.securityContext.allowPrivilegeEscalation == false
+        && has(c.securityContext.readOnlyRootFilesystem) && c.securityContext.readOnlyRootFilesystem == true
+        && !(has(c.securityContext.privileged) && c.securityContext.privileged)
+        && has(c.securityContext.capabilities) && has(c.securityContext.capabilities.drop)
+        && 'ALL' in c.securityContext.capabilities.drop
+        && !(has(c.securityContext.capabilities.add) && size(c.securityContext.capabilities.add) > 0))
+      message: "probe containers must drop all capabilities, forbid privilege escalation and use a read-only root filesystem"
+    - expression: >-
+        variables.containers.all(c, !has(c.envFrom)
+        && (!has(c.env) || c.env.all(e, !has(e.valueFrom) || (!has(e.valueFrom.secretKeyRef) && !has(e.valueFrom.configMapKeyRef)))))
+      message: "probe containers cannot read Secrets or ConfigMaps"
+    - expression: "has(object.metadata.labels) && 'app.kubernetes.io/managed-by' in object.metadata.labels && object.metadata.labels['app.kubernetes.io/managed-by'] == 'netcheck-controller'"
+      message: "probe Jobs must carry the netcheck managed-by label"
+    - expression: "has(object.spec.backoffLimit) && object.spec.backoffLimit == 0 && has(object.spec.activeDeadlineSeconds) && object.spec.activeDeadlineSeconds <= {{ .Values.limits.maxJobSeconds }}"
+      message: "probe Jobs must have backoffLimit 0 and a bounded activeDeadlineSeconds"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ include "netcheck.fullname" . }}-probe-jobs
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+spec:
+  policyName: {{ include "netcheck.fullname" . }}-probe-jobs
+  validationActions: [Deny]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ include "netcheck.fullname" . }}-probe-serviceaccounts
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["serviceaccounts"]
+  matchConditions:
+    - name: only-netcheck-controller
+      expression: "request.userInfo.username == '{{ include "netcheck.controllerUser" . }}'"
+  validations:
+    - expression: >-
+        !(request.namespace in {{ $excluded }})
+      message: "NetCheck cannot create ServiceAccounts in system or excluded namespaces"
+    - expression: "object.metadata.name == '{{ .Values.probe.serviceAccountName }}'"
+      message: "the controller may only create the probe ServiceAccount"
+    - expression: "has(object.automountServiceAccountToken) && object.automountServiceAccountToken == false"
+      message: "the probe ServiceAccount must not automount a token"
+    - expression: "!has(object.metadata.annotations) || object.metadata.annotations.all(k, !k.startsWith('eks.amazonaws.com/'))"
+      message: "the probe ServiceAccount cannot carry IAM (IRSA) annotations"
+    - expression: "(!has(object.secrets) || size(object.secrets) == 0) && (!has(object.imagePullSecrets) || size(object.imagePullSecrets) == 0)"
+      message: "the probe ServiceAccount cannot reference Secrets"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ include "netcheck.fullname" . }}-probe-serviceaccounts
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+spec:
+  policyName: {{ include "netcheck.fullname" . }}-probe-serviceaccounts
+  validationActions: [Deny]
+{{- end }}

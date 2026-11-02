@@ -1,0 +1,33 @@
+# Local development configuration for `make run-local`.
+# Requires NETCHECK_ENV=development and NETCHECK_BOOTSTRAP_ADMIN_PASSWORD
+# (initial admin, only used when no admin exists yet).
+# Without a reachable cluster (kubeconfig) every run ends as infra_error:
+# NetCheck never fabricates connectivity results.
+environment: development
+clusterId: local-dev
+listen: "127.0.0.1:8080"
+webDir: web/dist
+database:
+  path: .data/netcheck-dev.db
+  wal: true
+auth:
+  bootstrapAdmin:
+    username: admin
+    forcePasswordChange: true
+namespaceScope:
+  # list mode needs no cluster access to enumerate namespaces.
+  mode: list
+  namespaces: [nc-allow, nc-deny]
+destinations:
+  # Initial policy (afterwards edited in Administration > Destination policy).
+  # Metadata, loopback, link-local and the API server stay denied while
+  # protectPlatformDestinations is true (default).
+  allowCidrs: [10.96.0.0/12, 10.244.0.0/16, 192.168.0.0/16]
+  allowHostnameSuffixes: [.svc.cluster.local]
+  allowPorts:
+    - {from: 80, to: 80}
+    - {from: 443, to: 443}
+    - {from: 8080, to: 8080}
+probe:
+  # Placeholder digest for local runs without a cluster.
+  image: localhost:5001/netcheck-probe@sha256:0000000000000000000000000000000000000000000000000000000000000000

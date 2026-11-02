@@ -1,0 +1,139 @@
+# Laboratory fixtures: the same destination must be reachable from nc-allow
+# and blocked from nc-deny. Both source namespaces enforce Pod Security
+# "restricted" to prove the probe template complies without exceptions.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nc-target
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nc-allow
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nc-deny
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+# nc-open: no NetworkPolicy at all (ping/traceroute must succeed here).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nc-open
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+  namespace: nc-target
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: echo}
+  template:
+    metadata:
+      labels: {app: echo}
+    spec:
+      containers:
+        - name: echo
+          image: registry.k8s.io/e2e-test-images/agnhost:2.52
+          args: ["netexec", "--http-port=8080"]
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: nc-target
+spec:
+  selector: {app: echo}
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+# nc-allow: namespace-wide policies (podSelector: {}) — default deny egress,
+# allow DNS, allow the echo service.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-egress, namespace: nc-allow}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-dns, namespace: nc-allow}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-echo, namespace: nc-allow}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: nc-target}
+      ports:
+        - {port: 8080, protocol: TCP}
+---
+# nc-deny: default deny + DNS (namespace-wide), plus an additive policy that
+# allows the echo service ONLY for app=legacy Pods. The probe is not selected
+# by it, so it must be blocked and the fidelity badge must report specific
+# selectors.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-egress, namespace: nc-deny}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-dns, namespace: nc-deny}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-echo-legacy-only, namespace: nc-deny}
+spec:
+  podSelector:
+    matchLabels: {app: legacy}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: nc-target}
+      ports:
+        - {port: 8080, protocol: TCP}

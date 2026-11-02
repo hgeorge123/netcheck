@@ -1,0 +1,50 @@
+{{- $sc := .Values.persistence.createStorageClass }}
+{{- if and $sc.enabled (not .Values.persistence.storageClassName) (not .Values.persistence.existingClaim) }}
+# Dedicated encrypted gp3 class for the SQLite volume. WaitForFirstConsumer
+# creates the EBS volume in the AZ where the Pod is scheduled (restricted to
+# createStorageClass.zones when set). The PV then carries node affinity to that
+# AZ, so every later Pod is scheduled there.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ $sc.name }}
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: {{ $sc.reclaimPolicy }}
+allowVolumeExpansion: true
+parameters:
+  type: {{ $sc.type }}
+  encrypted: {{ $sc.encrypted | quote }}
+  {{- with $sc.kmsKeyId }}
+  kmsKeyId: {{ . }}
+  {{- end }}
+{{- with $sc.zones }}
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.kubernetes.io/zone
+        values: {{ toJson . }}
+{{- end }}
+---
+{{- end }}
+{{- if not .Values.persistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "netcheck.fullname" . }}-data
+  namespace: {{ include "netcheck.namespace" . }}
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+  annotations:
+    # History, users and audit must survive uninstalls; delete it explicitly.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: {{ include "netcheck.storageClassName" . }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

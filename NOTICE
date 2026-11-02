@@ -1,0 +1,16 @@
+NetCheck
+Copyright 2026 The NetCheck Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It bundles third-party software distributed under their own licenses,
+including:
+
+- Cloudscape Design System (Apache-2.0) - https://cloudscape.design
+- React (MIT) - https://react.dev
+- Kubernetes client-go and API machinery (Apache-2.0) - https://github.com/kubernetes/client-go
+- modernc.org/sqlite (BSD-3-Clause) - https://gitlab.com/cznic/sqlite
+- Go standard library and golang.org/x packages (BSD-3-Clause) - https://go.dev
+
+The complete list of dependencies and their licenses is in go.mod and
+web/package.json.

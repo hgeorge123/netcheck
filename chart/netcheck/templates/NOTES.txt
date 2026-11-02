@@ -1,0 +1,36 @@
+NetCheck {{ .Chart.AppVersion }} installed in namespace {{ include "netcheck.namespace" . }} ({{ .Values.environment }}).
+
+Namespace scope: {{ .Values.namespaceScope.mode }}{{ if eq .Values.namespaceScope.mode "list" }} ({{ join ", " .Values.namespaceScope.namespaces }}){{ end }}
+
+1. Wait for the Pod:
+   kubectl -n {{ include "netcheck.namespace" . }} rollout status deploy/{{ include "netcheck.fullname" . }}
+
+2. Initial administrator (only created if no admin exists):
+   username: {{ .Values.auth.bootstrapAdmin.username }}
+{{- if not .Values.auth.bootstrapAdmin.existingSecret }}
+   password: the value of auth.bootstrapAdmin.password (default: NetCheck-ChangeMe-1)
+{{- end }}
+   Sign in NOW and change it. To read it from the cluster:
+   kubectl -n {{ include "netcheck.namespace" . }} get secret {{ include "netcheck.bootstrapSecretName" . }} -o jsonpath='{.data.{{ .Values.auth.bootstrapAdmin.secretKey }}}' | base64 -d; echo
+{{- if .Values.auth.bootstrapAdmin.forcePasswordChange }}
+   You will be asked to change it at the first login.
+{{- end }}
+
+3. Open NetCheck:
+{{- if .Values.httpRoute.enabled }}
+{{- range .Values.httpRoute.hostnames }}
+   https://{{ . }}
+{{- end }}
+   Check the route is accepted by the Gateway:
+   kubectl -n {{ include "netcheck.namespace" . }} get httproute {{ include "netcheck.fullname" . }} -o jsonpath='{.status.parents[*].conditions}'
+{{- else if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+   https://{{ . }}
+{{- end }}
+   The AWS Load Balancer Controller provisions the ALB ({{ .Values.ingress.alb.scheme }}). Its DNS name, for
+   your Route 53 alias record (empty until the ALB is ready, usually 2-3 minutes):
+   kubectl -n {{ include "netcheck.namespace" . }} get ingress {{ include "netcheck.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'; echo
+{{- else }}
+   kubectl -n {{ include "netcheck.namespace" . }} port-forward svc/{{ include "netcheck.fullname" . }} 8080:{{ .Values.service.port }}
+   http://127.0.0.1:8080
+{{- end }}

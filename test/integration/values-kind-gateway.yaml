@@ -1,0 +1,12 @@
+# Overlay for `lab.sh deploy` after `lab.sh gateway`: exposes NetCheck through
+# NGINX Gateway Fabric like on EKS (HTTPS listener, NetworkPolicy ingress only
+# from the Gateway namespace).
+auth:
+  trustedProxyCidrs: [192.168.0.0/16]
+httpRoute:
+  enabled: true
+  hostnames: [netcheck.lab.test]
+  parentRefs:
+    - name: lab-gateway
+      namespace: gateway-lab
+      sectionName: https

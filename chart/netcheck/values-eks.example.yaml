@@ -1,0 +1,77 @@
+# Example values for Amazon EKS. Copy to values-eks.yaml and replace every
+# <...> placeholder following docs/install-eks.md step by step.
+environment: production
+clusterId: <eks-cluster-name>
+
+# Published images on ghcr.io (digests in the GitHub release notes). With an
+# ECR mirror use <account-id>.dkr.ecr.<region>.amazonaws.com/netcheck(-probe).
+image:
+  repository: ghcr.io/hgeorge123/netcheck
+  digest: sha256:<netcheck-image-digest>
+
+probeImage:
+  repository: ghcr.io/hgeorge123/netcheck-probe
+  digest: sha256:<probe-image-digest>
+
+auth:
+  # CIDR the proxy in front of NetCheck connects from: the NGINX Gateway Fabric
+  # data plane Pods (VPC CNI: the VPC CIDR, or the secondary CIDR with custom
+  # networking) or the ALB subnets. The VPC CIDR covers both.
+  trustedProxyCidrs:
+    - <vpc-cidr>
+
+namespaceScope:
+  mode: all
+  # Extra namespaces where nobody may run probes (system ones are implicit).
+  exclude:
+    - amazon-cloudwatch
+    - amazon-guardduty
+    - aws-observability
+    - karpenter
+    - <gateway-namespace>
+
+# Destinations: by default ANY hostname, IP and port; EC2 metadata and the API
+# server stay denied (protectPlatformDestinations: true). To restrict instead:
+# destinations:
+#   allowCidrs: [<vpc-cidr>, <service-cidr>]
+#   allowHostnameSuffixes: [.svc.cluster.local]
+#   allowPorts: [{from: 80, to: 80}, {from: 443, to: 443}]
+
+probe:
+  settleSeconds: 3
+
+persistence:
+  size: 2Gi
+  createStorageClass:
+    enabled: true
+    name: netcheck-gp3
+    encrypted: true
+    # EBS volumes are zonal: pin the AZ where the volume (and so the Pod) lives.
+    zones:
+      - <availability-zone>      # e.g. eu-west-1a, must have Linux nodes
+
+# Exposure: choose ONE option (the chart refuses both).
+
+# Option A: NGINX Gateway Fabric (HTTPRoute on your existing Gateway).
+httpRoute:
+  enabled: true
+  hostnames:
+    - <netcheck.example.com>
+  parentRefs:
+    - name: <gateway-name>
+      namespace: <gateway-namespace>
+      sectionName: <https-listener-name>
+
+# Option B: AWS Load Balancer Controller (ALB). Set httpRoute.enabled: false
+# above and ingress.enabled: true here.
+ingress:
+  enabled: false
+  className: alb
+  hosts:
+    - <netcheck.example.com>
+  alb:
+    scheme: internal                 # or internet-facing
+    certificateArns:
+      - <acm-certificate-arn>        # arn:aws:acm:<region>:<account>:certificate/<id>
+    # inboundCidrs: [<corporate-cidr>]
+    # groupName: <shared-alb-group>

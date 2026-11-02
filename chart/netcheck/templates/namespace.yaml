@@ -1,0 +1,15 @@
+{{- if .Values.namespace.create }}
+# Created only when namespace.create=true. Kept on uninstall so the data
+# volume and the initial admin Secret are not deleted by accident.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "netcheck.namespace" . }}
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+    {{- with .Values.namespace.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    helm.sh/resource-policy: keep
+{{- end }}

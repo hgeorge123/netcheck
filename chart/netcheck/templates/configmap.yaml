@@ -1,0 +1,45 @@
+{{- include "netcheck.validate" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "netcheck.fullname" . }}-config
+  namespace: {{ include "netcheck.namespace" . }}
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    environment: {{ .Values.environment }}
+    clusterId: {{ .Values.clusterId | quote }}
+    listen: ":8080"
+    webDir: /app/web
+    database:
+      path: /data/netcheck.db
+      wal: {{ .Values.persistence.wal }}
+    auth:
+      sessionIdleMinutes: {{ .Values.auth.sessionIdleMinutes }}
+      sessionMaxHours: {{ .Values.auth.sessionMaxHours }}
+      maxFailedLogins: {{ .Values.auth.maxFailedLogins }}
+      lockoutMinutes: {{ .Values.auth.lockoutMinutes }}
+      loginAttemptsPerIpPerMinute: {{ .Values.auth.loginAttemptsPerIpPerMinute }}
+      cookieSecure: {{ .Values.auth.cookieSecure }}
+      trustedProxyCidrs:
+        {{- toYaml .Values.auth.trustedProxyCidrs | nindent 8 }}
+      bootstrapAdmin:
+        username: {{ .Values.auth.bootstrapAdmin.username | quote }}
+        forcePasswordChange: {{ .Values.auth.bootstrapAdmin.forcePasswordChange }}
+    namespaceScope:
+      {{- toYaml .Values.namespaceScope | nindent 6 }}
+    destinations:
+      {{- toYaml .Values.destinations | nindent 6 }}
+    protectPlatformDestinations: {{ .Values.protectPlatformDestinations }}
+    destinationsManagedBy: {{ .Values.destinationsManagedBy | quote }}
+    kubeApiServerCidrs:
+      {{- toYaml (concat .Values.kubeApiServerCidrs .Values.networkPolicy.apiServer.cidrs | uniq) | nindent 6 }}
+    limits:
+      {{- toYaml .Values.limits | nindent 6 }}
+    probe:
+      image: {{ include "netcheck.probeImage" . | quote }}
+      {{- toYaml .Values.probe | nindent 6 }}
+    retention:
+      {{- toYaml .Values.retention | nindent 6 }}
+    networkPolicyRead: {{ .Values.networkPolicyRead }}

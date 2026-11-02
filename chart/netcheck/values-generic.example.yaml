@@ -1,0 +1,59 @@
+# Example values for any Kubernetes cluster (on-premises, GKE, AKS, k3s...).
+# Copy to values.yaml and replace every <...> placeholder following
+# docs/install.md step by step. For Amazon EKS use values-eks.example.yaml.
+environment: production
+clusterId: <cluster-name>
+
+# Published images on ghcr.io. Digests are listed in the GitHub release notes.
+image:
+  repository: ghcr.io/hgeorge123/netcheck
+  digest: sha256:<netcheck-image-digest>
+probeImage:
+  repository: ghcr.io/hgeorge123/netcheck-probe
+  digest: sha256:<probe-image-digest>
+
+auth:
+  # CIDR the Gateway data plane Pods connect from (usually the Pod CIDR).
+  # Required with httpRoute; used for per-IP sign-in throttling.
+  trustedProxyCidrs:
+    - <pod-cidr>
+  # bootstrapAdmin:
+  #   existingSecret: netcheck-initial-admin
+
+namespaceScope:
+  mode: all
+  # Platform namespaces where nobody may run probes (system ones are implicit).
+  exclude:
+    - <cni-namespace>          # e.g. calico-system, cilium
+    - <gateway-namespace>
+    - <monitoring-namespace>
+
+# Destinations: by default ANY hostname, IP and port; cloud metadata and the
+# API server stay denied (protectPlatformDestinations: true).
+
+probe:
+  # Seconds to wait so the CNI programs NetworkPolicies for the new probe Pod.
+  settleSeconds: 3
+
+persistence:
+  size: 2Gi
+  # An existing StorageClass with ReadWriteOnce block storage (not NFS).
+  storageClassName: <storage-class>
+  createStorageClass:
+    enabled: false
+
+# Exposure through an existing Gateway API Gateway (NGINX Gateway Fabric,
+# Envoy Gateway, Istio, Cilium...). Set enabled: false to use port-forward only.
+httpRoute:
+  enabled: true
+  hostnames:
+    - <netcheck.example.com>
+  parentRefs:
+    - name: <gateway-name>
+      namespace: <gateway-namespace>
+      sectionName: <https-listener-name>
+
+preflight:
+  # These checks are specific to Amazon EKS.
+  vpcCniNetworkPolicy: false
+  ebsCsiDriver: false

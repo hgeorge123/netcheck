@@ -1,0 +1,71 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $gwNamespaces := include "netcheck.gatewayNamespaces" . | fromJsonArray }}
+# Restricts the NetCheck Pod itself. It does NOT touch probe namespaces:
+# their policies are what operators want to diagnose. With VPC CNI this is
+# only enforced when the network policy agent is enabled (see preflight).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "netcheck.fullname" . }}
+  namespace: {{ include "netcheck.namespace" . }}
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "netcheck.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- if and .Values.httpRoute.enabled $gwNamespaces }}
+    # Only the Gateway data plane may reach the UI/API.
+    - from:
+        {{- range $gwNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+          {{- with $.Values.networkPolicy.gatewayPodLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+          {{- end }}
+        {{- end }}
+      ports:
+        - {port: 8080, protocol: TCP}
+    {{- end }}
+    {{- if .Values.ingress.enabled }}
+    # Only the ALB subnets may reach the UI/API (target-type ip).
+    - from:
+        {{- range .Values.networkPolicy.loadBalancerCidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        - {port: 8080, protocol: TCP}
+    {{- end }}
+    {{- with .Values.networkPolicy.kubeletCidrs }}
+    - from:
+        {{- range . }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        - {port: 8080, protocol: TCP}
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.dns.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dns.podLabels | nindent 14 }}
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - to:
+        {{- range .Values.networkPolicy.apiServer.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        {{- range .Values.networkPolicy.apiServer.ports }}
+        - {port: {{ . }}, protocol: TCP}
+        {{- end }}
+{{- end }}

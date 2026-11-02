@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest a new check, a UI improvement or a deployment option.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you are in (for example, what a firewall or network team asks you for).
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security
+      options:
+        - label: The proposal does not require running arbitrary commands, a shell, or extra privileges in the probe Pod.

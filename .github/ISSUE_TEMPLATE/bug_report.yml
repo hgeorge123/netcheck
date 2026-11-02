@@ -1,0 +1,52 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please do **not** report
+        security vulnerabilities here; see SECURITY.md instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a test from namespace ... to ... port ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: NetCheck version
+      description: Administration > System and versions, or the image tag/digest.
+    validations:
+      required: true
+  - type: input
+    id: kubernetes
+    attributes:
+      label: Kubernetes version and distribution
+      placeholder: e.g. EKS 1.33, kind 1.37, k3s 1.32
+    validations:
+      required: true
+  - type: input
+    id: cni
+    attributes:
+      label: CNI
+      placeholder: e.g. Amazon VPC CNI 1.20 (network policy enabled), Calico 3.33, Cilium 1.18
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: |
+        Test result JSON ("Copy JSON" on the result page), or
+        `kubectl -n netcheck logs deploy/netcheck`. Remove anything sensitive.
+      render: shell

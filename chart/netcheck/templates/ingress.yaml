@@ -1,0 +1,52 @@
+{{- if .Values.ingress.enabled }}
+{{- $alb := .Values.ingress.alb }}
+{{- $ann := dict
+  "alb.ingress.kubernetes.io/scheme" $alb.scheme
+  "alb.ingress.kubernetes.io/target-type" "ip"
+  "alb.ingress.kubernetes.io/backend-protocol" "HTTP"
+  "alb.ingress.kubernetes.io/certificate-arn" (join "," $alb.certificateArns)
+  "alb.ingress.kubernetes.io/ssl-policy" $alb.sslPolicy
+  "alb.ingress.kubernetes.io/listen-ports" (ternary "[{\"HTTP\": 80}, {\"HTTPS\": 443}]" "[{\"HTTPS\": 443}]" $alb.sslRedirect)
+  "alb.ingress.kubernetes.io/healthcheck-path" "/healthz"
+  "alb.ingress.kubernetes.io/success-codes" "200" }}
+{{- if $alb.sslRedirect }}{{- $_ := set $ann "alb.ingress.kubernetes.io/ssl-redirect" "443" }}{{- end }}
+{{- with $alb.groupName }}{{- $_ := set $ann "alb.ingress.kubernetes.io/group.name" . }}{{- end }}
+{{- with $alb.subnets }}{{- $_ := set $ann "alb.ingress.kubernetes.io/subnets" (join "," .) }}{{- end }}
+{{- with $alb.securityGroups }}{{- $_ := set $ann "alb.ingress.kubernetes.io/security-groups" (join "," .) }}{{- end }}
+{{- with $alb.inboundCidrs }}{{- $_ := set $ann "alb.ingress.kubernetes.io/inbound-cidrs" (join "," .) }}{{- end }}
+{{- with $alb.wafv2AclArn }}{{- $_ := set $ann "alb.ingress.kubernetes.io/wafv2-acl-arn" . }}{{- end }}
+{{- with $alb.tags }}
+{{- $tags := list }}{{- range $k, $v := . }}{{- $tags = append $tags (printf "%s=%v" $k $v) }}{{- end }}
+{{- $_ := set $ann "alb.ingress.kubernetes.io/tags" (join "," $tags) }}
+{{- end }}
+{{- $ann = mergeOverwrite $ann (.Values.ingress.annotations | default dict) }}
+# Exposes NetCheck through an Application Load Balancer managed by the AWS
+# Load Balancer Controller (alternative to httpRoute; never both). TLS
+# terminates at the ALB with an ACM certificate; targets are the Pod IPs.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "netcheck.fullname" . }}
+  namespace: {{ include "netcheck.namespace" . }}
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+  annotations:
+    {{- range $k, $v := $ann }}
+    {{ $k }}: {{ $v | toString | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "netcheck.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+    {{- end }}
+{{- end }}

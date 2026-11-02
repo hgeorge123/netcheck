@@ -1,0 +1,270 @@
+# NetCheck Helm values. Every value marked REQUIRED must be set; the chart
+# refuses to render otherwise. See docs/install.md and docs/admin-guide.md.
+
+# -- production | development. Development only relaxes cookie/bootstrap
+# settings for local laboratories and must never be used in a real cluster.
+environment: production
+# -- Free text shown in the UI and stored with every run (e.g. the EKS cluster name).
+clusterId: eks
+
+namespace:
+  # -- Create the namespace where NetCheck runs (true) or use an existing one
+  # (false, default). With create=true, install the release metadata in another
+  # existing namespace: helm install netcheck chart/netcheck -n default --set namespace.create=true
+  create: false
+  # -- Namespace where NetCheck runs. Empty = the Helm release namespace (-n).
+  name: ""
+  # -- Labels for the created namespace (only with create=true).
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+
+image:
+  # -- NetCheck image. Defaults to the image published by the project; point it
+  # to your own registry mirror (e.g. ECR) if the nodes cannot reach ghcr.io.
+  repository: ghcr.io/hgeorge123/netcheck
+  # -- REQUIRED in production: image digest (sha256:...), listed in the release
+  # notes. Tags are mutable.
+  digest: ""
+  # -- Only accepted in development when no digest is given.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+probeImage:
+  # -- Probe image (runs in the source namespaces).
+  repository: ghcr.io/hgeorge123/netcheck-probe
+  # -- REQUIRED. sha256 digest. The admission policy pins this exact reference.
+  digest: ""
+
+# -- Only needed for private registries. The published ghcr.io images are
+# public; EKS nodes pull from same-account ECR with the node IAM role.
+imagePullSecrets: []
+
+auth:
+  sessionIdleMinutes: 60
+  sessionMaxHours: 12
+  maxFailedLogins: 5
+  lockoutMinutes: 15
+  loginAttemptsPerIpPerMinute: 20
+  # -- Keep true: TLS terminates at the Gateway, the browser always uses HTTPS.
+  cookieSecure: true
+  # -- CIDRs of the Gateway data plane Pods. X-Forwarded-For is honoured only
+  # from these addresses (per-IP login throttling). Usually the VPC CIDR.
+  trustedProxyCidrs: []
+  bootstrapAdmin:
+    # -- Initial administrator, created only when no admin exists.
+    username: admin
+    # -- Must stay true outside development.
+    forcePasswordChange: true
+    # -- Default initial password. The admin MUST change it at the first
+    # sign-in. Override it (or use existingSecret) and sign in right after
+    # installing: until then anyone reaching the URL could use it.
+    password: "NetCheck-ChangeMe-1"
+    # -- Existing Secret holding the initial password (overrides password).
+    existingSecret: ""
+    secretKey: password
+    # -- Break-glass: on start, reset this admin to the Secret password
+    # (enabled, unlocked, must change it). Set back to false right after.
+    recoverOnStart: false
+
+namespaceScope:
+  # -- all: every namespace (including future ones) except system/excluded;
+  #    needs a ClusterRole (see docs/security.md).
+  #    list: only the namespaces below; namespaced Roles, no cluster-wide rights.
+  mode: all
+  # -- list mode only: source namespaces (must exist).
+  namespaces: []
+  # -- Extra namespaces where probes must never run. kube-system, kube-public,
+  # kube-node-lease and default are always excluded. The NetCheck namespace is
+  # hidden too and only offered to users with "Allow tests in the NetCheck
+  # namespace" checked.
+  exclude: []
+
+# -- Who manages the destination policy: "ui" (default) = these values are only
+# the INITIAL policy, copied to the database on the first start; afterwards
+# administrators edit it in Administration > Destination policy and changes
+# apply at once (later changes here are ignored). "helm" = these values are
+# authoritative on every start and the web page is read-only.
+destinationsManagedBy: ui
+
+# -- Destinations users may test. Default: ANY hostname, IP and port (decision
+# of the maintainers, see docs/security.md). To restrict, replace the lists, e.g.
+# allowCidrs: [10.0.0.0/16], allowHostnameSuffixes: [.svc.cluster.local],
+# allowPorts: [{from: 443, to: 443}].
+destinations:
+  allowCidrs: ["0.0.0.0/0", "::/0"]
+  denyCidrs: []
+  allowHostnameSuffixes: ["*"]
+  allowPorts:
+    - {from: 1, to: 65535}
+
+# -- Keep true. Always denies cloud metadata (169.254.169.254, fd00:ec2::254,
+# where a Pod could read the node IAM credentials), the Kubernetes API server,
+# loopback, link-local, multicast and reserved ranges, whatever destinations
+# allow. false removes these protections (logged as a warning at startup).
+protectPlatformDestinations: true
+
+# -- Extra API server addresses denied as probe destinations (the in-cluster
+# service IP is detected automatically; networkPolicy.apiServer.cidrs are added).
+kubeApiServerCidrs: []
+
+limits:
+  maxChecksPerRun: 6
+  defaultCheckTimeoutSeconds: 5
+  maxCheckTimeoutSeconds: 10
+  maxJobSeconds: 90
+  maxOutputBytes: 65536
+  maxConcurrentPerNamespace: 3
+  maxConcurrentGlobal: 10
+
+probe:
+  serviceAccountName: netcheck-probe
+  runAsUser: 65532
+  cpuRequest: 50m
+  cpuLimit: 200m
+  memoryRequest: 32Mi
+  memoryLimit: 64Mi
+  ephemeralStorageLimit: 16Mi
+  ttlSecondsAfterFinished: 300
+  # -- Delay before checks so VPC CNI programs policies for the new Pod
+  # (VPC CNI standard enforcing mode). Measure and adjust.
+  settleSeconds: 3
+  # -- Probes must run on EC2 Linux nodes: VPC CNI network policies are not
+  # enforced on Fargate or Windows.
+  nodeSelector:
+    kubernetes.io/os: linux
+
+retention:
+  outputDays: 15
+  metadataDays: 45
+
+# -- Read NetworkPolicies of source namespaces to compute the fidelity badge.
+networkPolicyRead: true
+
+persistence:
+  size: 2Gi
+  # -- Use an existing StorageClass. Leave empty to use the one created below.
+  storageClassName: ""
+  # -- Existing PVC to reuse (e.g. restored from a snapshot).
+  existingClaim: ""
+  # -- Disable WAL only on storage without shared-memory locking (never NFS/EFS).
+  wal: true
+  createStorageClass:
+    # -- Create a dedicated encrypted gp3 StorageClass (requires the EBS CSI driver).
+    enabled: true
+    name: netcheck-gp3
+    type: gp3
+    encrypted: true
+    # -- Optional KMS key ARN for EBS encryption (default: aws/ebs key).
+    kmsKeyId: ""
+    # -- Retain keeps the EBS volume (and history) if the PVC is deleted.
+    reclaimPolicy: Retain
+    # -- Availability Zones where the EBS volume may be created, e.g.
+    # [eu-west-1a]. Empty = the AZ of the node where the Pod first starts.
+    # An EBS volume never moves between AZs: once created, the scheduler always
+    # places the Pod in the volume's AZ, so keep node capacity there.
+    zones: []
+
+service:
+  port: 8080
+
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: "1", memory: 512Mi}
+
+nodeSelector:
+  kubernetes.io/os: linux
+tolerations: []
+affinity: {}
+
+# Exposure: enable ONE of httpRoute (NGINX Gateway Fabric) or ingress (AWS Load
+# Balancer Controller / ALB). The chart refuses both at the same time. With
+# neither, NetCheck is only reachable with kubectl port-forward.
+httpRoute:
+  # -- Expose NetCheck through an existing Gateway (e.g. NGINX Gateway Fabric).
+  # Set to false when using ingress.
+  enabled: true
+  # -- REQUIRED when enabled, e.g. [netcheck.example.com].
+  hostnames: []
+  # -- REQUIRED when enabled. sectionName must be the HTTPS listener.
+  # - name: shared-gateway
+  #   namespace: nginx-gateway
+  #   sectionName: https
+  parentRefs: []
+  annotations: {}
+
+ingress:
+  # -- Expose NetCheck with an Ingress for the AWS Load Balancer Controller
+  # (one ALB, TLS with ACM). Requires httpRoute.enabled=false.
+  enabled: false
+  # -- IngressClass of the AWS Load Balancer Controller.
+  className: alb
+  # -- REQUIRED when enabled, e.g. [netcheck.example.com].
+  hosts: []
+  alb:
+    # -- internal (recommended: reachable only from the VPC/VPN) or internet-facing.
+    scheme: internal
+    # -- REQUIRED when enabled: ACM certificate ARN(s) covering ingress.hosts.
+    # HTTPS is mandatory: passwords travel through the ALB.
+    certificateArns: []
+    sslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    # -- Add an HTTP:80 listener that only redirects to HTTPS:443.
+    sslRedirect: true
+    # -- Optional: share an ALB with other Ingresses of the same IngressGroup.
+    groupName: ""
+    # -- Optional: subnet IDs or names (default: auto-discovery by the
+    # kubernetes.io/role/internal-elb or kubernetes.io/role/elb subnet tags).
+    subnets: []
+    # -- Optional: security groups for the ALB (default: created by the controller).
+    securityGroups: []
+    # -- Optional: client CIDRs allowed to reach the ALB (default: 0.0.0.0/0).
+    inboundCidrs: []
+    # -- Optional: AWS WAFv2 web ACL ARN.
+    wafv2AclArn: ""
+    # -- Optional: tags for the ALB, e.g. {team: platform}.
+    tags: {}
+  # -- Extra Ingress annotations (override the generated ones).
+  annotations: {}
+
+networkPolicy:
+  # -- Disabled by default: the chart creates NO NetworkPolicy in the NetCheck
+  # namespace. Enable it only if that namespace uses default-deny policies and
+  # you want the chart to manage NetCheck's own ingress/egress rules.
+  enabled: false
+  # -- Namespaces of the Gateway data plane Pods allowed to reach NetCheck.
+  # Empty = the namespaces of httpRoute.parentRefs (NGINX Gateway Fabric 2.x
+  # runs the data plane next to its Gateway).
+  gatewayNamespaces: []
+  # -- Optional Pod labels to narrow ingress to the data plane Pods.
+  gatewayPodLabels: {}
+  # -- With ingress.enabled: CIDRs of the subnets where the ALB lives (the ALB
+  # reaches the Pod IPs directly, target-type ip).
+  loadBalancerCidrs: []
+  # -- Node CIDRs for kubelet health probes, if your CNI enforces host traffic.
+  kubeletCidrs: []
+  apiServer:
+    # -- REQUIRED when enabled: CIDRs that contain the API server endpoint (on EKS,
+    # the subnets of the cluster VPC configuration).
+    cidrs: []
+    ports: [443]
+  dns:
+    namespace: kube-system
+    podLabels: {k8s-app: kube-dns}
+
+admissionPolicy:
+  # -- Native ValidatingAdmissionPolicies restricting the Jobs and
+  # ServiceAccounts the controller may create. Do not disable it.
+  enabled: true
+
+preflight:
+  # -- Verify cluster prerequisites during helm install/upgrade (only when
+  # Helm is connected to a cluster; skipped by `helm template`).
+  enabled: true
+  # -- aws-node must run the network policy agent with --enable-network-policy=true.
+  vpcCniNetworkPolicy: true
+  # -- The EBS CSI driver must be installed when the chart creates the StorageClass.
+  ebsCsiDriver: true
+  # -- The Gateway referenced by httpRoute.parentRefs must exist.
+  gateway: true
+  # -- With ingress.enabled, ingress.className must exist and belong to the
+  # AWS Load Balancer Controller.
+  ingressClass: true

@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "netcheck.serviceAccountName" . }}
+  namespace: {{ include "netcheck.namespace" . }}
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+# No IAM role (IRSA / Pod Identity): NetCheck never calls AWS APIs.
+{{- if eq .Values.namespaceScope.mode "all" }}
+---
+# namespaceScope.mode=all: cluster-wide but minimal (see docs/security.md). What the
+# controller can create with it is constrained by the admission policies.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "netcheck.fullname" . }}-controller
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "create"]
+  {{- if .Values.networkPolicyRead }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "netcheck.fullname" . }}-controller
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "netcheck.fullname" . }}-controller
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "netcheck.serviceAccountName" . }}
+    namespace: {{ include "netcheck.namespace" . }}
+{{- else }}
+{{- /* Also the NetCheck namespace, usable by users with the per-user checkbox. */}}
+{{- range (append .Values.namespaceScope.namespaces (include "netcheck.namespace" .)) }}
+---
+# namespaceScope.mode=list: namespaced rights only. Dedicated probe identity
+# without token or IAM annotations.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $.Values.probe.serviceAccountName }}
+  namespace: {{ . }}
+  labels:
+    {{- include "netcheck.labels" $ | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "netcheck.fullname" $ }}-controller
+  namespace: {{ . }}
+  labels:
+    {{- include "netcheck.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    resourceNames: [{{ $.Values.probe.serviceAccountName | quote }}]
+    verbs: ["get"]
+  {{- if $.Values.networkPolicyRead }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "netcheck.fullname" $ }}-controller
+  namespace: {{ . }}
+  labels:
+    {{- include "netcheck.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "netcheck.fullname" $ }}-controller
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "netcheck.serviceAccountName" $ }}
+    namespace: {{ include "netcheck.namespace" $ }}
+{{- end }}
+{{- end }}

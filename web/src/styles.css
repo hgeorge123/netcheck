@@ -1,0 +1,26 @@
+/* Sign-in page in the style of the AWS sign-in screen. Everything else uses
+   Cloudscape components and tokens only. */
+.nc-login {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 64px 16px 32px;
+  box-sizing: border-box;
+}
+.nc-login__inner {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.nc-login__logo {
+  display: block;
+  width: 260px;
+  max-width: 80%;
+  height: auto;
+  margin: 0 auto 8px;
+}
+.nc-login__footer {
+  max-width: 200px;
+}

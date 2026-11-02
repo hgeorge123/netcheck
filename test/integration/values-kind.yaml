@@ -1,0 +1,31 @@
+# Helm values for the local kind + Calico laboratory. lab.sh adds the image
+# digests, the API server endpoint and the node CIDR with --set.
+environment: development
+clusterId: kind-netcheck-lab
+auth:
+  # Lab only: the integration tests log in with the Secret password.
+  bootstrapAdmin:
+    forcePasswordChange: false
+namespaceScope:
+  mode: all
+  # Platform namespaces where nobody should run probes, like on EKS.
+  exclude: [calico-system, local-path-storage, nc-target, nginx-gateway, gateway-lab]
+# destinations: chart default (any host, IP and port; metadata and the API
+# server stay denied by protectPlatformDestinations).
+probe:
+  # Calico programs policy for new Pods quickly; keep a margin explicit.
+  settleSeconds: 2
+persistence:
+  # kind ships the local-path provisioner as "standard" (no volume expansion).
+  storageClassName: standard
+  size: 1Gi
+  createStorageClass:
+    enabled: false
+httpRoute:
+  enabled: false
+# Like production: no NetworkPolicy in the NetCheck namespace.
+networkPolicy:
+  enabled: false
+preflight:
+  # Not EKS: there is no aws-node DaemonSet.
+  vpcCniNetworkPolicy: false

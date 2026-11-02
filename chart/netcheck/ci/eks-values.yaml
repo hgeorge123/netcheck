@@ -4,9 +4,11 @@ clusterId: ci-eks
 image:
   repository: 123456789012.dkr.ecr.eu-west-1.amazonaws.com/netcheck
   digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+  tag: ""
 probeImage:
   repository: 123456789012.dkr.ecr.eu-west-1.amazonaws.com/netcheck-probe
   digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+  tag: ""
 auth:
   trustedProxyCidrs: [10.0.0.0/16]
 namespaceScope:

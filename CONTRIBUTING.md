@@ -132,14 +132,24 @@ in the [release workflow](.github/workflows/release.yml):
 1. Every merge to `main` updates an open **release pull request** with the next
    version (in `chart/netcheck/Chart.yaml`, `version.txt` and the install
    commands of the docs) and the new `CHANGELOG.md` entry.
-2. A maintainer reviews and merges it when a release is due. That creates the
-   `vX.Y.Z` tag and the GitHub release, so `main` always carries the latest
-   released version.
-3. The workflow then builds the multi-architecture images, pushes them to
-   `ghcr.io/hgeorge123` (and Docker Hub, see below) with an SBOM and build
-   provenance, signs them with Sigstore, writes their digests into the published
-   chart, pushes and signs the chart (`oci://ghcr.io/hgeorge123/charts/netcheck`)
-   and adds every digest to the release notes.
+2. The workflow brings that pull request up to date with `main`, builds the
+   multi-architecture images with the new version, an SBOM and build
+   provenance, pushes them to GHCR by digest only, and commits their repository,
+   tag and digest to `chart/netcheck/values.yaml` in the pull request. What you
+   review is exactly what will be published.
+3. A maintainer merges it when a release is due. That creates the `vX.Y.Z` tag
+   and the GitHub release. The workflow checks that the tag holds exactly what
+   was built, copies the same images (same digests, no rebuild) to their release
+   tags on GHCR and Docker Hub, signs them with Sigstore, pushes and signs the
+   chart (`oci://ghcr.io/hgeorge123/charts/netcheck`), updates the Docker Hub
+   descriptions and adds every digest to the release notes.
+
+The tag of each release, `main` right after it and the published chart are
+identical and ready to install: download a tag for a specific version and
+`main` for the latest one. Wait for the `chore: pin the X.Y.Z images` commit in
+the release pull request before merging it; if `main` changes after that commit,
+the workflow pins again on the next run, and a release merged in between stops
+before publishing anything.
 
 Nobody creates tags or edits versions by hand.
 
@@ -155,6 +165,9 @@ Repository settings the workflow needs:
 - **`RELEASE_PLEASE_TOKEN` (optional):** a fine-grained token with contents and
   pull requests write access. GitHub does not run CI on pull requests opened with
   the default `GITHUB_TOKEN`, so set it to get checks on the release pull request.
+- **Recommended:** protect `main` and require branches to be up to date before
+  merging, so the release pull request can only be merged with the images of
+  the current `main`.
 
 ## License
 

@@ -1,13 +1,22 @@
 name: release
 
-# On every push to main, release-please keeps a release pull request up to date
-# with the Conventional Commits merged since the last release: next version in
-# Chart.yaml and the docs, and the CHANGELOG.md entry. Merging that pull request
-# tags the release and creates the GitHub release; the jobs below then build,
-# sign and publish the images and the chart, and add the digests to the notes.
+# Releases are prepared in the release pull request and published when it is
+# merged, so the git tag, main and the published chart carry the same pinned
+# images:
 #
-# Images go to GHCR and, when the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
-# repository secrets are set, also to Docker Hub (same build, same digests).
+# 1. On every push to main, release-please keeps the release pull request up to
+#    date (next version in Chart.yaml, version.txt and the docs; CHANGELOG.md).
+# 2. "prepare" brings that branch up to date with main, builds both images with
+#    the new version, pushes them to GHCR by digest only (no tags yet), attests
+#    their provenance and commits repository, tag and digest to values.yaml in
+#    the pull request.
+# 3. Merging the pull request tags the release. "publish" checks that the tag is
+#    exactly what was built, copies the same images (same digests) to their
+#    release tags on GHCR and Docker Hub and signs them; "chart", "dockerhub"
+#    and "notes" publish the rest.
+#
+# Docker Hub is used when the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets are
+# set; release tags are immutable there, so "latest" is only published on GHCR.
 on:
   push:
     branches: [main]
@@ -22,6 +31,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io/${{ github.repository_owner }}
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  RELEASE_BRANCH: release-please--branches--main--components--netcheck
 
 jobs:
   release-please:
@@ -44,52 +54,175 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  images:
+  prepare:
+    needs: release-please
+    if: needs.release-please.outputs.created != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the pinned images to the release branch
+      pull-requests: read
+      packages: write
+      id-token: write # build provenance
+      attestations: write
+    steps:
+      - id: pr
+        name: Find the open release pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          number="$(gh pr list --head "${RELEASE_BRANCH}" --state open --json number --jq '.[0].number // empty')"
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+          [ -n "${number}" ] && echo "release pull request #${number}" || echo "no open release pull request"
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        if: steps.pr.outputs.number != ''
+        with:
+          ref: ${{ env.RELEASE_BRANCH }}
+          fetch-depth: 0
+          # Pushes made with GITHUB_TOKEN do not start CI on the pull request.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - id: state
+        name: Bring the release branch up to date with main
+        if: steps.pr.outputs.number != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git merge-base --is-ancestor origin/main HEAD; then
+            git merge --no-edit -m "chore: merge main into the release branch" origin/main
+          fi
+          version="$(tr -d '[:space:]' < version.txt)"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          # Nothing to do when the last commit already pins this version.
+          if [ "$(git log -1 --format=%s)" = "chore: pin the ${version} images in the chart values" ]; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "the release branch already pins the ${version} images"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+        if: steps.state.outputs.build == 'true'
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        if: steps.state.outputs.build == 'true'
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        if: steps.state.outputs.build == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: app
+        name: Build the NetCheck image (pushed by digest)
+        if: steps.state.outputs.build == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          provenance: mode=max
+          sbom: true
+          outputs: type=image,name=${{ env.REGISTRY }}/netcheck,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            VERSION=${{ steps.state.outputs.version }}
+            COMMIT=${{ steps.state.outputs.commit }}
+            BUILD_DATE=${{ steps.state.outputs.build_date }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.state.outputs.commit }}
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.version=${{ steps.state.outputs.version }}
+
+      - id: probe
+        name: Build the probe image (pushed by digest)
+        if: steps.state.outputs.build == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: probe-image/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          provenance: mode=max
+          sbom: true
+          outputs: type=image,name=${{ env.REGISTRY }}/netcheck-probe,push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.state.outputs.commit }}
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.version=${{ steps.state.outputs.version }}
+
+      - name: Attest the NetCheck image provenance
+        if: steps.state.outputs.build == 'true'
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/netcheck
+          subject-digest: ${{ steps.app.outputs.digest }}
+          push-to-registry: true
+      - name: Attest the probe image provenance
+        if: steps.state.outputs.build == 'true'
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/netcheck-probe
+          subject-digest: ${{ steps.probe.outputs.digest }}
+          push-to-registry: true
+
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        if: steps.state.outputs.build == 'true'
+      - name: Pin the images in the release pull request
+        if: steps.state.outputs.build == 'true'
+        env:
+          VERSION: ${{ steps.state.outputs.version }}
+          APP_DIGEST: ${{ steps.app.outputs.digest }}
+          PROBE_DIGEST: ${{ steps.probe.outputs.digest }}
+        run: |
+          . .github/scripts/image-repos.sh
+          bash .github/scripts/pin-images.sh "${VERSION}" "${APP_REPO}" "${APP_DIGEST}" "${PROBE_REPO}" "${PROBE_DIGEST}"
+          git commit -am "chore: pin the ${VERSION} images in the chart values"
+          # If release-please rewrote the branch meanwhile, the next run pins it.
+          git push origin "HEAD:${RELEASE_BRANCH}" || echo "::warning::the release branch changed; the next run will pin it"
+
+  publish:
     needs: release-please
     if: needs.release-please.outputs.created == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-      id-token: write # keyless signing and build provenance
-      attestations: write
+      id-token: write # keyless signing
     outputs:
-      app_digest: ${{ steps.app.outputs.digest }}
-      probe_digest: ${{ steps.probe.outputs.digest }}
+      app_digest: ${{ steps.check.outputs.app_digest }}
+      probe_digest: ${{ steps.check.outputs.probe_digest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.release-please.outputs.tag }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - id: meta
-        name: Check the release against the chart and compute the tags
+      - id: check
+        name: Check that the tag is exactly what was built
         env:
           VERSION: ${{ needs.release-please.outputs.version }}
         run: |
-          chart_version="$(yq '.version' chart/netcheck/Chart.yaml)"
-          app_version="$(yq '.appVersion' chart/netcheck/Chart.yaml)"
-          if [ "$VERSION" != "$chart_version" ] || [ "$VERSION" != "$app_version" ]; then
-            echo "release $VERSION does not match Chart.yaml (version $chart_version, appVersion $app_version)" >&2
-            exit 1
-          fi
-          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           . .github/scripts/image-repos.sh
-          # Release tags are immutable on Docker Hub, so "latest" (which moves
-          # on every release) is only published on GHCR. The chart uses digests.
-          tags() {
-            for r in $1; do
-              printf '%s:%s,' "$r" "$VERSION"
-              case "$r" in ghcr.io/*) printf '%s:latest,' "$r" ;; esac
-            done | sed 's/,$//'
-          }
-          {
-            echo "app_tags=$(tags "${APP_REPOS}")"
-            echo "probe_tags=$(tags "${PROBE_REPOS}")"
-          } >> "$GITHUB_OUTPUT"
+          values=chart/netcheck/values.yaml
+          fail() { echo "::error::$*"; exit 1; }
+          [ "$(yq '.version' chart/netcheck/Chart.yaml)" = "${VERSION}" ] || fail "Chart.yaml version is not ${VERSION}"
+          [ "$(yq '.appVersion' chart/netcheck/Chart.yaml)" = "${VERSION}" ] || fail "Chart.yaml appVersion is not ${VERSION}"
+          [ "$(yq '.image.repository' "$values")" = "${APP_REPO}" ] || fail "image.repository is not ${APP_REPO}"
+          [ "$(yq '.probeImage.repository' "$values")" = "${PROBE_REPO}" ] || fail "probeImage.repository is not ${PROBE_REPO}"
+          [ "$(yq '.image.tag' "$values")" = "${VERSION}" ] || fail "image.tag is not ${VERSION}: the images were not prepared for this release"
+          [ "$(yq '.probeImage.tag' "$values")" = "${VERSION}" ] || fail "probeImage.tag is not ${VERSION}"
+          # The commit that pinned the images must be the content of the tag:
+          # nothing may change between the build and the release.
+          pinned="$(git log -1 --format=%H -- "$values")"
+          [ "$(git log -1 --format=%s "$pinned")" = "chore: pin the ${VERSION} images in the chart values" ] \
+            || fail "values.yaml was changed after the images were pinned"
+          git diff --quiet "$pinned" HEAD || fail "files changed after the images were built: $(git diff --name-only "$pinned" HEAD | tr '\n' ' ')"
+          echo "app_digest=$(yq '.image.digest' "$values")" >> "$GITHUB_OUTPUT"
+          echo "probe_digest=$(yq '.probeImage.digest' "$values")" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
@@ -101,65 +234,39 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - id: app
-        name: Build and push the NetCheck image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          provenance: mode=max
-          sbom: true
-          tags: ${{ steps.meta.outputs.app_tags }}
-          build-args: |
-            VERSION=${{ needs.release-please.outputs.version }}
-            COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ steps.meta.outputs.build_date }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.version=${{ needs.release-please.outputs.version }}
-
-      - id: probe
-        name: Build and push the probe image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          file: probe-image/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          provenance: mode=max
-          sbom: true
-          tags: ${{ steps.meta.outputs.probe_tags }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.version=${{ needs.release-please.outputs.version }}
+      - name: Tag the prepared images (same digests, no rebuild)
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+          APP_DIGEST: ${{ steps.check.outputs.app_digest }}
+          PROBE_DIGEST: ${{ steps.check.outputs.probe_digest }}
+        run: |
+          . .github/scripts/image-repos.sh
+          command -v skopeo >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q skopeo; }
+          promote() {
+            local name="$1" digest="$2" dst got
+            shift 2
+            for dst in "$@"; do
+              skopeo copy --all --preserve-digests "docker://${REGISTRY}/${name}@${digest}" "docker://${dst}"
+              got="sha256:$(skopeo inspect --raw "docker://${dst}" | sha256sum | cut -d' ' -f1)"
+              [ "$got" = "$digest" ] || { echo "::error::${dst} has digest ${got}, expected ${digest}"; exit 1; }
+            done
+          }
+          targets() { for r in $1; do echo "${r}:${VERSION}"; case "$r" in ghcr.io/*) echo "${r}:latest" ;; esac; done; }
+          promote netcheck "${APP_DIGEST}" $(targets "${APP_REPOS}")
+          promote netcheck-probe "${PROBE_DIGEST}" $(targets "${PROBE_REPOS}")
 
       - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
       - name: Sign the images (keyless, Sigstore)
         env:
-          APP_DIGEST: ${{ steps.app.outputs.digest }}
-          PROBE_DIGEST: ${{ steps.probe.outputs.digest }}
+          APP_DIGEST: ${{ steps.check.outputs.app_digest }}
+          PROBE_DIGEST: ${{ steps.check.outputs.probe_digest }}
         run: |
+          . .github/scripts/image-repos.sh
           for r in ${APP_REPOS}; do cosign sign --yes "${r}@${APP_DIGEST}"; done
           for r in ${PROBE_REPOS}; do cosign sign --yes "${r}@${PROBE_DIGEST}"; done
 
-      - name: Attest the NetCheck image provenance
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
-        with:
-          subject-name: ${{ env.REGISTRY }}/netcheck
-          subject-digest: ${{ steps.app.outputs.digest }}
-          push-to-registry: true
-      - name: Attest the probe image provenance
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
-        with:
-          subject-name: ${{ env.REGISTRY }}/netcheck-probe
-          subject-digest: ${{ steps.probe.outputs.digest }}
-          push-to-registry: true
-
   chart:
-    needs: [release-please, images]
+    needs: [release-please, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -174,14 +281,15 @@ jobs:
           persist-credentials: false
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
 
-      - name: Pin the release images in the chart
+      - name: Check the pinned images in the chart
         env:
           VERSION: ${{ needs.release-please.outputs.version }}
-          APP_DIGEST: ${{ needs.images.outputs.app_digest }}
-          PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
+          APP_DIGEST: ${{ needs.publish.outputs.app_digest }}
+          PROBE_DIGEST: ${{ needs.publish.outputs.probe_digest }}
         run: |
           . .github/scripts/image-repos.sh
           bash .github/scripts/pin-images.sh "${VERSION}" "${APP_REPO}" "${APP_DIGEST}" "${PROBE_REPO}" "${PROBE_DIGEST}"
+          git diff --exit-code chart/netcheck/values.yaml
 
       - id: push
         name: Package and push the chart (OCI)
@@ -206,39 +314,8 @@ jobs:
           echo "${GH_TOKEN}" | cosign login ghcr.io --username "${{ github.actor }}" --password-stdin
           cosign sign --yes "${REGISTRY}/charts/netcheck@${DIGEST}"
 
-  # Keeps main identical to the published chart: values.yaml on main always
-  # points to the images of the latest release. The commit is made with
-  # GITHUB_TOKEN, so it does not start new workflow runs.
-  pin-main:
-    needs: [release-please, images, chart]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          ref: main
-      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
-      - name: Pin the release images in values.yaml on main
-        env:
-          VERSION: ${{ needs.release-please.outputs.version }}
-          APP_DIGEST: ${{ needs.images.outputs.app_digest }}
-          PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
-        run: |
-          . .github/scripts/image-repos.sh
-          bash .github/scripts/pin-images.sh "${VERSION}" "${APP_REPO}" "${APP_DIGEST}" "${PROBE_REPO}" "${PROBE_DIGEST}"
-          if git diff --quiet; then echo "values.yaml already pins these images"; exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore: pin the ${VERSION} images in the chart values"
-          for attempt in 1 2 3; do
-            git push origin HEAD:main && exit 0
-            git pull --rebase origin main
-          done
-          exit 1
-
   dockerhub:
-    needs: [release-please, images]
+    needs: [release-please, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -270,7 +347,7 @@ jobs:
           readme-filepath: docs/dockerhub/netcheck-probe.md
 
   notes:
-    needs: [release-please, images, chart]
+    needs: [release-please, publish, chart]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -285,8 +362,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.release-please.outputs.tag }}
           VERSION: ${{ needs.release-please.outputs.version }}
-          APP_DIGEST: ${{ needs.images.outputs.app_digest }}
-          PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
+          APP_DIGEST: ${{ needs.publish.outputs.app_digest }}
+          PROBE_DIGEST: ${{ needs.publish.outputs.probe_digest }}
           CHART_DIGEST: ${{ needs.chart.outputs.digest }}
         run: |
           . .github/scripts/image-repos.sh
@@ -300,8 +377,8 @@ jobs:
             echo "  --namespace netcheck -f values.yaml"
             echo '```'
             echo
-            echo "The chart already points to the images below by digest; no image values are needed."
-            echo "See the [installation guide](https://github.com/${GH_REPO}/blob/${TAG}/docs/install.md)."
+            echo "The chart, the \`${TAG}\` tag and \`main\` at this release pin the images below by digest;"
+            echo "no image values are needed. See the [installation guide](https://github.com/${GH_REPO}/blob/${TAG}/docs/install.md)."
             echo
             echo "## Artifacts"
             echo

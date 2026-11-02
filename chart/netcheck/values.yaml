@@ -19,8 +19,8 @@ namespace:
     pod-security.kubernetes.io/enforce: restricted
 
 # Images are always deployed by digest. The release workflow pins the images
-# of each release here, both in the published chart and on the main branch, so
-# every chart version installs exactly the images built for it. The same
+# of each release here in the release pull request, so the release tag, main
+# and the published chart install exactly the images built for that version. The same
 # images (same digests) are on ghcr.io/hgeorge123 too. Override only to use a
 # mirror (e.g. ECR) or images you built yourself.
 image:

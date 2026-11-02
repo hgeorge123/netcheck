@@ -108,24 +108,52 @@ restores the destination policy at the end.
 1. Fork the repository and create a branch from `main`.
 2. Keep pull requests focused; split unrelated changes.
 3. Make sure `make lint test helm-lint` passes.
-4. Update the documentation and `CHANGELOG.md` when behavior changes.
+4. Update the documentation when behavior changes. Do not edit `CHANGELOG.md`:
+   it is generated from the pull request titles.
 5. Describe *what* and *why* in the pull request; screenshots help for UI changes.
 
-Commit messages should explain the reason for the change in the first line, for
-example `probe: report the node IP for firewall tickets`.
+Pull requests are squash-merged, and the **pull request title** becomes the commit
+message. It must follow [Conventional Commits](https://www.conventionalcommits.org/)
+(a check enforces it), because it decides the next version and the changelog entry:
+
+| Title | Effect on the next release |
+|---|---|
+| `feat: add UDP checks` | New minor version, listed under *Features* |
+| `fix(probe): report the node IP for firewall tickets` | New patch version, listed under *Bug Fixes* |
+| `feat!: rename the destinations values` (or a `BREAKING CHANGE:` footer) | Breaking change (minor while the version is 0.x) |
+| `docs:`, `perf:`, `deps:`, `revert:` | Listed in the changelog |
+| `chore:`, `ci:`, `test:`, `refactor:`, `build:` | Not listed |
 
 ## Releases
 
-Maintainers create releases by pushing a `vX.Y.Z` tag. The
-[release workflow](.github/workflows/release.yml) builds the multi-architecture
-images, publishes them to `ghcr.io/hgeorge123`, pushes the Helm chart as an OCI
-artifact and creates the GitHub release with the image digests.
+Releases are automated with [release-please](https://github.com/googleapis/release-please)
+in the [release workflow](.github/workflows/release.yml):
 
-The same images are also pushed to Docker Hub (`docker.io/hgeorge123`) when the
-repository has two Actions secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
-(a Docker Hub personal access token with read and write access). Both registries
-receive the same build, so the digests are identical. Without those secrets the
-Docker Hub step is skipped.
+1. Every merge to `main` updates an open **release pull request** with the next
+   version (in `chart/netcheck/Chart.yaml`, `version.txt` and the install
+   commands of the docs) and the new `CHANGELOG.md` entry.
+2. A maintainer reviews and merges it when a release is due. That creates the
+   `vX.Y.Z` tag and the GitHub release, so `main` always carries the latest
+   released version.
+3. The workflow then builds the multi-architecture images, pushes them to
+   `ghcr.io/hgeorge123` (and Docker Hub, see below) with an SBOM and build
+   provenance, signs them with Sigstore, writes their digests into the published
+   chart, pushes and signs the chart (`oci://ghcr.io/hgeorge123/charts/netcheck`)
+   and adds every digest to the release notes.
+
+Nobody creates tags or edits versions by hand.
+
+Repository settings the workflow needs:
+
+- **Settings → Actions → General → Workflow permissions:** allow GitHub Actions
+  to create and approve pull requests.
+- **Docker Hub (optional):** the Actions secrets `DOCKERHUB_USERNAME` and
+  `DOCKERHUB_TOKEN` (a personal access token with read and write access). Both
+  registries receive the same build, so the digests are identical. Without these
+  secrets the published chart points to GHCR.
+- **`RELEASE_PLEASE_TOKEN` (optional):** a fine-grained token with contents and
+  pull requests write access. GitHub does not run CI on pull requests opened with
+  the default `GITHUB_TOKEN`, so set it to get checks on the release pull request.
 
 ## License
 

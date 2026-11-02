@@ -17,6 +17,7 @@ To report a vulnerability, see [SECURITY.md](../SECURITY.md).
 | Namespace exclusions | System namespaces, the NetCheck namespace and the ones you exclude are never used as sources |
 | Local authentication | argon2id, server-side sessions, lockout, rate limiting, mandatory change of initial passwords |
 | Evidence integrity | NetCheck never fabricates output: what was not measured is not shown |
+| Supply chain | Images and chart built only by the release workflow, signed with Sigstore, with SBOM and provenance |
 
 ## 1. The probe
 
@@ -159,3 +160,35 @@ The result belongs to the **probe Pod**. It can differ from your application whe
 involved. The fidelity notice on each result points this out. In CNIs that apply policies to new Pods asynchronously,
 `probe.settleSeconds` (3 s by default) avoids a false "allowed" result; calibrate it as described in
 [install.md](install.md#12-smoke-test).
+
+## 10. Verifying releases
+
+Every release is built by the [release workflow](../.github/workflows/release.yml) from the tagged commit, with no
+manual steps. The images carry an SBOM and SLSA build provenance, and the images and the chart are signed with
+[Sigstore](https://www.sigstore.dev/) keyless signing, bound to that workflow. The release notes list every digest.
+
+Verify an image signature (the same command works for `netcheck-probe` and for the GHCR copies):
+
+```bash
+cosign verify docker.io/hgeorge123/netcheck@sha256:<digest> \
+  --certificate-identity https://github.com/hgeorge123/netcheck/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Verify the chart signature:
+
+```bash
+cosign verify ghcr.io/hgeorge123/charts/netcheck@sha256:<chart-digest> \
+  --certificate-identity https://github.com/hgeorge123/netcheck/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Verify the build provenance with the GitHub CLI, or read the SBOM:
+
+```bash
+gh attestation verify oci://docker.io/hgeorge123/netcheck@sha256:<digest> --owner hgeorge123
+docker buildx imagetools inspect docker.io/hgeorge123/netcheck@sha256:<digest> --format '{{ json .SBOM }}'
+```
+
+To enforce this in your cluster, admission controllers such as the Sigstore policy-controller or Kyverno can require
+these signatures for the NetCheck images.

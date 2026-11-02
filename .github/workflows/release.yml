@@ -1,70 +1,113 @@
 name: release
 
-# Push a tag like v0.2.0 (it must match appVersion in chart/netcheck/Chart.yaml).
+# On every push to main, release-please keeps a release pull request up to date
+# with the Conventional Commits merged since the last release: next version in
+# Chart.yaml and the docs, and the CHANGELOG.md entry. Merging that pull request
+# tags the release and creates the GitHub release; the jobs below then build,
+# sign and publish the images and the chart, and add the digests to the notes.
+#
 # Images go to GHCR and, when the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
 # repository secrets are set, also to Docker Hub (same build, same digests).
 on:
   push:
-    tags: ["v*.*.*"]
+    branches: [main]
 
-permissions:
-  contents: write
-  packages: write
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io/${{ github.repository_owner }}
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
-  images:
+  release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.rp.outputs.release_created }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+      version: ${{ steps.rp.outputs.version }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        with:
+          # With GITHUB_TOKEN, GitHub does not run CI on the release pull
+          # request. A fine-grained token or GitHub App token in
+          # RELEASE_PLEASE_TOKEN (contents and pull requests: write) avoids it.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  images:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # keyless signing and build provenance
+      attestations: write
     outputs:
       app_digest: ${{ steps.app.outputs.digest }}
       probe_digest: ${{ steps.probe.outputs.digest }}
       app_repo: ${{ steps.meta.outputs.app_repo }}
       probe_repo: ${{ steps.meta.outputs.probe_repo }}
-      version: ${{ steps.meta.outputs.version }}
+      app_repos: ${{ steps.meta.outputs.app_repos }}
+      probe_repos: ${{ steps.meta.outputs.probe_repos }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
 
       - id: meta
-        name: Check the tag against the chart
+        name: Check the release against the chart and compute the tags
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          app_version="$(awk -F'"' '/^appVersion:/ {print $2}' chart/netcheck/Chart.yaml)"
-          chart_version="$(awk '/^version:/ {print $2}' chart/netcheck/Chart.yaml)"
-          if [ "$version" != "$app_version" ] || [ "$version" != "$chart_version" ]; then
-            echo "tag $GITHUB_REF_NAME does not match Chart.yaml (version $chart_version, appVersion $app_version)" >&2
+          chart_version="$(yq '.version' chart/netcheck/Chart.yaml)"
+          app_version="$(yq '.appVersion' chart/netcheck/Chart.yaml)"
+          if [ "$VERSION" != "$chart_version" ] || [ "$VERSION" != "$app_version" ]; then
+            echo "release $VERSION does not match Chart.yaml (version $chart_version, appVersion $app_version)" >&2
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           # The published chart points to Docker Hub when it is configured,
           # otherwise to GHCR. "latest" is a convenience for docker pull; the
           # chart always uses the digests.
-          app_repo="${REGISTRY}/netcheck"
-          probe_repo="${REGISTRY}/netcheck-probe"
-          app="${app_repo}:${version},${app_repo}:latest"
-          probe="${probe_repo}:${version},${probe_repo}:latest"
+          app_repos="${REGISTRY}/netcheck"
+          probe_repos="${REGISTRY}/netcheck-probe"
+          app_repo="${app_repos}"
+          probe_repo="${probe_repos}"
           if [ -n "${DOCKERHUB_USERNAME}" ]; then
             app_repo="docker.io/${DOCKERHUB_USERNAME}/netcheck"
             probe_repo="docker.io/${DOCKERHUB_USERNAME}/netcheck-probe"
-            app="${app},${app_repo}:${version},${app_repo}:latest"
-            probe="${probe},${probe_repo}:${version},${probe_repo}:latest"
+            app_repos="${app_repos} ${app_repo}"
+            probe_repos="${probe_repos} ${probe_repo}"
           fi
-          echo "app_repo=${app_repo}" >> "$GITHUB_OUTPUT"
-          echo "probe_repo=${probe_repo}" >> "$GITHUB_OUTPUT"
-          echo "app_tags=${app}" >> "$GITHUB_OUTPUT"
-          echo "probe_tags=${probe}" >> "$GITHUB_OUTPUT"
+          tags() { for r in $1; do printf '%s:%s,%s:latest,' "$r" "$VERSION" "$r"; done | sed 's/,$//'; }
+          {
+            echo "app_repo=${app_repo}"
+            echo "probe_repo=${probe_repo}"
+            echo "app_repos=${app_repos}"
+            echo "probe_repos=${probe_repos}"
+            echo "app_tags=$(tags "${app_repos}")"
+            echo "probe_tags=$(tags "${probe_repos}")"
+          } >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         if: env.DOCKERHUB_USERNAME != ''
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -72,41 +115,79 @@ jobs:
 
       - id: app
         name: Build and push the NetCheck image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: mode=max
+          sbom: true
           tags: ${{ steps.meta.outputs.app_tags }}
           build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
+            VERSION=${{ needs.release-please.outputs.version }}
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.build_date }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.version=${{ needs.release-please.outputs.version }}
 
       - id: probe
         name: Build and push the probe image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: probe-image/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: mode=max
+          sbom: true
           tags: ${{ steps.meta.outputs.probe_tags }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.version=${{ needs.release-please.outputs.version }}
+
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+      - name: Sign the images (keyless, Sigstore)
+        env:
+          APP_REPOS: ${{ steps.meta.outputs.app_repos }}
+          PROBE_REPOS: ${{ steps.meta.outputs.probe_repos }}
+          APP_DIGEST: ${{ steps.app.outputs.digest }}
+          PROBE_DIGEST: ${{ steps.probe.outputs.digest }}
+        run: |
+          for r in ${APP_REPOS}; do cosign sign --yes "${r}@${APP_DIGEST}"; done
+          for r in ${PROBE_REPOS}; do cosign sign --yes "${r}@${PROBE_DIGEST}"; done
+
+      - name: Attest the NetCheck image provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/netcheck
+          subject-digest: ${{ steps.app.outputs.digest }}
+          push-to-registry: true
+      - name: Attest the probe image provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/netcheck-probe
+          subject-digest: ${{ steps.probe.outputs.digest }}
+          push-to-registry: true
 
   chart:
-    needs: images
+    needs: [release-please, images]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # keyless signing
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
       - name: Pin the release images in the chart
         env:
           APP_REPO: ${{ needs.images.outputs.app_repo }}
@@ -121,48 +202,70 @@ jobs:
           yq -i '.image.repository = strenv(APP_REPO) | .image.digest = strenv(APP_DIGEST) |
             .probeImage.repository = strenv(PROBE_REPO) | .probeImage.digest = strenv(PROBE_DIGEST)' chart/netcheck/values.yaml
           yq '{"image": .image, "probeImage": .probeImage}' chart/netcheck/values.yaml
-      - name: Package and push the chart (OCI)
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
-          helm package chart/netcheck --destination dist
-          helm push "dist/netcheck-${{ needs.images.outputs.version }}.tgz" "oci://${REGISTRY}/charts"
 
-  release:
-    needs: [images, chart]
+      - id: push
+        name: Package and push the chart (OCI)
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GH_TOKEN}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          helm lint chart/netcheck
+          helm package chart/netcheck --destination dist
+          helm push "dist/netcheck-${VERSION}.tgz" "oci://${REGISTRY}/charts" 2>&1 | tee push.log
+          digest="$(awk '/^Digest:/ {print $2}' push.log)"
+          case "$digest" in sha256:*) ;; *) echo "could not read the chart digest" >&2; exit 1 ;; esac
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+      - name: Sign the chart (keyless, Sigstore)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GH_TOKEN}" | cosign login ghcr.io --username "${{ github.actor }}" --password-stdin
+          cosign sign --yes "${REGISTRY}/charts/netcheck@${DIGEST}"
+
+  notes:
+    needs: [release-please, images, chart]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Create the GitHub release
+      - name: Add the images and the chart to the release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.images.outputs.version }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+          VERSION: ${{ needs.release-please.outputs.version }}
+          APP_REPOS: ${{ needs.images.outputs.app_repos }}
+          PROBE_REPOS: ${{ needs.images.outputs.probe_repos }}
           APP_DIGEST: ${{ needs.images.outputs.app_digest }}
           PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
+          CHART_DIGEST: ${{ needs.chart.outputs.digest }}
         run: |
+          gh release view "$TAG" --json body --jq .body > notes.md
           {
-            echo "## Images"
             echo
-            echo "| Image | Digest |"
+            echo "## Install"
+            echo
+            echo '```bash'
+            echo "helm upgrade --install netcheck oci://${REGISTRY}/charts/netcheck --version ${VERSION} \\"
+            echo "  --namespace netcheck -f values.yaml"
+            echo '```'
+            echo
+            echo "The chart already points to the images below by digest; no image values are needed."
+            echo "See the [installation guide](https://github.com/${GH_REPO}/blob/${TAG}/docs/install.md)."
+            echo
+            echo "## Artifacts"
+            echo
+            echo "| Artifact | Digest |"
             echo "|---|---|"
-            echo "| \`${REGISTRY}/netcheck:${VERSION}\` | \`${APP_DIGEST}\` |"
-            echo "| \`${REGISTRY}/netcheck-probe:${VERSION}\` | \`${PROBE_DIGEST}\` |"
-            if [ -n "${DOCKERHUB_USERNAME}" ]; then
-              echo "| \`docker.io/${DOCKERHUB_USERNAME}/netcheck:${VERSION}\` | \`${APP_DIGEST}\` |"
-              echo "| \`docker.io/${DOCKERHUB_USERNAME}/netcheck-probe:${VERSION}\` | \`${PROBE_DIGEST}\` |"
-            fi
-          } > notes.md
-          cat >> notes.md <<EOF
-
-          ## Install
-
-          \`\`\`bash
-          helm upgrade --install netcheck oci://${REGISTRY}/charts/netcheck --version ${VERSION} \\
-            --namespace netcheck -f my-values.yaml
-          \`\`\`
-
-          The chart already points to these images by digest; no image values are needed.
-
-          See [docs/install.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/docs/install.md)
-          and the changes in [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/CHANGELOG.md).
-          EOF
-          gh release create "$GITHUB_REF_NAME" --title "NetCheck ${VERSION}" --notes-file notes.md
+            echo "| \`oci://${REGISTRY}/charts/netcheck:${VERSION}\` | \`${CHART_DIGEST}\` |"
+            for r in ${APP_REPOS}; do echo "| \`${r}:${VERSION}\` | \`${APP_DIGEST}\` |"; done
+            for r in ${PROBE_REPOS}; do echo "| \`${r}:${VERSION}\` | \`${PROBE_DIGEST}\` |"; done
+            echo
+            echo "Images and chart are signed with Sigstore (keyless) and the images carry SBOM and build provenance."
+            echo "See [verifying releases](https://github.com/${GH_REPO}/blob/${TAG}/docs/security.md#10-verifying-releases)."
+          } >> notes.md
+          gh release edit "$TAG" --notes-file notes.md

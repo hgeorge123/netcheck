@@ -95,14 +95,19 @@ The Helm chart is published as an OCI artifact. Each chart version already point
 Docker Hub, **pinned by digest** (tags can be moved, digests cannot), so you do not set any image values: installing
 a chart version installs exactly the images built for it.
 
+The commands in this guide name the **latest release** explicitly (`--version`); the release pipeline updates them
+with every new version, so the `main` branch always documents the latest release. Older versions are listed in the
+[releases](https://github.com/hgeorge123/netcheck/releases) and in [CHANGELOG.md](../CHANGELOG.md).
+
+<!-- x-release-please-start-version -->
 ```bash
-export VERSION=0.2.0      # see https://github.com/hgeorge123/netcheck/releases
-helm show chart oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION"
-helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" > values.reference.yaml
+helm show chart oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0
+helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 > values.reference.yaml
 ```
+<!-- x-release-please-end -->
 
 `values.reference.yaml` documents every setting; its `image` and `probeImage` blocks show the repositories and
-digests the chart will use. Omitting `--version` in the Helm commands of this guide selects the latest release.
+digests the chart will use.
 
 | Image | Docker Hub (default) | GitHub Container Registry (same digests) |
 |---|---|---|
@@ -123,14 +128,16 @@ probeImage:
 **Building your own images.** From a checkout of the repository; then set `image.repository`/`image.digest` and
 `probeImage.repository`/`probeImage.digest` to the images you pushed:
 
+<!-- x-release-please-start-version -->
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg VERSION="$VERSION" --build-arg COMMIT="$(git rev-parse --short HEAD)" \
+  --build-arg VERSION=0.2.0 --build-arg COMMIT="$(git rev-parse --short HEAD)" \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  -t registry.example.com/netcheck:$VERSION --push .
+  -t registry.example.com/netcheck:0.2.0 --push .
 docker buildx build --platform linux/amd64,linux/arm64 -f probe-image/Dockerfile \
-  -t registry.example.com/netcheck-probe:$VERSION --push .
+  -t registry.example.com/netcheck-probe:0.2.0 --push .
 ```
+<!-- x-release-please-end -->
 
 ## 5. Create the namespace
 
@@ -179,10 +186,12 @@ kubectl -n "$GW_NS" get gateway "$GW_NAME" -o jsonpath='{.spec.listeners[?(@.pro
 
 Start from the generic example:
 
+<!-- x-release-please-start-version -->
 ```bash
-helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" --untar
+helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 --untar
 cp netcheck/values-generic.example.yaml values.yaml
 ```
+<!-- x-release-please-end -->
 
 Fill every `<...>`:
 
@@ -224,10 +233,12 @@ Keep `values.yaml` in your configuration repository. It holds no secrets if you 
 
 ## 8. Validate against the cluster
 
+<!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 \
   -n "$NC_NS" -f values.yaml --dry-run=server > /tmp/netcheck-render.yaml && echo OK
 ```
+<!-- x-release-please-end -->
 
 The chart validates the values and queries the cluster. It stops with a clear message when something is wrong, for
 example:
@@ -245,10 +256,12 @@ example:
 
 ## 9. Install
 
+<!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 \
   -n "$NC_NS" -f values.yaml --wait --timeout 10m
 ```
+<!-- x-release-please-end -->
 
 ## 10. Verify the installation
 
@@ -318,9 +331,10 @@ emergency recovery ([admin guide](admin-guide.md), Part III §5).
 
 ## 13. Upgrade, roll back and uninstall
 
+<!-- x-release-please-start-version -->
 ```bash
 # Upgrade: the new chart version brings the digests of its images
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" -n "$NC_NS" -f values.yaml \
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 -n "$NC_NS" -f values.yaml \
   --wait --timeout 10m
 
 # History and rollback
@@ -330,6 +344,7 @@ helm rollback netcheck <REVISION> -n "$NC_NS" --wait
 # Uninstall (the PVC and the admin Secret are kept on purpose)
 helm uninstall netcheck -n "$NC_NS"
 ```
+<!-- x-release-please-end -->
 
 - Always pass `-f values.yaml` (or `--reset-then-reuse-values`). Do **not** use `--reuse-values`: it skips new chart
   defaults and the templates may fail.

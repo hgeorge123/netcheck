@@ -51,15 +51,16 @@ Read more in [docs/architecture.md](docs/architecture.md) and [docs/security.md]
 
 Requirements: Kubernetes 1.30+, a CNI that enforces NetworkPolicy, a `ReadWriteOnce` StorageClass and Helm 3.14+.
 
+<!-- x-release-please-start-version -->
 ```bash
-export VERSION=0.2.0
-helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" --untar
+helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 --untar
 cp netcheck/values-generic.example.yaml values.yaml     # fill in the <...> placeholders
 kubectl create namespace netcheck
 kubectl label namespace netcheck pod-security.kubernetes.io/enforce=restricted
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 \
   -n netcheck -f values.yaml --wait
 ```
+<!-- x-release-please-end -->
 
 Sign in as `admin` / `NetCheck-ChangeMe-1` and set a new password straight away. The full step-by-step guides:
 

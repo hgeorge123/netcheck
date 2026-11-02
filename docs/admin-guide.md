@@ -396,13 +396,16 @@ status.
 
 ## 1. Upgrading
 
+<!-- x-release-please-start-version -->
 ```bash
-export VERSION=0.3.0
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" \
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 \
   -n netcheck -f values.yaml --wait --timeout 10m
 ```
+<!-- x-release-please-end -->
 
-Each chart version already points to the images of its release by digest, so no image values are needed (unless
+The command names the latest release; check [CHANGELOG.md](../CHANGELOG.md) before upgrading, and use an earlier
+version number to roll forward one step at a time. Each chart version already points to the images of its release by
+digest, so no image values are needed (unless
 you use a mirror: then keep its repositories in `values.yaml`). Always pass `-f values.yaml` (or
 `--reset-then-reuse-values`); do not use `--reuse-values`, which ignores new chart defaults. Database migrations run by
 themselves at startup. Check the result in **Administration → System and versions**: the new version shows as *Running
@@ -438,15 +441,17 @@ every hour.
 
 If nobody can sign in as administrator (forgotten password, locked or disabled account):
 
+<!-- x-release-please-start-version -->
 ```bash
 # 1. Enable recovery: the initial admin goes back to the password in the Secret
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" -n netcheck -f values.yaml \
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 -n netcheck -f values.yaml \
   --set auth.bootstrapAdmin.recoverOnStart=true --wait
 kubectl -n netcheck get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo
 # 2. Sign in as admin and change the password (mandatory)
 # 3. Disable recovery straight away
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" -n netcheck -f values.yaml --wait
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 -n netcheck -f values.yaml --wait
 ```
+<!-- x-release-please-end -->
 
 Recovery is recorded in the audit log (`user.recovery`) and in the Pod log. Only people with administrative access to
 the cluster can do it.

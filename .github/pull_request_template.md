@@ -9,6 +9,7 @@
 ## Checklist
 
 - [ ] `make lint test helm-lint` passes
-- [ ] Documentation and `CHANGELOG.md` updated if behavior changed
+- [ ] The title follows Conventional Commits (`feat:`, `fix:`, `docs:`...); it becomes the changelog entry
+- [ ] Documentation updated if behavior changed
 - [ ] New UI strings added to both `web/src/i18n/en.ts` and `es.ts`
 - [ ] No new privileges, shell access or credentials for the probe

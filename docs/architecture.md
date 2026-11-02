@@ -2,39 +2,7 @@
 
 ## Components
 
-```mermaid
-flowchart LR
-  user(["User<br/>browser"])
-  lb["ALB Ingress or<br/>Gateway API<br/>(TLS)"]
-
-  subgraph ncns["netcheck namespace"]
-    svc["Service<br/>ClusterIP"]
-    subgraph pod["Pod netcheck · 1 replica"]
-      api["HTTP API + web UI<br/>sessions, roles, policy"]
-      ctrl["Scheduler and<br/>controller"]
-    end
-    db[("SQLite<br/>PersistentVolume")]
-  end
-
-  subgraph cp["Kubernetes control plane"]
-    kapi["API server"]
-    vap{{"Admission policies<br/>image, template,<br/>namespaces"}}
-  end
-
-  subgraph src["source namespace, e.g. payments"]
-    job["Job"] --> probe["probe Pod<br/>no shell, no token,<br/>non-root"]
-  end
-
-  dest[("Destination<br/>IP or DNS name")]
-
-  user -- HTTPS --> lb --> svc --> api
-  api <--> db
-  ctrl <--> db
-  ctrl -- "create Job · read Pod log" --> kapi
-  kapi -. checks .-> vap
-  kapi -- schedules --> job
-  probe -- "DNS · TCP · UDP · HTTP(S) · ICMP<br/>under the namespace's NetworkPolicies" --> dest
-```
+![NetCheck architecture: the web UI and API, the controller and SQLite run in the netcheck namespace; each test is a Job with a probe Pod in the source namespace](images/architecture.svg)
 
 | Component | Code | Notes |
 |---|---|---|

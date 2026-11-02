@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>NetCheck architecture</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="600" rx="12" fill="#ffffff"/>
+
+  <!-- Groups -->
+  <rect x="310" y="20" width="630" height="230" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-dasharray="6 4"/>
+  <text x="326" y="40" font-size="12" font-weight="600" fill="#57606a">netcheck namespace</text>
+  <rect x="455" y="50" width="265" height="185" rx="8" fill="#ffffff" stroke="#54aeff"/>
+  <text x="469" y="70" font-size="12" font-weight="600" fill="#0969da">Pod netcheck · 1 replica</text>
+
+  <rect x="310" y="290" width="630" height="110" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-dasharray="6 4"/>
+  <text x="326" y="310" font-size="12" font-weight="600" fill="#57606a">Kubernetes control plane</text>
+
+  <rect x="310" y="440" width="430" height="140" rx="10" fill="#fff8c5" stroke="#d4a72c" stroke-dasharray="6 4"/>
+  <text x="326" y="460" font-size="12" font-weight="600" fill="#7d4e00">source namespace (e.g. payments)</text>
+
+  <!-- Nodes -->
+  <rect x="20" y="90" width="100" height="50" rx="25" fill="#ffffff" stroke="#8c959f"/>
+  <text x="70" y="120" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">User</text>
+
+  <rect x="150" y="80" width="130" height="70" rx="8" fill="#ffffff" stroke="#8c959f"/>
+  <text x="215" y="108" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">ALB Ingress or</text>
+  <text x="215" y="125" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Gateway API</text>
+  <text x="215" y="141" font-size="11.5" fill="#57606a" text-anchor="middle">HTTPS (TLS)</text>
+
+  <rect x="330" y="90" width="100" height="50" rx="8" fill="#ffffff" stroke="#8c959f"/>
+  <text x="380" y="112" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Service</text>
+  <text x="380" y="128" font-size="11.5" fill="#57606a" text-anchor="middle">ClusterIP</text>
+
+  <rect x="475" y="88" width="225" height="55" rx="8" fill="#ddf4ff" stroke="#54aeff"/>
+  <text x="587" y="111" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">HTTP API + web UI</text>
+  <text x="587" y="128" font-size="11.5" fill="#57606a" text-anchor="middle">sessions, roles, destination policy</text>
+
+  <rect x="475" y="165" width="225" height="55" rx="8" fill="#ddf4ff" stroke="#54aeff"/>
+  <text x="587" y="188" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Scheduler and controller</text>
+  <text x="587" y="205" font-size="11.5" fill="#57606a" text-anchor="middle">Jobs, results, retention</text>
+
+  <path d="M745,110 v70 a87.5,10 0 0 0 175,0 v-70" fill="#ffffff" stroke="#8c959f"/>
+  <ellipse cx="832.5" cy="110" rx="87.5" ry="10" fill="#ffffff" stroke="#8c959f"/>
+  <text x="832.5" y="148" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">SQLite</text>
+  <text x="832.5" y="165" font-size="11.5" fill="#57606a" text-anchor="middle">PersistentVolume (EBS)</text>
+
+  <rect x="475" y="318" width="225" height="55" rx="8" fill="#ffffff" stroke="#8c959f"/>
+  <text x="587" y="342" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">API server</text>
+  <text x="587" y="359" font-size="11.5" fill="#57606a" text-anchor="middle">Jobs, Pods, logs, namespaces</text>
+
+  <rect x="745" y="318" width="175" height="55" rx="8" fill="#ffffff" stroke="#8c959f"/>
+  <text x="832.5" y="342" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Admission policies</text>
+  <text x="832.5" y="359" font-size="11.5" fill="#57606a" text-anchor="middle">pinned image, safe template</text>
+
+  <rect x="330" y="485" width="100" height="55" rx="8" fill="#ffffff" stroke="#8c959f"/>
+  <text x="380" y="517" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Job</text>
+
+  <rect x="465" y="472" width="255" height="82" rx="8" fill="#ffffff" stroke="#d4a72c"/>
+  <text x="592" y="496" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">probe Pod</text>
+  <text x="592" y="514" font-size="11.5" fill="#57606a" text-anchor="middle">DNS · TCP · UDP · HTTP(S) · ICMP</text>
+  <text x="592" y="530" font-size="11.5" fill="#57606a" text-anchor="middle">no shell · no token · non-root</text>
+  <text x="592" y="546" font-size="11.5" fill="#57606a" text-anchor="middle">same NetworkPolicies as the apps</text>
+
+  <path d="M790,483 v58 a75,10 0 0 0 150,0 v-58" fill="#ffffff" stroke="#8c959f"/>
+  <ellipse cx="865" cy="483" rx="75" ry="10" fill="#ffffff" stroke="#8c959f"/>
+  <text x="865" y="516" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Destination</text>
+  <text x="865" y="533" font-size="11.5" fill="#57606a" text-anchor="middle">IP or DNS name</text>
+
+  <!-- Edges -->
+  <g stroke="#57606a" stroke-width="1.5" fill="none">
+    <path d="M120,115 H148" marker-end="url(#arrow)"/>
+    <path d="M280,115 H328" marker-end="url(#arrow)"/>
+    <path d="M430,115 H473" marker-end="url(#arrow)"/>
+    <path d="M700,115 L743,132" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <path d="M700,192 L743,172" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <path d="M587,220 V316" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <path d="M700,345 H743" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+    <path d="M520,373 V420 H380 V483" marker-end="url(#arrow)"/>
+    <path d="M430,512 H463" marker-end="url(#arrow)"/>
+    <path d="M720,512 H788" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Step badges -->
+  <g font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">
+    <circle cx="300" cy="100" r="9" fill="#0969da"/><text x="300" y="104">1</text>
+    <circle cx="571" cy="268" r="9" fill="#0969da"/><text x="571" y="272">2</text>
+    <circle cx="722" cy="332" r="9" fill="#0969da"/><text x="722" y="336">3</text>
+    <circle cx="450" cy="420" r="9" fill="#0969da"/><text x="450" y="424">4</text>
+    <circle cx="754" cy="498" r="9" fill="#0969da"/><text x="754" y="502">5</text>
+    <circle cx="603" cy="268" r="9" fill="#0969da"/><text x="603" y="272">6</text>
+  </g>
+
+  <!-- Legend -->
+  <rect x="20" y="290" width="270" height="290" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="36" y="315" font-size="13" font-weight="600" fill="#1f2328">How a test runs</text>
+  <g font-size="12" fill="#1f2328">
+    <g font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">
+      <circle cx="44" cy="340" r="9" fill="#0969da"/><text x="44" y="344">1</text>
+      <circle cx="44" cy="380" r="9" fill="#0969da"/><text x="44" y="384">2</text>
+      <circle cx="44" cy="420" r="9" fill="#0969da"/><text x="44" y="424">3</text>
+      <circle cx="44" cy="460" r="9" fill="#0969da"/><text x="44" y="464">4</text>
+      <circle cx="44" cy="500" r="9" fill="#0969da"/><text x="44" y="504">5</text>
+      <circle cx="44" cy="540" r="9" fill="#0969da"/><text x="44" y="544">6</text>
+    </g>
+    <text x="62" y="344">The user starts a test; the API checks</text>
+    <text x="62" y="360" fill="#57606a">session, namespaces, limits and policy</text>
+    <text x="62" y="384">The controller creates a Job</text>
+    <text x="62" y="400" fill="#57606a">through the Kubernetes API</text>
+    <text x="62" y="424">Admission policies validate it</text>
+    <text x="62" y="440" fill="#57606a">pinned image, safe Pod template</text>
+    <text x="62" y="464">The probe Pod starts</text>
+    <text x="62" y="480" fill="#57606a">in the source namespace</text>
+    <text x="62" y="504">The probe runs the checks</text>
+    <text x="62" y="520" fill="#57606a">under that namespace's NetworkPolicies</text>
+    <text x="62" y="544">The controller reads the Pod log,</text>
+    <text x="62" y="560" fill="#57606a">stores the result and deletes the Job</text>
+  </g>
+</svg>

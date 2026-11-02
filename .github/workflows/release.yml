@@ -23,7 +23,7 @@ jobs:
       probe_digest: ${{ steps.probe.outputs.digest }}
       version: ${{ steps.meta.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - id: meta
         name: Check the tag against the chart
@@ -94,7 +94,7 @@ jobs:
     needs: images
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: azure/setup-helm@v4
       - name: Package and push the chart (OCI)
         run: |
@@ -106,7 +106,7 @@ jobs:
     needs: [images, chart]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # commit the pinned images to the release branch
-      pull-requests: read
+      pull-requests: write # draft while the images are built, ready once pinned
       statuses: write # the release/images check on the release pull request
       packages: write
       id-token: write # build provenance
@@ -87,6 +87,9 @@ jobs:
       - id: state
         name: Bring the release branch up to date with main
         if: steps.pr.outputs.number != ''
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REVIEW_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -104,9 +107,11 @@ jobs:
             echo "build=false" >> "$GITHUB_OUTPUT"
             echo "the release branch already pins the ${version} images"
             bash .github/scripts/release-status.sh "${pr_head}" success "The ${version} images are built and pinned"
+            bash .github/scripts/release-review.sh ready "${PR_NUMBER}"
           else
             echo "build=true" >> "$GITHUB_OUTPUT"
             bash .github/scripts/release-status.sh "${pr_head}" pending "Building and pinning the ${version} images; do not merge yet"
+            bash .github/scripts/release-review.sh draft "${PR_NUMBER}"
           fi
 
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -190,17 +195,25 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           APP_DIGEST: ${{ steps.app.outputs.digest }}
           PROBE_DIGEST: ${{ steps.probe.outputs.digest }}
+          REVIEW_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
           . .github/scripts/image-repos.sh
           bash .github/scripts/pin-images.sh "${VERSION}" "${APP_REPO}" "${APP_DIGEST}" "${PROBE_REPO}" "${PROBE_DIGEST}"
           git commit -am "chore: pin the ${VERSION} images in the chart values"
-          if [ "$(gh pr view "${PR_NUMBER}" --json state --jq .state)" != "OPEN" ]; then
-            echo "::error::the release pull request was merged or closed before its images were pinned"
-            exit 1
-          fi
+          case "$(gh pr view "${PR_NUMBER}" --json state --jq .state)" in
+            OPEN) ;;
+            MERGED)
+              echo "::error::the release pull request was merged before its images were pinned"
+              exit 1 ;;
+            *)
+              # Closed by hand: release-please opens a new one and the next run pins it.
+              echo "::notice::release pull request #${PR_NUMBER} was closed; nothing to pin"
+              exit 0 ;;
+          esac
           # If release-please rewrote the branch meanwhile, the next run pins it.
           if git push origin "HEAD:${RELEASE_BRANCH}"; then
             bash .github/scripts/release-status.sh "$(git rev-parse HEAD)" success "The ${VERSION} images are built and pinned"
+            bash .github/scripts/release-review.sh ready "${PR_NUMBER}"
           else
             echo "::warning::the release branch changed; the next run will pin it"
           fi

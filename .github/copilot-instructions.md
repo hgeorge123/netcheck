@@ -33,7 +33,8 @@ The design is described in `docs/security.md` and `docs/architecture.md`.
 Pull requests titled `chore: release X.Y.Z` (branch `release-please--branches--main--components--netcheck`) are
 generated. Their first commit only bumps versions and the changelog; a second commit,
 `chore: pin the X.Y.Z images in the chart values`, adds the image tags and digests to `chart/netcheck/values.yaml`
-after the release workflow builds them. The required `release/images` check stays pending until then. Review these
+after the release workflow builds them. The pull request stays a draft and the required `release/images` check stays
+pending until then; the workflow marks it ready and requests this review once the images are pinned. Review these
 pull requests on their latest commit: before the pin commit the values still show the previous release by design.
 On the latest commit, check that `Chart.yaml`, `version.txt`, `.release-please-manifest.json`, the documentation
 commands and both image tags in `values.yaml` show the same version, and that both images have a `sha256:` digest.

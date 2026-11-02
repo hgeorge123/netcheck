@@ -129,7 +129,8 @@ message. It must follow [Conventional Commits](https://www.conventionalcommits.o
 Releases are automated with [release-please](https://github.com/googleapis/release-please)
 in the [release workflow](.github/workflows/release.yml):
 
-1. Every merge to `main` updates an open **release pull request** with the next
+1. Every merge to `main` updates an open **release pull request**, kept as a
+   draft while its images are built, with the next
    version (in `chart/netcheck/Chart.yaml`, `version.txt` and the install
    commands of the docs) and the new `CHANGELOG.md` entry.
 2. The workflow brings that pull request up to date with `main`, builds the

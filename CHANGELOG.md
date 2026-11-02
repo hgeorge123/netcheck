@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/hgeorge123/netcheck/compare/v0.3.0...v0.4.0) (2026-11-02)
+
+
+### Features
+
+* make the log level configurable ([0d81fd5](https://github.com/hgeorge123/netcheck/commit/0d81fd5017514a412ff1715f496dbcff258a454a))
+
 ## [0.3.0](https://github.com/hgeorge123/netcheck/compare/v0.2.5...v0.3.0) (2026-11-02)
 
 

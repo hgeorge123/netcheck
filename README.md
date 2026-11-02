@@ -53,11 +53,11 @@ Requirements: Kubernetes 1.30+, a CNI that enforces NetworkPolicy, a `ReadWriteO
 
 <!-- x-release-please-start-version -->
 ```bash
-helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.2 --untar
+helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.3 --untar
 cp netcheck/values-generic.example.yaml values.yaml     # fill in the <...> placeholders
 kubectl create namespace netcheck
 kubectl label namespace netcheck pod-security.kubernetes.io/enforce=restricted
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.2 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.3 \
   -n netcheck -f values.yaml --wait
 ```
 <!-- x-release-please-end -->

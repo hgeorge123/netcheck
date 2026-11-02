@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/hgeorge123/netcheck/compare/v0.2.1...v0.2.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **chart:** ship ready-to-use image values with every release ([9c52a3b](https://github.com/hgeorge123/netcheck/commit/9c52a3b784618bb294a6ba229b4165ffbb8da4d6))
+
 ## [0.2.1](https://github.com/hgeorge123/netcheck/compare/v0.2.0...v0.2.1) (2026-11-02)
 
 

@@ -25,7 +25,7 @@ allow the NetCheck controller to create Jobs with exactly that image and a locke
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.0 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.1 \
   --namespace netcheck -f values.yaml
 ```
 <!-- x-release-please-end -->

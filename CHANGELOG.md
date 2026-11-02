@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/hgeorge123/netcheck/compare/v0.2.0...v0.2.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **release:** publish the image repositories in the chart ([06b220f](https://github.com/hgeorge123/netcheck/commit/06b220fb787cae5d63a858f41e7d71cece669b79))
+
 ## [0.2.0](https://github.com/hgeorge123/netcheck/compare/v0.1.0...v0.2.0) (2026-11-02)
 
 

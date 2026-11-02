@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/hgeorge123/netcheck/compare/v0.4.1...v0.5.0) (2026-11-02)
+
+
+### Features
+
+* check namespace quotas before starting the probe ([07fbde8](https://github.com/hgeorge123/netcheck/commit/07fbde85eb2fea01bf83fa374a60d02ff25bbdbf))
+
+
+### Bug Fixes
+
+* **probe:** accept a slow UDP reply to an earlier datagram ([8e16153](https://github.com/hgeorge123/netcheck/commit/8e161536beb4e9573e7febc8bca20a1e03c37aac))
+* **ui:** round the UDP reply time ([2c11b99](https://github.com/hgeorge123/netcheck/commit/2c11b991ffdfd4fb8671aa09ee8b2d51c3288091))
+
+
+### Documentation
+
+* refresh the screenshots and show the UDP check ([2796136](https://github.com/hgeorge123/netcheck/commit/27961365a9b0945976d5ac79c3b2e384ec3970b1))
+
 ## [0.4.1](https://github.com/hgeorge123/netcheck/compare/v0.4.0...v0.4.1) (2026-11-02)
 
 

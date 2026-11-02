@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/hgeorge123/netcheck/compare/v0.2.4...v0.2.5) (2026-11-02)
+
+
+### Bug Fixes
+
+* **release:** block merging the release pull request until its images are pinned ([a11c835](https://github.com/hgeorge123/netcheck/commit/a11c835ef85220bae1979c8ca9238c483213657a))
+
 ## [0.2.4](https://github.com/hgeorge123/netcheck/compare/v0.2.3...v0.2.4) (2026-11-02)
 
 

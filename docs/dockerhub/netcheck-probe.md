@@ -37,16 +37,17 @@ See the [installation guide](https://github.com/hgeorge123/netcheck/blob/main/do
 
 | Tag | Meaning |
 |---|---|
-| `X.Y.Z` | A release; see the [changelog](https://github.com/hgeorge123/netcheck/blob/main/CHANGELOG.md) |
-| `latest` | The most recent release |
+| `X.Y.Z` | A release (tags are immutable); see the [changelog](https://github.com/hgeorge123/netcheck/blob/main/CHANGELOG.md) |
 
 Images are built for `linux/amd64` and `linux/arm64`. The same images, with the same digests, are on
 `ghcr.io/hgeorge123/netcheck-probe`.
 
 ## Verify the image
 
+<!-- x-release-please-start-version -->
 ```bash
-cosign verify hgeorge123/netcheck-probe:latest \
+cosign verify hgeorge123/netcheck-probe:0.2.1 \
   --certificate-identity https://github.com/hgeorge123/netcheck/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+<!-- x-release-please-end -->

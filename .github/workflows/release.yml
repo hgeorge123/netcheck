@@ -75,8 +75,14 @@ jobs:
           fi
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           . .github/scripts/image-repos.sh
-          # "latest" is a convenience for docker pull; the chart uses digests.
-          tags() { for r in $1; do printf '%s:%s,%s:latest,' "$r" "$VERSION" "$r"; done | sed 's/,$//'; }
+          # Release tags are immutable on Docker Hub, so "latest" (which moves
+          # on every release) is only published on GHCR. The chart uses digests.
+          tags() {
+            for r in $1; do
+              printf '%s:%s,' "$r" "$VERSION"
+              case "$r" in ghcr.io/*) printf '%s:latest,' "$r" ;; esac
+            done | sed 's/,$//'
+          }
           {
             echo "app_tags=$(tags "${APP_REPOS}")"
             echo "probe_tags=$(tags "${PROBE_REPOS}")"
@@ -170,23 +176,12 @@ jobs:
 
       - name: Pin the release images in the chart
         env:
+          VERSION: ${{ needs.release-please.outputs.version }}
           APP_DIGEST: ${{ needs.images.outputs.app_digest }}
           PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
         run: |
           . .github/scripts/image-repos.sh
-          case "${APP_DIGEST}${PROBE_DIGEST}" in
-            sha256:*sha256:*) ;;
-            *) echo "missing image digests" >&2; exit 1 ;;
-          esac
-          export APP_REPO PROBE_REPO
-          yq -i '.image.repository = strenv(APP_REPO) | .image.digest = strenv(APP_DIGEST) |
-            .probeImage.repository = strenv(PROBE_REPO) | .probeImage.digest = strenv(PROBE_DIGEST)' chart/netcheck/values.yaml
-          # Render the chart with its defaults and check both pinned references.
-          helm template netcheck chart/netcheck --set httpRoute.enabled=false > rendered.yaml
-          for ref in "${APP_REPO}@${APP_DIGEST}" "${PROBE_REPO}@${PROBE_DIGEST}"; do
-            grep -q "${ref}" rendered.yaml || { echo "rendered chart does not use ${ref}" >&2; exit 1; }
-          done
-          rm rendered.yaml
+          bash .github/scripts/pin-images.sh "${VERSION}" "${APP_REPO}" "${APP_DIGEST}" "${PROBE_REPO}" "${PROBE_DIGEST}"
 
       - id: push
         name: Package and push the chart (OCI)
@@ -210,6 +205,37 @@ jobs:
         run: |
           echo "${GH_TOKEN}" | cosign login ghcr.io --username "${{ github.actor }}" --password-stdin
           cosign sign --yes "${REGISTRY}/charts/netcheck@${DIGEST}"
+
+  # Keeps main identical to the published chart: values.yaml on main always
+  # points to the images of the latest release. The commit is made with
+  # GITHUB_TOKEN, so it does not start new workflow runs.
+  pin-main:
+    needs: [release-please, images, chart]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Pin the release images in values.yaml on main
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+          APP_DIGEST: ${{ needs.images.outputs.app_digest }}
+          PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
+        run: |
+          . .github/scripts/image-repos.sh
+          bash .github/scripts/pin-images.sh "${VERSION}" "${APP_REPO}" "${APP_DIGEST}" "${PROBE_REPO}" "${PROBE_DIGEST}"
+          if git diff --quiet; then echo "values.yaml already pins these images"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: pin the ${VERSION} images in the chart values"
+          for attempt in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          exit 1
 
   dockerhub:
     needs: [release-please, images]

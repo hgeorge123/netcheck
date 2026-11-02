@@ -22,6 +22,7 @@ failures=0
 "${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" > "${TMP}/eks.yaml"
 "${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=list \
   --set 'namespaceScope.namespaces={payments,orders}' --set 'namespaceScope.exclude=null' > "${TMP}/list.yaml"
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" --set image.tag=0.2.2 --set probeImage.tag=0.2.2 > "${TMP}/tagged.yaml"
 
 expect() {
   local name="$1" file="$2" pattern="$3"
@@ -44,6 +45,8 @@ expect "default admin password in Secret" "${TMP}/eks.yaml" "password: $(printf 
 expect "version env for System page" "${TMP}/eks.yaml" 'name: NETCHECK_CHART_VERSION'
 expect "ServiceAccount admission policy" "${TMP}/eks.yaml" 'name: netcheck-probe-serviceaccounts'
 expect "images pinned by digest" "${TMP}/eks.yaml" 'netcheck@sha256:1111'
+expect "release tag shown next to the digest" "${TMP}/tagged.yaml" 'image: "?[^ ]*/netcheck:0.2.2@sha256:1111'
+expect "admission policy pins the tagged probe reference" "${TMP}/tagged.yaml" 'netcheck-probe:0.2.2@sha256:2222.*)'
 expect_not "list mode has no ClusterRole" "${TMP}/list.yaml" '^kind: ClusterRole'
 expect "list mode creates namespaced Roles" "${TMP}/list.yaml" '^kind: Role$'
 expect "list mode includes the NetCheck namespace" "${TMP}/list.yaml" 'namespace: netcheck'
@@ -83,10 +86,11 @@ must_fail() {
   fi
 }
 
-must_fail "chart defaults alone" "image.digest (sha256:...) is required in production" "${GW[@]}"
+must_fail "chart defaults without an image digest" "image.digest (sha256:...) is required in production" "${GW[@]}" --set image.digest=
 must_fail "empty image repository" "image.repository is required" "${EKS[@]}" "${GW[@]}" --set image.repository=
 must_fail "invalid environment" "environment must be development or production" "${EKS[@]}" "${GW[@]}" --set environment=staging
 must_fail "production image without digest" "image.digest (sha256:...) is required in production" "${EKS[@]}" "${GW[@]}" --set image.digest= --set image.tag=latest
+must_fail "invalid image tag" "image.tag must be a lowercase image tag" "${EKS[@]}" "${GW[@]}" --set image.tag=Latest
 must_fail "probe image by tag" "probeImage.digest must be a sha256" "${EKS[@]}" "${GW[@]}" --set probeImage.digest=latest
 must_fail "insecure cookie in production" "cookieSecure=false is only allowed in development" "${EKS[@]}" "${GW[@]}" --set auth.cookieSecure=false
 must_fail "no forced password change in production" "forcePasswordChange=false is only allowed in development" "${EKS[@]}" "${GW[@]}" --set auth.bootstrapAdmin.forcePasswordChange=false

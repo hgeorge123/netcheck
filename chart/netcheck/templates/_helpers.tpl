@@ -28,16 +28,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.serviceAccountName" . }}
 {{- end -}}
 
+{{/* repo:tag@digest when pinned: the tag is informative, the digest wins. */}}
 {{- define "netcheck.image" -}}
 {{- if .Values.image.digest -}}
-{{ .Values.image.repository }}@{{ .Values.image.digest }}
+{{ .Values.image.repository }}{{ with .Values.image.tag }}:{{ . }}{{ end }}@{{ .Values.image.digest }}
 {{- else -}}
 {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end -}}
 {{- end -}}
 
 {{- define "netcheck.probeImage" -}}
-{{ .Values.probeImage.repository }}@{{ .Values.probeImage.digest }}
+{{ .Values.probeImage.repository }}{{ with .Values.probeImage.tag }}:{{ . }}{{ end }}@{{ .Values.probeImage.digest }}
 {{- end -}}
 
 {{- define "netcheck.bootstrapSecretName" -}}
@@ -87,6 +88,11 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- end -}}
 {{- if not (regexMatch "^sha256:[a-f0-9]{64}$" $v.probeImage.digest) -}}
 {{- fail "probeImage.digest must be a sha256 digest" -}}
+{{- end -}}
+{{- range $name, $tag := dict "image.tag" $v.image.tag "probeImage.tag" ($v.probeImage.tag | default "") -}}
+{{- if and $tag (not (regexMatch "^[a-z0-9_][a-z0-9_.-]{0,127}$" $tag)) -}}
+{{- fail (printf "%s must be a lowercase image tag such as 0.2.2" $name) -}}
+{{- end -}}
 {{- end -}}
 {{- if ne $v.environment "development" -}}
 {{- if not $v.auth.cookieSecure -}}{{- fail "auth.cookieSecure=false is only allowed in development" -}}{{- end -}}

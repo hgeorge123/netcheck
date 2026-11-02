@@ -18,26 +18,30 @@ namespace:
   labels:
     pod-security.kubernetes.io/enforce: restricted
 
-# Images are always deployed by digest. The chart published with each release
-# already carries the repository and the digests of that release's images, so
-# installing the latest chart version installs the latest images. The same
+# Images are always deployed by digest. The release workflow pins the images
+# of each release here, both in the published chart and on the main branch, so
+# every chart version installs exactly the images built for it. The same
 # images (same digests) are on ghcr.io/hgeorge123 too. Override only to use a
 # mirror (e.g. ECR) or images you built yourself.
 image:
   # -- NetCheck image (API, web UI and controller).
   repository: docker.io/hgeorge123/netcheck
-  # -- REQUIRED in production: image digest (sha256:...). Filled in by the
-  # release workflow in the published chart. Tags are mutable.
-  digest: ""
-  # -- Only accepted in development when no digest is given.
+  # -- Release version of the image, set by the release workflow. With a
+  # digest it is only informative (repo:tag@digest); without one it is used
+  # alone, which is only accepted in development.
   tag: ""
+  # -- REQUIRED in production: image digest (sha256:...), set by the release
+  # workflow. Tags can be moved; the digest cannot.
+  digest: ""
   pullPolicy: IfNotPresent
 
 probeImage:
   # -- Probe image (runs in the source namespaces).
   repository: docker.io/hgeorge123/netcheck-probe
-  # -- REQUIRED. sha256 digest, filled in by the release workflow in the
-  # published chart. The admission policy pins this exact reference.
+  # -- Release version of the image (informative), set by the release workflow.
+  tag: ""
+  # -- REQUIRED. sha256 digest, set by the release workflow. The admission
+  # policy pins this exact reference.
   digest: ""
 
 # -- Only needed for private registries. The published images are public; EKS

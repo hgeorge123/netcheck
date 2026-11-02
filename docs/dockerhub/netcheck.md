@@ -42,8 +42,7 @@ Requirements: Kubernetes 1.30+, a CNI that enforces NetworkPolicy and a `ReadWri
 
 | Tag | Meaning |
 |---|---|
-| `X.Y.Z` | A release; see the [changelog](https://github.com/hgeorge123/netcheck/blob/main/CHANGELOG.md) |
-| `latest` | The most recent release |
+| `X.Y.Z` | A release (tags are immutable); see the [changelog](https://github.com/hgeorge123/netcheck/blob/main/CHANGELOG.md) |
 
 Images are built for `linux/amd64` and `linux/arm64`. The same images, with the same digests, are on
 `ghcr.io/hgeorge123/netcheck`.
@@ -52,10 +51,12 @@ Images are built for `linux/amd64` and `linux/arm64`. The same images, with the 
 
 Every release is built by GitHub Actions, carries an SBOM and build provenance, and is signed with Sigstore:
 
+<!-- x-release-please-start-version -->
 ```bash
-cosign verify hgeorge123/netcheck:latest \
+cosign verify hgeorge123/netcheck:0.2.1 \
   --certificate-identity https://github.com/hgeorge123/netcheck/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+<!-- x-release-please-end -->
 
 More in [verifying releases](https://github.com/hgeorge123/netcheck/blob/main/docs/security.md#10-verifying-releases).

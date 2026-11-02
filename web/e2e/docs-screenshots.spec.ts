@@ -136,7 +136,16 @@ test.beforeAll(async ({ browser }) => {
   for (let i = 0; i < 5; i++) await admin('POST', '/api/v1/auth/login', { username: 'bob.jones', password: 'wrong-attempt-1' });
   const users = (await admin('GET', '/api/v1/admin/users')).body as UserList;
   const qa = users.items.find((u) => u.username === 'qa.tests');
-  await admin('PUT', `/api/v1/admin/users/${qa?.id}`, { ...demoUsers[3], disabled: true });
+  // The username cannot be sent on update.
+  const disabled = await admin('PUT', `/api/v1/admin/users/${qa?.id}`, {
+    displayName: 'QA Tests',
+    role: 'user',
+    allNamespaces: false,
+    namespaces: ['nc-allow', 'nc-deny'],
+    allowNetcheckNamespace: false,
+    disabled: true,
+  });
+  expect(disabled.status, 'disable qa.tests').toBe(200);
 });
 
 test('user guide', async ({ page }) => {

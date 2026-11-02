@@ -61,15 +61,16 @@ jobs:
     permissions:
       contents: write # commit the pinned images to the release branch
       pull-requests: read
+      statuses: write # the release/images check on the release pull request
       packages: write
       id-token: write # build provenance
       attestations: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - id: pr
         name: Find the open release pull request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
         run: |
           number="$(gh pr list --head "${RELEASE_BRANCH}" --state open --json number --jq '.[0].number // empty')"
           echo "number=${number}" >> "$GITHUB_OUTPUT"
@@ -89,6 +90,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pr_head="$(git rev-parse HEAD)"
+          echo "pr_head=${pr_head}" >> "$GITHUB_OUTPUT"
           if ! git merge-base --is-ancestor origin/main HEAD; then
             git merge --no-edit -m "chore: merge main into the release branch" origin/main
           fi
@@ -100,8 +103,10 @@ jobs:
           if [ "$(git log -1 --format=%s)" = "chore: pin the ${version} images in the chart values" ]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
             echo "the release branch already pins the ${version} images"
+            bash .github/scripts/release-status.sh "${pr_head}" success "The ${version} images are built and pinned"
           else
             echo "build=true" >> "$GITHUB_OUTPUT"
+            bash .github/scripts/release-status.sh "${pr_head}" pending "Building and pinning the ${version} images; do not merge yet"
           fi
 
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -173,14 +178,28 @@ jobs:
         if: steps.state.outputs.build == 'true'
         env:
           VERSION: ${{ steps.state.outputs.version }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
           APP_DIGEST: ${{ steps.app.outputs.digest }}
           PROBE_DIGEST: ${{ steps.probe.outputs.digest }}
         run: |
           . .github/scripts/image-repos.sh
           bash .github/scripts/pin-images.sh "${VERSION}" "${APP_REPO}" "${APP_DIGEST}" "${PROBE_REPO}" "${PROBE_DIGEST}"
           git commit -am "chore: pin the ${VERSION} images in the chart values"
+          if [ "$(gh pr view "${PR_NUMBER}" --json state --jq .state)" != "OPEN" ]; then
+            echo "::error::the release pull request was merged or closed before its images were pinned"
+            exit 1
+          fi
           # If release-please rewrote the branch meanwhile, the next run pins it.
-          git push origin "HEAD:${RELEASE_BRANCH}" || echo "::warning::the release branch changed; the next run will pin it"
+          if git push origin "HEAD:${RELEASE_BRANCH}"; then
+            bash .github/scripts/release-status.sh "$(git rev-parse HEAD)" success "The ${VERSION} images are built and pinned"
+          else
+            echo "::warning::the release branch changed; the next run will pin it"
+          fi
+
+      - name: Report a failure on the release pull request
+        if: failure() && steps.state.outputs.pr_head != ''
+        run: |
+          bash .github/scripts/release-status.sh "${{ steps.state.outputs.pr_head }}" failure "The release images could not be prepared; see the workflow run"
 
   publish:
     needs: release-please
@@ -392,3 +411,28 @@ jobs:
             echo "See [verifying releases](https://github.com/${GH_REPO}/blob/${TAG}/docs/security.md#10-verifying-releases)."
           } >> notes.md
           gh release edit "$TAG" --notes-file notes.md
+
+  # If a release could not be published (for example, its pull request was
+  # merged before the images were pinned), say so on the release and mark it
+  # as a pre-release so it is never shown as the latest version.
+  not-published:
+    needs: [release-please, publish, chart]
+    if: always() && needs.release-please.outputs.created == 'true' && (needs.publish.result != 'success' || needs.chart.result != 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Mark the release as not published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          {
+            echo "> [!WARNING]"
+            echo "> This release was **not published**: no images or chart exist for it. Install a later version."
+            echo "> See the [workflow run](${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID})."
+            echo
+            gh release view "$TAG" --json body --jq .body
+          } > notes.md
+          gh release edit "$TAG" --prerelease --notes-file notes.md

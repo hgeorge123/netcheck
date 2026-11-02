@@ -146,8 +146,8 @@ in the [release workflow](.github/workflows/release.yml):
 
 The tag of each release, `main` right after it and the published chart are
 identical and ready to install: download a tag for a specific version and
-`main` for the latest one. Wait for the `chore: pin the X.Y.Z images` commit in
-the release pull request before merging it; if `main` changes after that commit,
+`main` for the latest one. Wait for the `release/images` check to turn green
+(the `chore: pin the X.Y.Z images` commit) before merging the release pull request; if `main` changes after that commit,
 the workflow pins again on the next run, and a release merged in between stops
 before publishing anything.
 
@@ -165,9 +165,10 @@ Repository settings the workflow needs:
 - **`RELEASE_PLEASE_TOKEN` (optional):** a fine-grained token with contents and
   pull requests write access. GitHub does not run CI on pull requests opened with
   the default `GITHUB_TOKEN`, so set it to get checks on the release pull request.
-- **Recommended:** protect `main` and require branches to be up to date before
-  merging, so the release pull request can only be merged with the images of
-  the current `main`.
+- **Recommended:** protect `main` (**Settings → Branches**) with the required
+  status check `release/images` and "require branches to be up to date before
+  merging". The workflow keeps `release/images` pending on the release pull
+  request until its images are built and pinned, so it cannot be merged early.
 
 ## License
 

@@ -134,7 +134,9 @@ in the [release workflow](.github/workflows/release.yml):
    commands of the docs) and the new `CHANGELOG.md` entry.
 2. The workflow brings that pull request up to date with `main`, builds the
    multi-architecture images with the new version, an SBOM and build
-   provenance, pushes them to GHCR by digest only, and commits their repository,
+   provenance, pushes them to GHCR by digest only, scans them with
+   [Grype](https://github.com/anchore/grype) (a fixable High or Critical
+   vulnerability stops the release; accepted risks go in `.grype.yaml`), and commits their repository,
    tag and digest to `chart/netcheck/values.yaml` in the pull request. What you
    review is exactly what will be published.
 3. A maintainer merges it when a release is due. That creates the `vX.Y.Z` tag
@@ -165,6 +167,9 @@ Repository settings the workflow needs:
 - **`RELEASE_PLEASE_TOKEN` (optional):** a fine-grained token with contents and
   pull requests write access. GitHub does not run CI on pull requests opened with
   the default `GITHUB_TOKEN`, so set it to get checks on the release pull request.
+- **Dependency review:** the `dependencies` CI job fails a pull request that
+  adds a dependency with a known High or Critical vulnerability. Make it a
+  required check too.
 - **Recommended:** protect `main` (**Settings → Branches**) with the required
   status check `release/images` and "require branches to be up to date before
   merging". The workflow keeps `release/images` pending on the release pull

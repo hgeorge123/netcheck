@@ -17,7 +17,7 @@ To report a vulnerability, see [SECURITY.md](../SECURITY.md).
 | Namespace exclusions | System namespaces, the NetCheck namespace and the ones you exclude are never used as sources |
 | Local authentication | argon2id, server-side sessions, lockout, rate limiting, mandatory change of initial passwords |
 | Evidence integrity | NetCheck never fabricates output: what was not measured is not shown |
-| Supply chain | Images and chart built only by the release workflow, signed with Sigstore, with SBOM and provenance |
+| Supply chain | Images and chart built only by the release workflow, scanned for vulnerabilities, signed with Sigstore, with SBOM and provenance |
 
 ## 1. The probe
 
@@ -169,7 +169,10 @@ involved. The fidelity notice on each result points this out. In CNIs that apply
 ## 10. Verifying releases
 
 Every release is built by the [release workflow](../.github/workflows/release.yml) from the tagged commit, with no
-manual steps. The images carry an SBOM and SLSA build provenance, and the images and the chart are signed with
+manual steps. Before a release can be merged its images are scanned with [Grype](https://github.com/anchore/grype): a
+High or Critical vulnerability that already has a fix blocks it. Pull requests that add a dependency with a known High
+or Critical vulnerability fail the `dependencies` check, and `govulncheck` fails the build when the code calls a known
+vulnerable Go function. The images carry an SBOM and SLSA build provenance, and the images and the chart are signed with
 [Sigstore](https://www.sigstore.dev/) keyless signing, bound to that workflow. The release notes list every digest.
 
 Verify an image signature (the same command works for `netcheck-probe` and for the GHCR copies):

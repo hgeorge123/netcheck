@@ -172,6 +172,15 @@ jobs:
           subject-digest: ${{ steps.probe.outputs.digest }}
           push-to-registry: true
 
+      # Before pinning: a release with fixable High or Critical
+      # vulnerabilities fails here and release/images turns red.
+      - name: Scan the images for vulnerabilities
+        if: steps.state.outputs.build == 'true'
+        env:
+          APP_IMAGE: ${{ env.REGISTRY }}/netcheck@${{ steps.app.outputs.digest }}
+          PROBE_IMAGE: ${{ env.REGISTRY }}/netcheck-probe@${{ steps.probe.outputs.digest }}
+        run: bash .github/scripts/scan-images.sh "${APP_IMAGE}" "${PROBE_IMAGE}"
+
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         if: steps.state.outputs.build == 'true'
       - name: Pin the images in the release pull request

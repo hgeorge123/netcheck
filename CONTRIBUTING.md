@@ -148,9 +148,10 @@ Repository settings the workflow needs:
 - **Settings → Actions → General → Workflow permissions:** allow GitHub Actions
   to create and approve pull requests.
 - **Docker Hub (optional):** the Actions secrets `DOCKERHUB_USERNAME` and
-  `DOCKERHUB_TOKEN` (a personal access token with read and write access). Both
-  registries receive the same build, so the digests are identical. Without these
-  secrets the published chart points to GHCR.
+  `DOCKERHUB_TOKEN` (a personal access token with **Read, Write, Delete** access,
+  which Docker Hub requires to update the repository descriptions from
+  `docs/dockerhub/`). Both registries receive the same build, so the digests are
+  identical. Without these secrets the published chart points to GHCR.
 - **`RELEASE_PLEASE_TOKEN` (optional):** a fine-grained token with contents and
   pull requests write access. GitHub does not run CI on pull requests opened with
   the default `GITHUB_TOKEN`, so set it to get checks on the release pull request.

@@ -144,6 +144,12 @@ offers what can actually be tested over UDP:
 The content of the datagrams is fixed: you cannot send your own data. Prefer the DNS or NTP mode whenever the service
 is one of them; use the generic mode for other services, keeping in mind that silence does not prove a block.
 
+![UDP check in DNS server mode, port 53 by default](images/user-23-udp-modes.png)
+
+The result shows the mode, the datagrams sent, the reply time and, in the DNS and NTP modes, what the server answered:
+
+![UDP result against the cluster DNS server](images/user-24-udp-result.png)
+
 Ping and traceroute work **without privileges**: the probe needs neither `NET_RAW` nor root. They use Linux *ping
 sockets*, enabled only inside the probe Pod.
 

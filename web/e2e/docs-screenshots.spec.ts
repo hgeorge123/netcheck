@@ -225,6 +225,16 @@ test('user guide', async ({ page }) => {
   await pick(page, 'Ping (ICMP)').click();
   await shot(page, 'user-14-ping-filtered', true);
 
+  // UDP in DNS server mode against the cluster DNS (allowed by nc-allow).
+  await newTest(page, 'nc-allow', 'kube-dns.kube-system.svc.cluster.local');
+  await check(page, 'UDP').check();
+  await page.getByRole('radio', { name: /^DNS server/ }).click();
+  await shot(page, 'user-23-udp-modes', true);
+  await runAndWait(page, 'All checks passed');
+  // A single check opens its detail directly.
+  await expect(page.getByRole('heading', { name: 'UDP — details' })).toBeVisible();
+  await shot(page, 'user-24-udp-result', true);
+
   await page.goto('/#/runs');
   await expect(page.getByRole('heading', { name: /Test history/ })).toBeVisible();
   await expect(page.getByText(TARGET).first()).toBeVisible();

@@ -6,7 +6,7 @@ import { defineConfig } from '@playwright/test';
 //   NETCHECK_ADMIN_PASSWORD initial admin password (chart Secret)
 export default defineConfig({
   testDir: './e2e',
-  timeout: 300_000,
+  timeout: 600_000,
   workers: 1,
   reporter: 'list',
   use: {

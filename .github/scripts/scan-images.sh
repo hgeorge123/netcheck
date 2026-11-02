@@ -15,25 +15,34 @@ GRYPE="anchore/grype:v0.121.0@sha256:621d56d1d68106b787022c81546f7e0a36202a25d12
 PLATFORMS=(linux/amd64 linux/arm64)
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
-mount=() config=()
+# The vulnerability database is downloaded once into a Docker volume and
+# shared by every scan of this run.
+mount=(-v netcheck-grype-db:/cache -e GRYPE_DB_CACHE_DIR=/cache) config=()
 if [ -f .grype.yaml ]; then
-  mount=(-v "${PWD}/.grype.yaml:/grype.yaml:ro") config=(-c /grype.yaml)
+  mount+=(-v "${PWD}/.grype.yaml:/grype.yaml:ro") config=(-c /grype.yaml)
 fi
 
 failed=0
 echo "## Vulnerability scan (Grype, High and Critical with a fix)" >> "${SUMMARY}"
 for image in "$@"; do
   for platform in "${PLATFORMS[@]}"; do
-    out="$(docker run --rm "${mount[@]}" "${GRYPE}" "registry:${image}" "${config[@]}" --platform "${platform}" \
-      --only-fixed --fail-on high -o table 2>&1)" && status=passed || status=failed
-    [ "${status}" = failed ] && failed=1
+    rc=0
+    out="$(timeout 600 docker run --rm "${mount[@]}" "${GRYPE}" "registry:${image}" "${config[@]}" \
+      --platform "${platform}" --only-fixed --fail-on high -o table 2>&1)" || rc=$?
+    # Grype exits 2 when it finds vulnerabilities; anything else is a scan error.
+    case "${rc}" in
+      0) status=passed ;;
+      2) status=failed ;;
+      *) status="scan error (exit ${rc})" ;;
+    esac
+    [ "${rc}" != 0 ] && failed=1
     { echo; echo "### ${image%%@*} (${platform}): ${status}"; echo; echo '```'; echo "${out}"; echo '```'; } >> "${SUMMARY}"
     echo "${image%%@*} (${platform}): ${status}"
-    [ "${status}" = failed ] && echo "${out}"
+    [ "${rc}" != 0 ] && echo "${out}"
   done
 done
 
 if [ "${failed}" = 1 ]; then
-  echo "::error::the release images have fixable High or Critical vulnerabilities; see the job summary"
+  echo "::error::the release images have fixable High or Critical vulnerabilities, or could not be scanned; see the job summary"
   exit 1
 fi

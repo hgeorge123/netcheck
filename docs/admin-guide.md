@@ -313,7 +313,7 @@ the database and apply **to the next test**, without redeploying or restarting N
 | **Presets** | *Allow everything* (any name, IPv4/IPv6 network and port) or *Cluster and private networks only* (`*.svc.cluster.local`, 10/8, 172.16/12, 192.168/16). They fill the form; nothing changes until you click **Save** |
 | **Allowed names** | Domain suffixes (`.svc.cluster.local`, `.corp.example.com`). `*` allows any name |
 | **Allowed networks** | IPv4/IPv6 CIDRs. Every resolved IP must be in one of them; `0.0.0.0/0` and `::/0` allow any address |
-| **Allowed ports** | Ranges for TCP, HTTP and HTTPS. Ping and traceroute do not use a port |
+| **Allowed ports** | Ranges for TCP, UDP, HTTP and HTTPS. Ping and traceroute do not use a port |
 | **Denied networks** | Always denied even inside an allowed network (for example a sensitive subnet) |
 | **Platform protections** | Cloud metadata, the Kubernetes API server, loopback, link-local, multicast and reserved ranges. Set in Helm (`protectPlatformDestinations`) and **cannot be removed from the web** |
 | **Check a destination** | Tells whether a name or IP (and port) is allowed **without sending traffic** |

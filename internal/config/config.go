@@ -164,7 +164,7 @@ func Defaults() Config {
 		ProtectPlatformDestinations: true,
 		DestinationsManagedBy:       DestinationsManagedByUI,
 		Limits: Limits{
-			MaxChecksPerRun:            6,
+			MaxChecksPerRun:            7,
 			DefaultCheckTimeoutSeconds: 5,
 			MaxCheckTimeoutSeconds:     10,
 			MaxJobSeconds:              90,

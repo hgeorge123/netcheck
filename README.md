@@ -19,7 +19,8 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
 
 ## Features
 
-- **Checks:** DNS, TCP, HTTP, HTTPS, ping and traceroute. ICMP works without privileges (no `NET_RAW`, no root).
+- **Checks:** DNS, TCP, UDP (generic, DNS server or NTP server), HTTP, HTTPS, ping and traceroute. ICMP and UDP work
+  without privileges (no `NET_RAW`, no root).
 - **Firewall ticket mode:** enter a destination and a port and get one block of `date`, `hostname`, `ping`,
   `traceroute`, `telnet` and `curl -v` output, ready to paste, plus the real Pod and node IPs the firewall will see.
 - **Readable diagnosis:** every result says what it means *and what it does not mean* (a timeout is not proof of a

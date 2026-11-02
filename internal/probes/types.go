@@ -20,6 +20,7 @@ type Method string
 const (
 	MethodDNS        Method = "dns"
 	MethodTCP        Method = "tcp"
+	MethodUDP        Method = "udp"
 	MethodHTTP       Method = "http"
 	MethodHTTPS      Method = "https"
 	MethodPing       Method = "ping"
@@ -59,6 +60,22 @@ type PingOptions struct {
 	Count int `json:"count"`
 }
 
+// UDP check protocols. Each sends a fixed, small datagram: never user data.
+const (
+	// UDPGeneric sends empty datagrams: a reply proves the port is open, an
+	// ICMP port unreachable proves it is closed, silence is inconclusive.
+	UDPGeneric = "generic"
+	// UDPDNS sends a standard DNS query; any DNS answer proves the service.
+	UDPDNS = "dns"
+	// UDPNTP sends an NTP client request; the answer reports the server clock.
+	UDPNTP = "ntp"
+)
+
+// UDPOptions configures the UDP check.
+type UDPOptions struct {
+	Protocol string `json:"protocol"`
+}
+
 // TracerouteOptions configures the ICMP traceroute check.
 type TracerouteOptions struct {
 	MaxHops int `json:"maxHops"`
@@ -72,6 +89,7 @@ type Check struct {
 	Port       int                `json:"port,omitempty"`
 	DNS        *DNSOptions        `json:"dns,omitempty"`
 	HTTP       *HTTPOptions       `json:"http,omitempty"`
+	UDP        *UDPOptions        `json:"udp,omitempty"`
 	Ping       *PingOptions       `json:"ping,omitempty"`
 	Traceroute *TracerouteOptions `json:"traceroute,omitempty"`
 }
@@ -139,6 +157,7 @@ type CheckResult struct {
 	Equivalent  []string          `json:"equivalentArgv,omitempty"`
 	DNS         *DNSResult        `json:"dns,omitempty"`
 	HTTP        *HTTPResult       `json:"http,omitempty"`
+	UDP         *UDPResult        `json:"udp,omitempty"`
 	Ping        *PingResult       `json:"ping,omitempty"`
 	Traceroute  *TracerouteResult `json:"traceroute,omitempty"`
 }
@@ -165,6 +184,21 @@ type HTTPResult struct {
 	FirstByteMS   int64  `json:"firstByteMs,omitempty"`
 	BodyBytes     int64  `json:"bodyBytes,omitempty"`
 	BodyTruncated bool   `json:"bodyTruncated,omitempty"`
+}
+
+// UDPResult holds UDP specific evidence.
+type UDPResult struct {
+	Protocol   string  `json:"protocol"`
+	Attempts   int     `json:"attempts"`
+	ReplyBytes int     `json:"replyBytes,omitempty"`
+	RTTMS      float64 `json:"rttMs,omitempty"`
+	// DNS answer: response code and number of answer records.
+	DNSRcode   string `json:"dnsRcode,omitempty"`
+	DNSAnswers int    `json:"dnsAnswers,omitempty"`
+	// NTP answer: server stratum, reference and clock offset of the probe.
+	NTPStratum   int     `json:"ntpStratum,omitempty"`
+	NTPReference string  `json:"ntpReference,omitempty"`
+	NTPOffsetMS  float64 `json:"ntpOffsetMs,omitempty"`
 }
 
 // PingReply is one ICMP echo exchange.

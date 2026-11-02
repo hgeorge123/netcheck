@@ -30,7 +30,7 @@ Each step says what to do, why, the exact commands and how to check that it work
 
 NetCheck is **one Pod** (API, web interface and controller) with a SQLite database on a persistent volume. When a user
 runs a test, NetCheck creates a short-lived **probe Job** in the source namespace the user picked. The probe measures
-(DNS, TCP, HTTP/HTTPS, ping, traceroute), prints the result, and NetCheck reads it through the Kubernetes API and
+(DNS, TCP, UDP, HTTP/HTTPS, ping, traceroute), prints the result, and NetCheck reads it through the Kubernetes API and
 deletes the Job.
 
 Because the probe is a normal Pod in that namespace, it is subject to the **same NetworkPolicies** as your
@@ -223,7 +223,7 @@ Settings you usually keep:
       existingSecret: netcheck-initial-admin
   ```
 
-- **Limits:** 6 checks per test, 10 s per check, 90 s per Job, 3 concurrent Jobs per namespace and 10 in total.
+- **Limits:** 7 checks per test, 10 s per check, 90 s per Job, 3 concurrent Jobs per namespace and 10 in total.
 - **Retention:** test output 15 days, test history and audit 45 days. These are initial values: administrators change
   them later in **Administration → Data retention**.
 - **Sessions:** 60 min idle, 12 h maximum, 15 min lockout after 5 failed attempts.

@@ -15,8 +15,9 @@ const catalog: Catalog = {
     { method: 'https', label: 'HTTPS', description: '', requiresPort: true, defaultPort: 443, hostnameOnly: false },
     { method: 'ping', label: 'Ping', description: '', requiresPort: false, hostnameOnly: false },
     { method: 'traceroute', label: 'Traceroute', description: '', requiresPort: false, hostnameOnly: false },
+    { method: 'udp', label: 'UDP', description: '', requiresPort: true, hostnameOnly: false },
   ],
-  limits: { maxChecks: 6, defaultCheckTimeoutSeconds: 5, maxCheckTimeoutSeconds: 10, maxJobSeconds: 90, settleSeconds: 0 },
+  limits: { maxChecks: 7, defaultCheckTimeoutSeconds: 5, maxCheckTimeoutSeconds: 10, maxJobSeconds: 90, settleSeconds: 0 },
 };
 const namespaces = [
   { name: 'payments', canRun: true },
@@ -96,12 +97,29 @@ describe('NewRunPage', () => {
     });
   });
 
+  it('offers only what can be tested over UDP, with the port of each mode', async () => {
+    const { submit, onCreated, selectNamespace, toggle } = setup();
+    selectNamespace();
+    await userEvent.type(screen.getByLabelText('Destination'), '10.20.30.40');
+    toggle(6);
+    for (const mode of [/Generic port/, /DNS server/, /NTP server/]) expect(screen.getByRole('radio', { name: mode })).toBeInTheDocument();
+    expect(screen.getByText('Required, for example 514 (syslog) or 161 (SNMP).')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Run test' }));
+    expect(await screen.findByText('A generic UDP check needs a port.')).toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('radio', { name: /DNS server/ }));
+    expect(screen.getByText('Default 53.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Run test' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(submit).toHaveBeenCalledWith({ namespace: 'payments', target: '10.20.30.40', checks: [{ method: 'udp', port: 53, udp: { protocol: 'dns' } }] });
+  });
+
   it('disables DNS for IP destinations', async () => {
     const { w } = setup();
     await userEvent.type(screen.getByLabelText('Destination'), '10.0.0.1');
     await userEvent.click(screen.getByRole('button', { name: 'Select all' }));
     const selected = w.findCards()!.findSelectedItems().map((i) => i.findCardHeader()!.getElement().textContent);
-    expect(selected).toEqual(['TCP connection', 'HTTP', 'HTTPS', 'Ping (ICMP)', 'Traceroute (ICMP)']);
+    expect(selected).toEqual(['TCP connection', 'HTTP', 'HTTPS', 'Ping (ICMP)', 'Traceroute (ICMP)', 'UDP']);
   });
 
   it('shows server-side policy rejections next to the field', async () => {

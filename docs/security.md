@@ -26,7 +26,10 @@ Every test runs in a short-lived Job in the source namespace. The Pod template i
 specification:
 
 - **Image pinned by digest** (`probeImage.digest`): a static Go binary in a distroless base, with **no shell** and no
-  other tools. It does not run commands; it implements DNS, TCP, HTTP/HTTPS, ping and traceroute with Go primitives.
+  other tools. It does not run commands; it implements DNS, TCP, UDP, HTTP/HTTPS, ping and traceroute with Go primitives.
+- **Fixed UDP datagrams:** the UDP check only sends an empty datagram, a standard DNS query for the root zone or an
+  NTP client request, at most three per check. Users cannot choose the content, so the probe cannot be used for
+  reflection or amplification attacks.
 - **Security context:** `runAsNonRoot` (UID 65532), `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`,
   `capabilities.drop: [ALL]`, `seccompProfile: RuntimeDefault`. It complies with Pod Security `restricted`.
 - **No identity:** a dedicated `netcheck-probe` ServiceAccount with `automountServiceAccountToken: false`. The

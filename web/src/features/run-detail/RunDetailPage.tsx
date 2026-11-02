@@ -102,6 +102,16 @@ function CheckDetail({ c }: { c: ExecutionView }) {
   if (r?.http?.tlsVersion) {
     pairs.push({ label: t('run.tls'), value: t('run.tlsValue', { version: r.http.tlsVersion, cn: r.http.tlsPeerCn ?? '—', date: formatDate(r.http.tlsNotAfter) }) });
   }
+  if (r?.udp) {
+    const u = r.udp;
+    pairs.push({ label: t('run.udp.protocol'), value: t(`newTest.udp.${u.protocol}`) });
+    pairs.push({ label: t('run.udp.attempts'), value: String(u.attempts) });
+    if (u.replyBytes) pairs.push({ label: t('run.udp.reply'), value: t('run.udp.replyValue', { bytes: u.replyBytes, ms: u.rttMs ?? 0 }) });
+    if (u.dnsRcode) pairs.push({ label: t('run.udp.dns'), value: t('run.udp.dnsValue', { rcode: u.dnsRcode, answers: u.dnsAnswers ?? 0 }) });
+    if (u.ntpStratum !== undefined) {
+      pairs.push({ label: t('run.udp.ntp'), value: t('run.udp.ntpValue', { stratum: u.ntpStratum, ref: u.ntpReference || '—', offset: u.ntpOffsetMs ?? 0 }) });
+    }
+  }
   if (r?.http?.connectMs !== undefined) {
     pairs.push({ label: t('run.timings'), value: `${r.http.connectMs} / ${r.http.tlsMs ?? 0} / ${r.http.firstByteMs ?? 0} ms` });
   }

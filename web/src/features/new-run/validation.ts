@@ -1,9 +1,11 @@
 import type { MessageKey } from '../../i18n';
-import { METHODS, type CheckRequest, type FieldError, type Method, type RunDetail, type RunRequest } from '../../types/api';
+import { METHODS, type CheckRequest, type FieldError, type Method, type RunDetail, type RunRequest, type UDPProtocol } from '../../types/api';
 
 // Client-side validation is a usability aid only; the server is the authority.
 
 export const DEFAULT_PORTS = { http: 80, https: 443 } as const;
+/** Generic UDP has no default port on purpose, like TCP. */
+export const DEFAULT_UDP_PORTS: Record<UDPProtocol, number | undefined> = { generic: undefined, dns: 53, ntp: 123 };
 export const DEFAULT_PING_COUNT = 4;
 export const MAX_PING_COUNT = 10;
 export const DEFAULT_MAX_HOPS = 20;
@@ -30,6 +32,8 @@ export interface RunForm {
   methods: Method[];
   // TCP has no default port on purpose: the user must choose one.
   tcpPort: string;
+  udpProtocol: UDPProtocol;
+  udpPort: string;
   httpPort: string;
   httpsPort: string;
   httpMethod: HTTPMethod;
@@ -50,6 +54,8 @@ export const emptyForm = (namespace = ''): RunForm => ({
   timeoutSeconds: '',
   methods: [],
   tcpPort: '',
+  udpProtocol: 'generic',
+  udpPort: '',
   httpPort: String(DEFAULT_PORTS.http),
   httpsPort: String(DEFAULT_PORTS.https),
   httpMethod: 'GET',
@@ -68,6 +74,7 @@ export type FormField =
   | 'methods'
   | 'timeoutSeconds'
   | 'tcpPort'
+  | 'udpPort'
   | 'httpPort'
   | 'httpsPort'
   | 'httpPath'
@@ -132,6 +139,10 @@ export function validateForm(f: RunForm, maxTimeout: number): FormErrors {
     if (f.tcpPort.trim() === '') e.tcpPort = { key: 'validation.tcpPort' };
     else if (!intIn(f.tcpPort, 1, 65535)) e.tcpPort = { key: 'validation.port' };
   }
+  if (has('udp')) {
+    if (f.udpPort.trim() === '' && f.udpProtocol === 'generic') e.udpPort = { key: 'validation.udpPort' };
+    else if (f.udpPort.trim() !== '' && !intIn(f.udpPort, 1, 65535)) e.udpPort = { key: 'validation.port' };
+  }
   if (has('http') && f.httpPort.trim() !== '' && !intIn(f.httpPort, 1, 65535)) e.httpPort = { key: 'validation.port' };
   if (has('https') && f.httpsPort.trim() !== '' && !intIn(f.httpsPort, 1, 65535)) e.httpsPort = { key: 'validation.port' };
   if (has('http') && !pathPattern.test(f.httpPath || '/')) e.httpPath = { key: 'validation.path' };
@@ -175,6 +186,10 @@ export function buildRequest(f: RunForm): RunRequest {
         return { method, dns: { family: f.dnsFamily } };
       case 'tcp':
         return { method, port: Number(f.tcpPort) };
+      case 'udp': {
+        const def = DEFAULT_UDP_PORTS[f.udpProtocol];
+        return { method, port: def === undefined ? Number(f.udpPort) : port(f.udpPort, def), udp: { protocol: f.udpProtocol } };
+      }
       case 'http':
         return { method, port: port(f.httpPort, DEFAULT_PORTS.http), http: { method: f.httpMethod, path: f.httpPath || '/' } };
       case 'https':
@@ -207,6 +222,10 @@ export function formFromRun(run: Pick<RunDetail, 'request'>): RunForm {
     if (!METHODS.includes(c.method) || f.methods.includes(c.method)) continue;
     f.methods.push(c.method);
     if (c.method === 'tcp' && c.port) f.tcpPort = String(c.port);
+    if (c.method === 'udp') {
+      f.udpProtocol = c.udp?.protocol ?? 'generic';
+      if (c.port) f.udpPort = String(c.port);
+    }
     if (c.method === 'http') {
       if (c.port) f.httpPort = String(c.port);
       f.httpMethod = c.http?.method ?? 'GET';
@@ -238,7 +257,7 @@ export function mapServerErrors(details: FieldError[], req: RunRequest, text: (f
     else if (m) {
       const method = req.checks[Number(m[1])]?.method;
       const sub = m[2];
-      if (sub === 'port' && (method === 'tcp' || method === 'http' || method === 'https')) field = `${method}Port`;
+      if ((sub === 'port' || sub === 'udp.protocol') && (method === 'tcp' || method === 'udp' || method === 'http' || method === 'https')) field = `${method}Port`;
       else if (sub === 'http.path' && (method === 'http' || method === 'https')) field = `${method}Path`;
       else if (sub === 'ping.count') field = 'pingCount';
       else if (sub === 'traceroute.maxHops') field = 'maxHops';

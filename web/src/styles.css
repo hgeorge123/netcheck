@@ -1,6 +1,7 @@
 /* Sign-in page in the style of the AWS sign-in screen. Everything else uses
    Cloudscape components and tokens only. */
 .nc-login {
+  position: relative;
   min-height: 100vh;
   display: flex;
   justify-content: center;
@@ -21,6 +22,11 @@
   height: auto;
   margin: 0 auto 8px;
 }
-.nc-login__footer {
-  max-width: 200px;
+/* Language selector in the top-right corner, as in the AWS console. */
+.nc-login__lang {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 220px;
+  max-width: calc(100% - 32px);
 }

@@ -103,7 +103,7 @@ purge runs every hour and never touches queued or running tests.
 | Level | What | Where |
 |---|---|---|
 | Go unit tests | Destination validation and policy, rebinding, Job template, error classification, controller with a fake client, SQLite, authorization, CSRF | `go test ./cmd/... ./internal/...` |
-| Probe tests | DNS, TCP, HTTP and ICMP against real local listeners | [internal/probes/runner](../internal/probes/runner) |
+| Probe tests | DNS, TCP, UDP (generic, DNS, NTP), HTTP and ICMP against real local listeners | [internal/probes/runner](../internal/probes/runner) |
 | Frontend | Forms, states, diagnosis texts, API errors | Vitest + Testing Library, Playwright |
 | Chart | Values validation and rendering | [chart/check.sh](../chart/check.sh) |
 | Integration | Real Jobs in kind + Calico: allowed vs. blocked, fidelity, ICMP, admission policies, namespaces | [test/integration](../test/integration) |

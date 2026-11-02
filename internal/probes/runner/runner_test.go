@@ -78,7 +78,7 @@ func mkSpec(t *testing.T, raw string, port int, checks ...probes.Check) probes.S
 	}
 	for i := range checks {
 		switch checks[i].Method {
-		case probes.MethodTCP, probes.MethodHTTP, probes.MethodHTTPS:
+		case probes.MethodTCP, probes.MethodUDP, probes.MethodHTTP, probes.MethodHTTPS:
 			if checks[i].Port == 0 {
 				checks[i].Port = port
 			}

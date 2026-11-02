@@ -47,6 +47,15 @@ export function LoginPage({ login, onLoggedIn, onLanguageChange, notice }: Props
 
   return (
     <main className="nc-login">
+      <div className="nc-login__lang">
+        <Select
+          selectedOption={langOptions.find((o) => o.value === lang) ?? null}
+          options={langOptions}
+          onChange={({ detail }) => onLanguageChange?.(detail.selectedOption.value as Language)}
+          inlineLabelText={t('login.language')}
+          ariaLabel={t('login.language')}
+        />
+      </div>
       <div className="nc-login__inner">
         <img className="nc-login__logo" src="/brand/netcheck-logo.png" alt="NetCheck" />
         <form
@@ -80,16 +89,6 @@ export function LoginPage({ login, onLoggedIn, onLanguageChange, notice }: Props
             </SpaceBetween>
           </Container>
         </form>
-        <div className="nc-login__footer">
-          <FormField label={t('login.language')}>
-            <Select
-              selectedOption={langOptions.find((o) => o.value === lang) ?? null}
-              options={langOptions}
-              onChange={({ detail }) => onLanguageChange?.(detail.selectedOption.value as Language)}
-              ariaLabel={t('login.language')}
-            />
-          </FormField>
-        </div>
       </div>
     </main>
   );

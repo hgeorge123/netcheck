@@ -583,7 +583,7 @@ Internet egress from the source namespace also depends on its NetworkPolicies, t
 an extra safeguard, configure the nodes with **IMDSv2 required and `HttpPutResponseHopLimit: 1`** (launch template),
 so no Pod can reach the metadata service whatever NetCheck's configuration.
 
-Values you usually keep: `limits` (6 checks per test, 10 s per check, 90 s per Job, 3 concurrent Jobs per namespace and
+Values you usually keep: `limits` (7 checks per test, 10 s per check, 90 s per Job, 3 concurrent Jobs per namespace and
 10 globally), `retention` (30/90 days), `auth` (60 min idle, 12 h session, 15 min lockout after 5 failures),
 `persistence.size` (2 GiB).
 

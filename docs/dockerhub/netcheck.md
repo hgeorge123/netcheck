@@ -15,7 +15,7 @@ Each test runs in a short-lived probe Pod that uses the
 
 ## Features
 
-- DNS, TCP, HTTP, HTTPS, ping and traceroute checks; ICMP without privileges.
+- DNS, TCP, UDP (generic, DNS or NTP), HTTP, HTTPS, ping and traceroute checks; ICMP without privileges.
 - Firewall ticket mode: one block of `date`, `hostname`, `ping`, `traceroute`, `telnet` and `curl -v` output.
 - Readable diagnosis, equivalent command and NetworkPolicy fidelity notice for every result.
 - Local users with `admin` and `user` roles, per-user namespaces and audit log.

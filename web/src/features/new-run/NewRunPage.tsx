@@ -12,6 +12,7 @@ import FormField from '@cloudscape-design/components/form-field';
 import Header from '@cloudscape-design/components/header';
 import Input from '@cloudscape-design/components/input';
 import Link from '@cloudscape-design/components/link';
+import RadioGroup from '@cloudscape-design/components/radio-group';
 import SegmentedControl from '@cloudscape-design/components/segmented-control';
 import Select, { type SelectProps } from '@cloudscape-design/components/select';
 import SpaceBetween from '@cloudscape-design/components/space-between';
@@ -21,9 +22,10 @@ import { ErrorAlert, fieldErrorText } from '../../components/errors';
 import { methodKey } from '../../components/status';
 import { useI18n } from '../../i18n';
 import { ApiError } from '../../services/api';
-import type { Catalog, CatalogEntry, Method, NamespaceGrant, RunRequest } from '../../types/api';
+import { UDP_PROTOCOLS, type Catalog, type CatalogEntry, type Method, type NamespaceGrant, type RunRequest, type UDPProtocol } from '../../types/api';
 import {
   buildRequest,
+  DEFAULT_UDP_PORTS,
   emptyForm,
   firewallScheme,
   isIPLiteral,
@@ -122,7 +124,8 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
 
   const cardBadges = (c: CatalogEntry) => {
     const badges: ReactNode[] = [];
-    if (c.defaultPort) badges.push(<Badge key="p">{t('newTest.defaultPort', { port: c.defaultPort })}</Badge>);
+    if (c.method === 'udp') badges.push(<Badge key="u">{t('newTest.udpModes')}</Badge>);
+    else if (c.defaultPort) badges.push(<Badge key="p">{t('newTest.defaultPort', { port: c.defaultPort })}</Badge>);
     else if (c.requiresPort) badges.push(<Badge key="r" color="blue">{t('newTest.portRequired')}</Badge>);
     if (c.hostnameOnly) badges.push(<Badge key="h">{t('newTest.hostnameOnly')}</Badge>);
     return badges.length > 0 ? <SpaceBetween direction="horizontal" size="xs">{badges}</SpaceBetween> : null;
@@ -142,6 +145,33 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
       <FormField label={t('newTest.port')} description={t('newTest.tcpPortDesc')} errorText={err('tcpPort')}>
         <Input value={form.tcpPort} onChange={({ detail }) => set('tcpPort', detail.value)} inputMode="numeric" placeholder="5432" ariaRequired />
       </FormField>
+    ),
+    udp: (
+      <ColumnLayout columns={2}>
+        <FormField label={t('newTest.udpProtocol')} description={t('newTest.udpProtocolDesc')}>
+          <RadioGroup
+            value={form.udpProtocol}
+            onChange={({ detail }) => set('udpProtocol', detail.value as UDPProtocol)}
+            items={UDP_PROTOCOLS.map((p) => ({ value: p, label: t(`newTest.udp.${p}`), description: t(`newTest.udp.${p}.desc`) }))}
+            ariaLabel={t('newTest.udpProtocol')}
+          />
+        </FormField>
+        <FormField
+          label={t('newTest.port')}
+          description={
+            form.udpProtocol === 'generic' ? t('newTest.udpPortGenericDesc') : t('newTest.udpPortDefaultDesc', { port: DEFAULT_UDP_PORTS[form.udpProtocol] ?? '' })
+          }
+          errorText={err('udpPort')}
+        >
+          <Input
+            value={form.udpPort}
+            onChange={({ detail }) => set('udpPort', detail.value)}
+            inputMode="numeric"
+            placeholder={String(DEFAULT_UDP_PORTS[form.udpProtocol] ?? 514)}
+            ariaRequired={form.udpProtocol === 'generic'}
+          />
+        </FormField>
+      </ColumnLayout>
     ),
     http: (
       <ColumnLayout columns={3}>

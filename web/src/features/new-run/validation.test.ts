@@ -158,3 +158,28 @@ describe('firewall ticket mode', () => {
     expect(mapServerErrors([{ field: 'checks[2].port', code: 'destination_denied', message: 'p' }], req, (d) => d.message)).toEqual({ fwPort: { text: 'p' } });
   });
 });
+
+describe('UDP checks', () => {
+  const udp = (patch: Partial<RunForm>): RunForm => ({ ...base, methods: ['udp'], ...patch });
+
+  it('requires a port only for the generic mode', () => {
+    expect(key(validateForm(udp({ udpProtocol: 'generic', udpPort: '' }), 10).udpPort)).toBe('validation.udpPort');
+    expect(validateForm(udp({ udpProtocol: 'dns', udpPort: '' }), 10)).toEqual({});
+    expect(validateForm(udp({ udpProtocol: 'ntp', udpPort: '' }), 10)).toEqual({});
+    expect(key(validateForm(udp({ udpProtocol: 'dns', udpPort: '70000' }), 10).udpPort)).toBe('validation.port');
+  });
+
+  it('defaults DNS to 53 and NTP to 123, and sends the mode', () => {
+    expect(buildRequest(udp({ udpProtocol: 'dns' })).checks).toEqual([{ method: 'udp', port: 53, udp: { protocol: 'dns' } }]);
+    expect(buildRequest(udp({ udpProtocol: 'ntp', udpPort: '1123' })).checks).toEqual([{ method: 'udp', port: 1123, udp: { protocol: 'ntp' } }]);
+    expect(buildRequest(udp({ udpProtocol: 'generic', udpPort: '514' })).checks).toEqual([{ method: 'udp', port: 514, udp: { protocol: 'generic' } }]);
+  });
+
+  it('round-trips through formFromRun and maps port errors', () => {
+    const req = buildRequest(udp({ udpProtocol: 'ntp' }));
+    const f = formFromRun({ request: req });
+    expect(f.udpProtocol).toBe('ntp');
+    expect(buildRequest(f)).toEqual(req);
+    expect(mapServerErrors([{ field: 'checks[0].port', code: 'destination_denied', message: 'x' }], req, (d) => d.message)).toEqual({ udpPort: { text: 'x' } });
+  });
+});

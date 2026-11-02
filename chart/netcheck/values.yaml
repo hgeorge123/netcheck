@@ -117,7 +117,7 @@ protectPlatformDestinations: true
 kubeApiServerCidrs: []
 
 limits:
-  maxChecksPerRun: 6
+  maxChecksPerRun: 7
   defaultCheckTimeoutSeconds: 5
   maxCheckTimeoutSeconds: 10
   maxJobSeconds: 90

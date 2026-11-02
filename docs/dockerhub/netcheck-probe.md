@@ -12,7 +12,8 @@ in the namespace the user picked, reads the result through the Kubernetes API an
 ## What it is
 
 - A static Go binary on a distroless base, with **no shell** and no other tools. It runs no commands: it implements
-  DNS, TCP, HTTP, HTTPS, ping and traceroute with Go primitives.
+  DNS, TCP, UDP, HTTP, HTTPS, ping and traceroute with Go primitives. UDP datagrams are fixed (empty, a DNS query
+  or an NTP request), never user data.
 - It runs as non-root (UID 65532), with a read-only root filesystem, no capabilities, no service account token and no
   cloud credentials. ICMP uses unprivileged ping sockets, so it needs no `NET_RAW`.
 - It checks every resolved IP against the destination policy before connecting; the cloud metadata service and the

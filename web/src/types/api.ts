@@ -1,8 +1,12 @@
 // Mirrors the JSON contract of the Go API (/api/v1). Keep in sync with
 // internal/api/*.go and internal/probes/types.go (schema netcheck.probe/v2).
 
-export type Method = 'dns' | 'tcp' | 'http' | 'https' | 'ping' | 'traceroute';
-export const METHODS: Method[] = ['dns', 'tcp', 'http', 'https', 'ping', 'traceroute'];
+export type Method = 'dns' | 'tcp' | 'udp' | 'http' | 'https' | 'ping' | 'traceroute';
+export const METHODS: Method[] = ['dns', 'tcp', 'udp', 'http', 'https', 'ping', 'traceroute'];
+
+/** UDP checks only send fixed datagrams: generic, a DNS query or an NTP request. */
+export type UDPProtocol = 'generic' | 'dns' | 'ntp';
+export const UDP_PROTOCOLS: UDPProtocol[] = ['generic', 'dns', 'ntp'];
 export type RunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'infra_error';
 export const RUN_STATUSES: RunStatus[] = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'infra_error'];
 export type CheckStatus = RunStatus | 'timed_out';
@@ -87,6 +91,7 @@ export interface CheckRequest {
   port?: number;
   dns?: { family: 'ip' | 'ip4' | 'ip6' };
   http?: { method?: 'GET' | 'HEAD'; path?: string };
+  udp?: { protocol: UDPProtocol };
   ping?: { count: number };
   traceroute?: { maxHops: number };
 }
@@ -134,6 +139,18 @@ export interface HTTPResult {
   firstByteMs?: number;
 }
 
+export interface UDPResult {
+  protocol: UDPProtocol;
+  attempts: number;
+  replyBytes?: number;
+  rttMs?: number;
+  dnsRcode?: string;
+  dnsAnswers?: number;
+  ntpStratum?: number;
+  ntpReference?: string;
+  ntpOffsetMs?: number;
+}
+
 export interface PingReply {
   seq: number;
   rttMs?: number;
@@ -173,6 +190,7 @@ export interface CheckResultDetail {
   port?: number;
   dns?: { cname?: string; addresses?: string[]; family: string };
   http?: HTTPResult;
+  udp?: UDPResult;
   ping?: PingResult;
   traceroute?: TracerouteResult;
 }

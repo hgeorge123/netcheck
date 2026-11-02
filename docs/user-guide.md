@@ -9,7 +9,7 @@ each test it creates a short-lived Pod (the *probe*) in the namespace you choose
 With the **User** role you can:
 
 - Sign in, choose the interface language (English or Spanish) and change your password.
-- Run **DNS**, **TCP connection**, **HTTP**, **HTTPS**, **ping** and **traceroute** checks from the namespaces an
+- Run **DNS**, **TCP connection**, **UDP**, **HTTP**, **HTTPS**, **ping** and **traceroute** checks from the namespaces an
   administrator assigned to you.
 - Produce, in one click, the **troubleshooting output for a firewall ticket** (date, hostname, ping, traceroute,
   telnet and curl) as a single block ready to paste.
@@ -111,6 +111,7 @@ Select one or more cards (or **Select all**). They run one after another in a si
 |---|---|---|---|
 | **DNS resolution** | The name resolves from the source Pod (A/AAAA and CNAME). Needs a name, not an IP | — | `getent ahosts` |
 | **TCP connection** | A TCP connection to the port can be established | **Required, no default** | `nc -z` / `telnet` |
+| **UDP** | A UDP service answers: a generic port, a DNS server or an NTP server (see 4.2.1) | Generic: **required**; DNS **53**, NTP **123** | `nc -u`, `dig`, `ntpdate -q` |
 | **HTTP** | A web service answers GET or HEAD over plain HTTP | **80** by default, editable | `curl http://…` |
 | **HTTPS** | The same over TLS, verifying the certificate | **443** by default, editable | `curl https://…` |
 | **Ping (ICMP)** | The destination answers ICMP echo requests | — | `ping -c N` |
@@ -121,12 +122,27 @@ Select one or more cards (or **Select all**). They run one after another in a si
 **Check settings** (shown when a card is selected):
 
 - **TCP:** port (required).
+- **UDP:** what to test (generic port, DNS server or NTP server) and the port.
 - **HTTP / HTTPS:** port, method (GET or HEAD) and path (for example `/health`). Redirects are not followed: you see
   the 3xx code and its target.
 - **DNS:** address family (IPv4 and IPv6, IPv4 only or IPv6 only).
 - **Ping:** number of echo requests (1–10, one per second).
 - **Traceroute:** maximum hops (1–30, at most one second per hop).
-- **Advanced → Timeout per check:** for DNS, TCP, HTTP and HTTPS; 5 s by default, 10 s maximum.
+- **Advanced → Timeout per check:** for DNS, TCP, UDP, HTTP and HTTPS; 5 s by default, 10 s maximum.
+
+#### 4.2.1 UDP
+
+UDP has no handshake: the probe sends a datagram and the destination may or may not answer. That is why NetCheck only
+offers what can actually be tested over UDP:
+
+| Mode | What is sent | Conclusive result |
+|---|---|---|
+| **Generic port** | Empty datagrams (up to three) | A reply means **open**; an ICMP "port unreachable" means **closed** (the host was reached). **No reply is inconclusive**: many services ignore unexpected datagrams and firewalls drop them silently |
+| **DNS server** | A standard DNS query | Any DNS answer, even an error code such as REFUSED, proves the server is reachable |
+| **NTP server** | A time request | The answer shows the server stratum, its reference and the clock offset of the probe |
+
+The content of the datagrams is fixed: you cannot send your own data. Prefer the DNS or NTP mode whenever the service
+is one of them; use the generic mode for other services, keeping in mind that silence does not prove a block.
 
 Ping and traceroute work **without privileges**: the probe needs neither `NET_RAW` nor root. They use Linux *ping
 sockets*, enabled only inside the probe Pod.
@@ -199,6 +215,9 @@ The **Details** block also shows the **probe Pod IP** and the **node** the measu
 |---|---|---|
 | TCP **Succeeded** | There is a TCP path from that namespace to that port | That the application works |
 | TCP **Connection refused** | The packet arrived and something answered "no" (nothing listens on the port, or the Service has no endpoints) | A NetworkPolicy block |
+| UDP **reply** | A UDP service answered on that port | That the application is healthy |
+| UDP **port closed** | The datagram reached the host and nothing listens on that port | A network block |
+| UDP **no reply** | Inconclusive: open but silent, or filtered | A block: many UDP services never answer unexpected datagrams |
 | TCP **Timed out** | No answer. It can be a NetworkPolicy (source or destination), a Security Group, a NACL, routing, or the destination being down | Proof that a NetworkPolicy blocks it |
 | DNS **NXDOMAIN** | The name does not exist for that resolver | A network problem |
 | DNS **Timed out** | The resolver could not be reached (a policy blocking port 53?) | — |
@@ -310,4 +329,5 @@ the server interfaces, by design. The firewall ticket report includes the real n
 Kubernetes and explains which one the firewall will see. If the firewall team insists on the server's `ifconfig`, ask
 your platform team.
 
-**Can I test UDP?** Not yet. Supported checks are DNS, TCP, HTTP, HTTPS, ping and traceroute (ICMP).
+**Can I test UDP?** Yes, with the **UDP** check: as a generic port, a DNS server or an NTP server (see 4.2.1). Only the
+DNS and NTP modes, or a service that answers, give a certain result: silence over UDP is inconclusive.

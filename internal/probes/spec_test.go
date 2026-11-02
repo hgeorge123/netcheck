@@ -173,3 +173,39 @@ func TestSpecValidateRejectsTampering(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildSpecUDPPortsAndProtocols(t *testing.T) {
+	policy := DestinationPolicy{AllowCIDRs: []string{"10.0.0.0/8"}, AllowPorts: []PortRange{{From: 1, To: 65535}}}.WithBuiltinDenies()
+	build := func(c CheckRequest) (Spec, error) {
+		return BuildSpec("abcdef0123456789", RunRequest{Namespace: "payments", Target: "10.1.2.3", Checks: []CheckRequest{c}}, policy, testLimits)
+	}
+	for proto, want := range map[string]int{UDPDNS: 53, UDPNTP: 123} {
+		spec, err := build(CheckRequest{Method: MethodUDP, UDP: &UDPOptions{Protocol: proto}})
+		if err != nil || spec.Checks[0].Port != want || spec.Checks[0].UDP.Protocol != proto {
+			t.Errorf("%s: spec=%+v err=%v", proto, spec.Checks, err)
+		}
+	}
+	if spec, err := build(CheckRequest{Method: MethodUDP, Port: 5353, UDP: &UDPOptions{Protocol: UDPDNS}}); err != nil || spec.Checks[0].Port != 5353 {
+		t.Errorf("explicit DNS port: %+v %v", spec.Checks, err)
+	}
+	if spec, err := build(CheckRequest{Method: MethodUDP, Port: 514}); err != nil || spec.Checks[0].UDP.Protocol != UDPGeneric {
+		t.Errorf("generic by default: %+v %v", spec.Checks, err)
+	}
+	if _, err := build(CheckRequest{Method: MethodUDP, UDP: &UDPOptions{Protocol: UDPGeneric}}); !codes(err)["port_required"] {
+		t.Errorf("generic without port: %v", err)
+	}
+	if _, err := build(CheckRequest{Method: MethodUDP, Port: 53, UDP: &UDPOptions{Protocol: "snmp"}}); !codes(err)["invalid_udp_protocol"] {
+		t.Errorf("unknown protocol: %v", err)
+	}
+	if _, err := build(CheckRequest{Method: MethodTCP, Port: 53, UDP: &UDPOptions{Protocol: UDPDNS}}); !codes(err)["unexpected_options"] {
+		t.Errorf("udp options on tcp: %v", err)
+	}
+	// The destination policy applies to UDP ports too.
+	narrow := DestinationPolicy{AllowCIDRs: []string{"10.0.0.0/8"}, AllowPorts: []PortRange{{From: 443, To: 443}}}.WithBuiltinDenies()
+	_, err := BuildSpec("abcdef0123456789", RunRequest{Namespace: "payments", Target: "10.1.2.3",
+		Checks: []CheckRequest{{Method: MethodUDP, UDP: &UDPOptions{Protocol: UDPDNS}}}}, narrow, testLimits)
+	var denied *DeniedError
+	if !errors.As(err, &denied) {
+		t.Errorf("UDP port outside the policy: %v", err)
+	}
+}

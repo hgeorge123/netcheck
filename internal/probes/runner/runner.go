@@ -116,6 +116,8 @@ func (r *Runner) runCheck(parent context.Context, spec probes.Spec, policy *prob
 		err = r.runDNS(ctx, spec, policy, c, &cr, st)
 	case probes.MethodTCP:
 		err = r.runTCP(ctx, spec, policy, c, &cr, st)
+	case probes.MethodUDP:
+		err = r.runUDP(ctx, spec, policy, c, &cr, st)
 	case probes.MethodHTTP, probes.MethodHTTPS:
 		err = r.runHTTP(ctx, spec, policy, c, &cr, st)
 	case probes.MethodPing:
@@ -141,7 +143,7 @@ func (r *Runner) runCheck(parent context.Context, spec probes.Spec, policy *prob
 	switch {
 	case err == nil:
 		cr.Status = probes.StatusSucceeded
-	case cr.Category == diagnostics.CategoryTimeout || cr.Category == diagnostics.CategoryDNSTimeout:
+	case cr.Category == diagnostics.CategoryTimeout || cr.Category == diagnostics.CategoryDNSTimeout || cr.Category == diagnostics.CategoryUDPNoReply:
 		cr.Status = probes.StatusTimedOut
 	default:
 		cr.Status = probes.StatusFailed

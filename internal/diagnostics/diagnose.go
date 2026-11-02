@@ -40,6 +40,9 @@ var texts = map[string]text{
 	CategoryTLSCert:              {"TLS: the certificate is not valid for this destination.", "Trust, name (SAN) or chain failure. TCP connectivity exists; this is not a network block."},
 	CategoryTLSHandshake:         {"TLS: handshake failed.", "TCP connected but TLS negotiation failed (version, cipher, SNI, or the port does not speak TLS)."},
 	CategoryHTTPProtocol:         {"HTTP: invalid response.", "TCP connected but the answer is not valid HTTP; the port may speak another protocol (or HTTPS)."},
+	CategoryUDPPortClosed:        {"UDP port closed (ICMP port unreachable).", "The datagram reached the destination host, which answered that nothing listens on that port. The network path is not blocked."},
+	CategoryUDPNoReply:           {"No UDP reply: inconclusive.", "UDP has no handshake: many services ignore unexpected datagrams and firewalls usually drop them silently, so the port may be open or filtered. Use the DNS or NTP mode when the service supports it."},
+	CategoryUDPUnexpected:        {"Something answered on this UDP port, but not with the expected protocol.", "The UDP path to the port is open; the service is not the expected DNS or NTP server."},
 	CategoryICMPNoReply:          {"No ICMP echo reply.", "ICMP is often filtered (NetworkPolicies, Security Groups, firewalls) even when TCP works. Not conclusive for TCP/HTTP traffic."},
 	CategoryICMPUnreachable:      {"ICMP destination unreachable.", "A router or the destination answered that it cannot deliver the packet (code shown in the details)."},
 	CategoryICMPNotPermitted:     {"ICMP is not permitted inside the probe.", "The node did not allow unprivileged ICMP sockets (net.ipv4.ping_group_range). This is a platform issue, not a network result."},
@@ -60,6 +63,8 @@ func Diagnose(method, category string, httpStatus int) Diagnosis {
 			d.Summary, d.Detail = "DNS resolution succeeded from the source Pod.", "The Pod resolver returned addresses. It does not guarantee the destination accepts connections."
 		case "tcp":
 			d.Summary, d.Detail = "TCP connection established.", "The TCP path is open for this Pod and port. It does not guarantee the application is healthy."
+		case "udp":
+			d.Summary, d.Detail = "The destination answered over UDP.", "The UDP path to this port is open and a service replied."
 		case "ping":
 			d.Summary, d.Detail = "All ICMP echo requests were answered.", "ICMP reachability only; TCP ports may still be filtered."
 		case "traceroute":
@@ -82,7 +87,8 @@ func Diagnose(method, category string, httpStatus int) Diagnosis {
 	}
 	d.Summary, d.Detail = t.summary, t.detail
 	switch category {
-	case CategoryDestinationDenied, CategoryInfraError, CategoryProbeOutputInvalid, CategoryICMPNotPermitted, CategoryTracerouteIncomplete:
+	case CategoryDestinationDenied, CategoryInfraError, CategoryProbeOutputInvalid, CategoryICMPNotPermitted, CategoryTracerouteIncomplete,
+		CategoryUDPNoReply, CategoryUDPUnexpected:
 		d.Severity = SeverityWarning
 	}
 	d.Conclusive = category == CategoryDestinationDenied || category == CategoryAdmissionRejected

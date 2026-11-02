@@ -31,11 +31,25 @@ const (
 var Catalog = []CatalogEntry{
 	{Method: MethodDNS, Label: "DNS resolution", Description: "Resolves A/AAAA and CNAME with the source Pod resolver.", HostnameOnly: true},
 	{Method: MethodTCP, Label: "TCP connection", Description: "Opens a TCP connection (like nc -z or telnet) without speaking any protocol.", RequiresPort: true},
+	{Method: MethodUDP, Label: "UDP", Description: "Sends a fixed datagram: generic (inconclusive without a reply), a DNS query or an NTP request.", RequiresPort: true},
 	{Method: MethodHTTP, Label: "HTTP", Description: "GET or HEAD request over plain HTTP; redirects are not followed.", RequiresPort: true, DefaultPort: 80},
 	{Method: MethodHTTPS, Label: "HTTPS", Description: "GET or HEAD request over TLS with certificate verification; redirects are not followed.", RequiresPort: true, DefaultPort: 443},
 	{Method: MethodPing, Label: "Ping (ICMP)", Description: "ICMP echo requests. ICMP may be filtered even when TCP works."},
 	{Method: MethodTraceroute, Label: "Traceroute (ICMP)", Description: "Path discovery with increasing TTL. Silent hops do not prove packet loss."},
 }
+
+// UDPDefaultPort is the default port of a UDP protocol; generic needs one.
+func UDPDefaultPort(protocol string) int {
+	switch protocol {
+	case UDPDNS:
+		return 53
+	case UDPNTP:
+		return 123
+	}
+	return 0
+}
+
+func validUDPProtocol(p string) bool { return p == UDPGeneric || p == UDPDNS || p == UDPNTP }
 
 func catalogEntry(m Method) (CatalogEntry, bool) {
 	for _, e := range Catalog {
@@ -52,6 +66,7 @@ type CheckRequest struct {
 	Port       int                `json:"port,omitempty"`
 	DNS        *DNSOptions        `json:"dns,omitempty"`
 	HTTP       *HTTPOptions       `json:"http,omitempty"`
+	UDP        *UDPOptions        `json:"udp,omitempty"`
 	Ping       *PingOptions       `json:"ping,omitempty"`
 	Traceroute *TracerouteOptions `json:"traceroute,omitempty"`
 }
@@ -137,10 +152,15 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 		if entry.HostnameOnly && terr == nil && target.IsIP {
 			errs = append(errs, fieldErr(field, "hostname_required", "the %s check needs a hostname, not an IP address", cr.Method))
 		}
-		// Ports: required for TCP, defaulted for HTTP/HTTPS, forbidden otherwise.
+		// Ports: required for TCP and generic UDP, defaulted for HTTP/HTTPS and
+		// UDP DNS/NTP, forbidden otherwise.
+		defaultPort := entry.DefaultPort
+		if cr.Method == MethodUDP && cr.UDP != nil {
+			defaultPort = UDPDefaultPort(cr.UDP.Protocol)
+		}
 		switch {
-		case entry.RequiresPort && cr.Port == 0 && entry.DefaultPort != 0:
-			c.Port = entry.DefaultPort
+		case entry.RequiresPort && cr.Port == 0 && defaultPort != 0:
+			c.Port = defaultPort
 		case entry.RequiresPort && cr.Port == 0:
 			errs = append(errs, fieldErr(field+".port", "port_required", "the %s check needs a port", cr.Method))
 		case entry.RequiresPort:
@@ -154,7 +174,8 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 			errs = append(errs, fieldErr(field+".port", "port_not_applicable", "the %s check does not use a port", cr.Method))
 		}
 		if (cr.HTTP != nil && cr.Method != MethodHTTP && cr.Method != MethodHTTPS) || (cr.DNS != nil && cr.Method != MethodDNS) ||
-			(cr.Ping != nil && cr.Method != MethodPing) || (cr.Traceroute != nil && cr.Method != MethodTraceroute) {
+			(cr.Ping != nil && cr.Method != MethodPing) || (cr.Traceroute != nil && cr.Method != MethodTraceroute) ||
+			(cr.UDP != nil && cr.Method != MethodUDP) {
 			errs = append(errs, fieldErr(field, "unexpected_options", "options not applicable to the %s check", cr.Method))
 		}
 		switch cr.Method {
@@ -186,6 +207,15 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 				errs = append(errs, fe)
 			}
 			c.HTTP = &opts
+		case MethodUDP:
+			opts := UDPOptions{Protocol: UDPGeneric}
+			if cr.UDP != nil && cr.UDP.Protocol != "" {
+				opts.Protocol = cr.UDP.Protocol
+			}
+			if !validUDPProtocol(opts.Protocol) {
+				errs = append(errs, fieldErr(field+".udp.protocol", "invalid_udp_protocol", "the UDP protocol must be generic, dns or ntp"))
+			}
+			c.UDP = &opts
 		case MethodPing:
 			opts := PingOptions{Count: DefaultPingCount}
 			if cr.Ping != nil && cr.Ping.Count != 0 {
@@ -322,6 +352,10 @@ func (s Spec) Validate() error {
 		case MethodDNS:
 			if c.DNS == nil || (c.DNS.Family != "ip" && c.DNS.Family != "ip4" && c.DNS.Family != "ip6") {
 				return fmt.Errorf("check %s: invalid dns options", c.ID)
+			}
+		case MethodUDP:
+			if c.UDP == nil || !validUDPProtocol(c.UDP.Protocol) {
+				return fmt.Errorf("check %s: invalid udp options", c.ID)
 			}
 		case MethodPing:
 			if c.Ping == nil || c.Ping.Count < 1 || c.Ping.Count > MaxPingCount {

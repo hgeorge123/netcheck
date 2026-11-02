@@ -102,6 +102,30 @@ func TestUDPDNSRefusedStillProvesTheService(t *testing.T) {
 	}
 }
 
+// A DNS server that answers the first query only after the second one was
+// sent (a resolver waiting for its upstream) must still count as a reply.
+func TestUDPLateReplyToAnEarlierDatagram(t *testing.T) {
+	var first []byte
+	port := udpServer(t, func(req []byte) []byte {
+		if first == nil {
+			first = req
+			return nil
+		}
+		var m dnsmessage.Message
+		if err := m.Unpack(first); err != nil {
+			return nil
+		}
+		m.Response, m.RCode = true, dnsmessage.RCodeServerFailure
+		out, _ := m.Pack()
+		return out // the answer to the first query, sent when the second arrives
+	})
+	r, _ := newRunner(nil)
+	cr := one(t, r, mkSpec(t, "127.0.0.1", port, udpCheck(probes.UDPDNS, 1500)))
+	if cr.Status != probes.StatusSucceeded || cr.UDP.DNSRcode != "SERVFAIL" || cr.UDP.Attempts != 2 {
+		t.Fatalf("result = %+v udp=%+v", cr, cr.UDP)
+	}
+}
+
 func TestUDPWrongProtocolIsUnexpected(t *testing.T) {
 	port := udpServer(t, func([]byte) []byte { return []byte("not dns") })
 	r, _ := newRunner(nil)

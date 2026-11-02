@@ -63,17 +63,26 @@ func (r *Runner) runUDP(ctx context.Context, spec probes.Spec, policy *probes.Co
 	perAttempt := time.Until(deadline) / udpAttempts
 	buf := make([]byte, 2048)
 	unexpected := false
+	// A slow server (e.g. a DNS resolver waiting for its upstream) may answer
+	// an earlier datagram after the next one was sent: every datagram sent so
+	// far stays valid until the deadline.
+	type pending struct {
+		x    udpExchange
+		sent time.Time
+	}
+	var sent []pending
 	for attempt := 1; attempt <= udpAttempts && ctx.Err() == nil; attempt++ {
 		x, err := newUDPExchange(u.Protocol)
 		if err != nil {
 			return err
 		}
 		u.Attempts = attempt
-		sent := time.Now()
+		now := time.Now()
 		if _, err := conn.Write(x.payload); err != nil {
 			return udpError(err, cr)
 		}
-		_ = conn.SetReadDeadline(minTime(deadline, sent.Add(perAttempt)))
+		sent = append(sent, pending{x, now})
+		_ = conn.SetReadDeadline(minTime(deadline, now.Add(perAttempt)))
 		for {
 			n, err := conn.Read(buf)
 			if err != nil {
@@ -85,14 +94,20 @@ func (r *Runner) runUDP(ctx context.Context, spec probes.Spec, policy *probes.Co
 				return udpError(err, cr)
 			}
 			received := time.Now()
-			if !x.accept(buf[:n], sent, received, u) {
+			match := -1
+			for i := len(sent) - 1; i >= 0 && match < 0; i-- {
+				if sent[i].x.accept(buf[:n], sent[i].sent, received, u) {
+					match = i
+				}
+			}
+			if match < 0 {
 				unexpected = true
 				st.printf("attempt %d: %d bytes that are not a %s reply", attempt, n, u.Protocol)
 				continue
 			}
 			u.ReplyBytes = n
-			u.RTTMS = float64(received.Sub(sent).Microseconds()) / 1000
-			st.printf("reply: %d bytes in %.1f ms%s", n, u.RTTMS, udpReplySummary(u))
+			u.RTTMS = float64(received.Sub(sent[match].sent).Microseconds()) / 1000
+			st.printf("reply to datagram %d: %d bytes in %.1f ms%s", match+1, n, u.RTTMS, udpReplySummary(u))
 			return nil
 		}
 	}

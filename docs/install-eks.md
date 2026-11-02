@@ -476,7 +476,7 @@ also listed in the [GitHub release](https://github.com/hgeorge123/netcheck/relea
 
 <!-- x-release-please-start-version -->
 ```bash
-helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.5 | grep -A3 -E '^(image|probeImage):'
+helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version 0.3.0 | grep -A3 -E '^(image|probeImage):'
 export APP_DIGEST=sha256:...      # image.digest
 export PROBE_DIGEST=sha256:...    # probeImage.digest
 ```
@@ -489,14 +489,14 @@ every architecture and the same digest, and check the scan:
 <!-- x-release-please-start-version -->
 ```bash
 aws ecr get-login-password --region "$AWS_REGION" | crane auth login "$ECR" -u AWS --password-stdin
-crane copy "docker.io/hgeorge123/netcheck@$APP_DIGEST" "$ECR/netcheck:0.2.5"
-crane copy "docker.io/hgeorge123/netcheck-probe@$PROBE_DIGEST" "$ECR/netcheck-probe:0.2.5"
-crane digest "$ECR/netcheck:0.2.5"             # must equal $APP_DIGEST
-crane digest "$ECR/netcheck-probe:0.2.5"       # must equal $PROBE_DIGEST
+crane copy "docker.io/hgeorge123/netcheck@$APP_DIGEST" "$ECR/netcheck:0.3.0"
+crane copy "docker.io/hgeorge123/netcheck-probe@$PROBE_DIGEST" "$ECR/netcheck-probe:0.3.0"
+crane digest "$ECR/netcheck:0.3.0"             # must equal $APP_DIGEST
+crane digest "$ECR/netcheck-probe:0.3.0"       # must equal $PROBE_DIGEST
 
 for r in netcheck netcheck-probe; do
   aws ecr describe-image-scan-findings --region "$AWS_REGION" --repository-name "$r" \
-    --image-id imageTag=0.2.5 --query 'imageScanFindings.findingSeverityCounts'
+    --image-id imageTag=0.3.0 --query 'imageScanFindings.findingSeverityCounts'
 done
 ```
 <!-- x-release-please-end -->
@@ -525,7 +525,7 @@ namespace is **not available for tests** except to users with the corresponding 
 
 <!-- x-release-please-start-version -->
 ```bash
-helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.5 --untar
+helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 0.3.0 --untar
 cp netcheck/values-eks.example.yaml values-eks.yaml
 ```
 <!-- x-release-please-end -->
@@ -617,7 +617,7 @@ httpRoute:
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.5 -n "$NC_NS" -f values-eks.yaml --dry-run=server > /tmp/netcheck-render.yaml
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.3.0 -n "$NC_NS" -f values-eks.yaml --dry-run=server > /tmp/netcheck-render.yaml
 echo $?    # 0 = OK
 ```
 <!-- x-release-please-end -->
@@ -641,10 +641,10 @@ The chart queries the cluster and **fails with a clear message** if something is
 <!-- x-release-please-start-version -->
 ```bash
 # Option A (namespace created by you)
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.5 -n "$NC_NS" -f values-eks.yaml --wait --timeout 10m
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.3.0 -n "$NC_NS" -f values-eks.yaml --wait --timeout 10m
 
 # Option B (namespace created by the chart)
-# helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.5 -n default -f values-eks.yaml \
+# helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.3.0 -n default -f values-eks.yaml \
 #   --set namespace.create=true --set namespace.name="$NC_NS" --wait --timeout 10m
 ```
 <!-- x-release-please-end -->
@@ -717,7 +717,7 @@ kubectl -n "$NC_NS" get secret netcheck-bootstrap-admin -o jsonpath='{.data.pass
 2. The UI is in **English** by default. For Spanish choose **Español** in the **Language** selector before signing in; it
    is saved in your account.
 3. Sign in as `admin`. NetCheck **forces a password change** (at least 12 characters) before anything else.
-4. Check **Administration → System and versions**: it must show version `0.2.5` and the image digests of the chart. <!-- x-release-please-version -->
+4. Check **Administration → System and versions**: it must show version `0.3.0` and the image digests of the chart. <!-- x-release-please-version -->
 5. Create the users ([admin guide](admin-guide.md), Part II).
 
 The Secret password only creates the first administrator; afterwards it is no longer valid, but the Secret is kept for
@@ -752,7 +752,7 @@ emergency recovery.
 ```bash
 # Upgrade: the new chart version brings the digests of its images
 # (with an ECR mirror, copy the new images first: step 11)
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.2.5 -n "$NC_NS" -f values-eks.yaml \
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.3.0 -n "$NC_NS" -f values-eks.yaml \
   --wait --timeout 10m
 
 # Always pass -f values-eks.yaml (or --reset-then-reuse-values). Do NOT use --reuse-values: it skips the

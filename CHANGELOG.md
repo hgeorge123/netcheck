@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/hgeorge123/netcheck/compare/v0.2.5...v0.3.0) (2026-11-02)
+
+
+### Features
+
+* add UDP checks for generic ports, DNS servers and NTP servers ([3e5c12b](https://github.com/hgeorge123/netcheck/commit/3e5c12b2a31f277bf68e4beea5626a3ae049879a))
+* **chart:** generate the initial admin password on new installs ([95c6926](https://github.com/hgeorge123/netcheck/commit/95c6926206d7bd3065c410289a214e91ff87880a))
+* **ui:** show the language selector in the top-right corner of the sign-in page ([3e5c12b](https://github.com/hgeorge123/netcheck/commit/3e5c12b2a31f277bf68e4beea5626a3ae049879a))
+
 ## [0.2.5](https://github.com/hgeorge123/netcheck/compare/v0.2.4...v0.2.5) (2026-11-02)
 
 

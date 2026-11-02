@@ -18,12 +18,16 @@ namespace:
   labels:
     pod-security.kubernetes.io/enforce: restricted
 
+# Images are always deployed by digest. The chart published with each release
+# already carries the repository and the digests of that release's images, so
+# installing the latest chart version installs the latest images. The same
+# images (same digests) are on ghcr.io/hgeorge123 too. Override only to use a
+# mirror (e.g. ECR) or images you built yourself.
 image:
-  # -- NetCheck image. Defaults to the image published by the project; point it
-  # to your own registry mirror (e.g. ECR) if the nodes cannot reach ghcr.io.
-  repository: ghcr.io/hgeorge123/netcheck
-  # -- REQUIRED in production: image digest (sha256:...), listed in the release
-  # notes. Tags are mutable.
+  # -- NetCheck image (API, web UI and controller).
+  repository: docker.io/hgeorge123/netcheck
+  # -- REQUIRED in production: image digest (sha256:...). Filled in by the
+  # release workflow in the published chart. Tags are mutable.
   digest: ""
   # -- Only accepted in development when no digest is given.
   tag: ""
@@ -31,12 +35,13 @@ image:
 
 probeImage:
   # -- Probe image (runs in the source namespaces).
-  repository: ghcr.io/hgeorge123/netcheck-probe
-  # -- REQUIRED. sha256 digest. The admission policy pins this exact reference.
+  repository: docker.io/hgeorge123/netcheck-probe
+  # -- REQUIRED. sha256 digest, filled in by the release workflow in the
+  # published chart. The admission policy pins this exact reference.
   digest: ""
 
-# -- Only needed for private registries. The published ghcr.io images are
-# public; EKS nodes pull from same-account ECR with the node IAM role.
+# -- Only needed for private registries. The published images are public; EKS
+# nodes pull from same-account ECR with the node IAM role.
 imagePullSecrets: []
 
 auth:

@@ -28,7 +28,9 @@ First public release.
 - Helm chart with values validation, cluster preflight checks, least-privilege RBAC (`all` or `list` mode), two
   `ValidatingAdmissionPolicies`, optional NetworkPolicy for the NetCheck namespace, and exposure through a Gateway API
   `HTTPRoute` or an AWS Load Balancer Controller `Ingress`.
-- Multi-architecture images (`amd64`, `arm64`) on GitHub Container Registry and the chart as an OCI artifact.
+- Multi-architecture images (`amd64`, `arm64`) on Docker Hub and GitHub Container Registry, and the chart as an
+  OCI artifact. Each published chart version points to the images of its release by digest, so no image values are
+  needed to install it.
 - Local kind + Calico laboratory and integration tests.
 
 [Unreleased]: https://github.com/hgeorge123/netcheck/compare/v0.2.0...HEAD

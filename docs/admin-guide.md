@@ -399,12 +399,11 @@ status.
 ```bash
 export VERSION=0.3.0
 helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" \
-  -n netcheck -f values.yaml \
-  --set image.digest="$APP_DIGEST" --set probeImage.digest="$PROBE_DIGEST" \
-  --wait --timeout 10m
+  -n netcheck -f values.yaml --wait --timeout 10m
 ```
 
-The image digests of each version are listed in its GitHub release notes. Always pass `-f values.yaml` (or
+Each chart version already points to the images of its release by digest, so no image values are needed (unless
+you use a mirror: then keep its repositories in `values.yaml`). Always pass `-f values.yaml` (or
 `--reset-then-reuse-values`); do not use `--reuse-values`, which ignores new chart defaults. Database migrations run by
 themselves at startup. Check the result in **Administration → System and versions**: the new version shows as *Running
 version* and is added to the history. During the restart (`Recreate` strategy) the tool is unavailable for a few
@@ -482,7 +481,7 @@ provider if you no longer need it.
 |---|---|---|
 | Pod and PVC `Pending` | No CSI driver or StorageClass, or the driver lacks cloud permissions | `kubectl -n netcheck describe pvc netcheck-data` |
 | Pod `Pending` with `volume node affinity conflict` | No nodes in the zone of the volume | Add capacity in that zone, or restore the snapshot in another zone |
-| Pod `ImagePullBackOff` | Nodes cannot reach the registry or the digest is wrong | Check egress to `ghcr.io` (or your mirror) and the digests |
+| Pod `ImagePullBackOff` | Nodes cannot reach the registry, Docker Hub rate limits, or a wrong digest | Check egress to Docker Hub (or your mirror) and the digests |
 | Pod `CrashLoopBackOff` | Invalid configuration | `kubectl -n netcheck logs deploy/netcheck --previous` says which value fails |
 | The web does not load; HTTPRoute `Accepted=False` | The listener `allowedRoutes` does not admit the namespace, or wrong `sectionName` | `kubectl -n netcheck describe httproute netcheck` |
 | The web does not load with an Ingress; no address | Ingress controller missing, without permissions, or (ALB) untagged subnets | `kubectl -n netcheck describe ingress netcheck` |

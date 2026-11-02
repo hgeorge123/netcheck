@@ -21,6 +21,8 @@ jobs:
     outputs:
       app_digest: ${{ steps.app.outputs.digest }}
       probe_digest: ${{ steps.probe.outputs.digest }}
+      app_repo: ${{ steps.meta.outputs.app_repo }}
+      probe_repo: ${{ steps.meta.outputs.probe_repo }}
       version: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
@@ -37,12 +39,21 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-          app="${REGISTRY}/netcheck:${version}"
-          probe="${REGISTRY}/netcheck-probe:${version}"
+          # The published chart points to Docker Hub when it is configured,
+          # otherwise to GHCR. "latest" is a convenience for docker pull; the
+          # chart always uses the digests.
+          app_repo="${REGISTRY}/netcheck"
+          probe_repo="${REGISTRY}/netcheck-probe"
+          app="${app_repo}:${version},${app_repo}:latest"
+          probe="${probe_repo}:${version},${probe_repo}:latest"
           if [ -n "${DOCKERHUB_USERNAME}" ]; then
-            app="${app},docker.io/${DOCKERHUB_USERNAME}/netcheck:${version}"
-            probe="${probe},docker.io/${DOCKERHUB_USERNAME}/netcheck-probe:${version}"
+            app_repo="docker.io/${DOCKERHUB_USERNAME}/netcheck"
+            probe_repo="docker.io/${DOCKERHUB_USERNAME}/netcheck-probe"
+            app="${app},${app_repo}:${version},${app_repo}:latest"
+            probe="${probe},${probe_repo}:${version},${probe_repo}:latest"
           fi
+          echo "app_repo=${app_repo}" >> "$GITHUB_OUTPUT"
+          echo "probe_repo=${probe_repo}" >> "$GITHUB_OUTPUT"
           echo "app_tags=${app}" >> "$GITHUB_OUTPUT"
           echo "probe_tags=${probe}" >> "$GITHUB_OUTPUT"
 
@@ -96,6 +107,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
+      - name: Pin the release images in the chart
+        env:
+          APP_REPO: ${{ needs.images.outputs.app_repo }}
+          APP_DIGEST: ${{ needs.images.outputs.app_digest }}
+          PROBE_REPO: ${{ needs.images.outputs.probe_repo }}
+          PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
+        run: |
+          case "${APP_DIGEST}${PROBE_DIGEST}" in
+            sha256:*sha256:*) ;;
+            *) echo "missing image digests" >&2; exit 1 ;;
+          esac
+          yq -i '.image.repository = strenv(APP_REPO) | .image.digest = strenv(APP_DIGEST) |
+            .probeImage.repository = strenv(PROBE_REPO) | .probeImage.digest = strenv(PROBE_DIGEST)' chart/netcheck/values.yaml
+          yq '{"image": .image, "probeImage": .probeImage}' chart/netcheck/values.yaml
       - name: Package and push the chart (OCI)
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
@@ -132,9 +157,10 @@ jobs:
 
           \`\`\`bash
           helm upgrade --install netcheck oci://${REGISTRY}/charts/netcheck --version ${VERSION} \\
-            --namespace netcheck -f my-values.yaml \\
-            --set image.digest=${APP_DIGEST} --set probeImage.digest=${PROBE_DIGEST}
+            --namespace netcheck -f my-values.yaml
           \`\`\`
+
+          The chart already points to these images by digest; no image values are needed.
 
           See [docs/install.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/docs/install.md)
           and the changes in [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/CHANGELOG.md).

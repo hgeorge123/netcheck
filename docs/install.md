@@ -12,7 +12,7 @@ Each step says what to do, why, the exact commands and how to check that it work
 1. [How it works](#1-how-it-works)
 2. [Requirements](#2-requirements)
 3. [Check the cluster](#3-check-the-cluster)
-4. [Choose the release and its image digests](#4-choose-the-release-and-its-image-digests)
+4. [Choose the release](#4-choose-the-release)
 5. [Create the namespace](#5-create-the-namespace)
 6. [Choose how to expose NetCheck](#6-choose-how-to-expose-netcheck)
 7. [Write your values file](#7-write-your-values-file)
@@ -48,7 +48,7 @@ See [architecture.md](architecture.md) and [security.md](security.md) for the de
 | A CNI that **enforces NetworkPolicy** (Calico, Cilium, Antrea, Amazon VPC CNI with network policy enabled…) | Without enforcement every test "succeeds" and the results are meaningless. `kindnet` and Flannel alone do not enforce policies |
 | **Linux** nodes | Probes are pinned to `kubernetes.io/os: linux` |
 | A StorageClass with **ReadWriteOnce block storage** (local-path, Ceph RBD, cloud disks…) | SQLite needs a local file system; do not use NFS or other network file systems |
-| Nodes able to pull from `ghcr.io` (or your mirror) | The images are published on GitHub Container Registry |
+| Nodes able to pull from Docker Hub (or GHCR, or your mirror) | The images are published on Docker Hub and GitHub Container Registry |
 | **Helm 3.14+** and **kubectl** on your workstation | Installation |
 | Cluster administrator rights **during installation** | The chart creates cluster-scoped objects (ClusterRole, admission policies) |
 | Optional: a **Gateway API** implementation with an HTTPS listener | To publish the web interface (step 6) |
@@ -89,38 +89,39 @@ kubectl get storageclass
 
 Write down its name; it goes in `persistence.storageClassName`.
 
-## 4. Choose the release and its image digests
+## 4. Choose the release
 
-NetCheck is always deployed **by image digest**, not by tag: tags can be moved, digests cannot. Every
-[GitHub release](https://github.com/hgeorge123/netcheck/releases) lists both digests. You can also read them from
-the registry:
-
-```bash
-export VERSION=0.2.0
-docker buildx imagetools inspect ghcr.io/hgeorge123/netcheck:$VERSION --format '{{.Manifest.Digest}}'
-docker buildx imagetools inspect ghcr.io/hgeorge123/netcheck-probe:$VERSION --format '{{.Manifest.Digest}}'
-export APP_DIGEST=sha256:...      # first value
-export PROBE_DIGEST=sha256:...    # second value
-```
-
-The same images, with the same digests, are also on Docker Hub as `docker.io/hgeorge123/netcheck` and
-`docker.io/hgeorge123/netcheck-probe`. To pull from Docker Hub instead of GHCR, set `image.repository` and
-`probeImage.repository` to those names; the digests do not change.
-
-The Helm chart is published as an OCI artifact:
+The Helm chart is published as an OCI artifact. Each chart version already points to the images of its release on
+Docker Hub, **pinned by digest** (tags can be moved, digests cannot), so you do not set any image values: installing
+a chart version installs exactly the images built for it.
 
 ```bash
+export VERSION=0.2.0      # see https://github.com/hgeorge123/netcheck/releases
 helm show chart oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION"
 helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" > values.reference.yaml
 ```
 
-`values.reference.yaml` documents every setting.
+`values.reference.yaml` documents every setting; its `image` and `probeImage` blocks show the repositories and
+digests the chart will use. Omitting `--version` in the Helm commands of this guide selects the latest release.
 
-**Air-gapped clusters or a private mirror.** Copy both images by digest to your registry (for example with
-`crane copy` or `skopeo copy --all`) and set `image.repository` / `probeImage.repository` to the mirror. Add
-`imagePullSecrets` if the mirror needs credentials.
+| Image | Docker Hub (default) | GitHub Container Registry (same digests) |
+|---|---|---|
+| Application (API, UI and controller) | `docker.io/hgeorge123/netcheck` | `ghcr.io/hgeorge123/netcheck` |
+| Probe (static Go binary, no shell) | `docker.io/hgeorge123/netcheck-probe` | `ghcr.io/hgeorge123/netcheck-probe` |
 
-**Building your own images.** From a checkout of the repository:
+**GHCR, a private mirror or air-gapped clusters.** Keep the digests from `values.reference.yaml` and change only the
+repositories. For a mirror, first copy both images by digest (for example with `crane copy` or `skopeo copy --all`)
+and add `imagePullSecrets` if it needs credentials:
+
+```yaml
+image:
+  repository: registry.example.com/netcheck
+probeImage:
+  repository: registry.example.com/netcheck-probe
+```
+
+**Building your own images.** From a checkout of the repository; then set `image.repository`/`image.digest` and
+`probeImage.repository`/`probeImage.digest` to the images you pushed:
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
@@ -188,7 +189,6 @@ Fill every `<...>`:
 | Value | Example | Notes |
 |---|---|---|
 | `clusterId` | `prod-eu-1` | Free text shown in the interface |
-| `image.digest` / `probeImage.digest` | `sha256:…` | Step 4 |
 | `auth.trustedProxyCidrs` | `[10.244.0.0/16]` | CIDR of the Gateway data plane Pods (option A) |
 | `namespaceScope.mode` | `all` | `all`: every namespace, including future ones (ClusterRole). `list`: only `namespaceScope.namespaces` (one Role per namespace, no cluster-wide rights) |
 | `namespaceScope.exclude` | `[calico-system, nginx-gateway]` | Platform namespaces nobody may test from. Enforced by the admission policy too. More can be added later in the web |
@@ -234,7 +234,7 @@ example:
 
 | Message | Fix |
 |---|---|
-| `image.digest (sha256:...) is required in production` | Step 4 |
+| `image.digest (sha256:...) is required in production` | You changed `image.repository` to your own build: set its digest too (step 4) |
 | `preflight: StorageClass <name> not found` | Step 3 |
 | `preflight: Gateway <ns>/<name> not found` | `httpRoute.parentRefs` (step 6) |
 | `the cluster has no Gateway API` | Install the Gateway API CRDs, or use option C |
@@ -299,7 +299,7 @@ kubectl -n "$NC_NS" get secret netcheck-bootstrap-admin -o jsonpath='{.data.pass
    default could sign in.
 2. The interface is in English; choose **Español** in the **Language** selector if you prefer Spanish.
 3. Sign in as `admin`. NetCheck **forces a password change** (at least 12 characters) before anything else.
-4. Open **Administration → System and versions**: it must show the version and the digests you deployed.
+4. Open **Administration → System and versions**: it must show the version and the image digests of the chart.
 5. Create the users ([admin guide](admin-guide.md), Part II).
 
 The Secret password only creates the first administrator. Afterwards it is no longer valid, but the Secret is kept for
@@ -319,9 +319,9 @@ emergency recovery ([admin guide](admin-guide.md), Part III §5).
 ## 13. Upgrade, roll back and uninstall
 
 ```bash
-# Upgrade: new VERSION and digests from the release notes
+# Upgrade: the new chart version brings the digests of its images
 helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" -n "$NC_NS" -f values.yaml \
-  --set image.digest="$APP_DIGEST" --set probeImage.digest="$PROBE_DIGEST" --wait --timeout 10m
+  --wait --timeout 10m
 
 # History and rollback
 helm history netcheck -n "$NC_NS"
@@ -343,7 +343,7 @@ To delete everything, including data, see the [admin guide](admin-guide.md), Par
 | Symptom | Likely cause | What to do |
 |---|---|---|
 | PVC `Pending` | Wrong or missing StorageClass, or the provisioner is not running | `kubectl -n $NC_NS describe pvc netcheck-data` |
-| `ImagePullBackOff` | Nodes cannot reach `ghcr.io` or the digest is wrong | Check egress to the registry, or use a mirror (step 4) |
+| `ImagePullBackOff` | Nodes cannot reach Docker Hub (or your mirror), Docker Hub rate limits, or a wrong digest | Check egress to the registry, or use a mirror (step 4) |
 | `CrashLoopBackOff` | Invalid configuration | `kubectl -n $NC_NS logs deploy/netcheck --previous` names the wrong value |
 | HTTPRoute `Accepted=False` | `allowedRoutes` does not admit the namespace, or wrong `sectionName` | Step 6 |
 | Every test "succeeds", even from namespaces with deny policies | The CNI does not enforce NetworkPolicy | Step 2 |

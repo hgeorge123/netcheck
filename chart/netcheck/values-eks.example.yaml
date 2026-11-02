@@ -3,15 +3,14 @@
 environment: production
 clusterId: <eks-cluster-name>
 
-# Published images on ghcr.io (digests in the GitHub release notes). With an
-# ECR mirror use <account-id>.dkr.ecr.<region>.amazonaws.com/netcheck(-probe).
-image:
-  repository: ghcr.io/hgeorge123/netcheck
-  digest: sha256:<netcheck-image-digest>
-
-probeImage:
-  repository: ghcr.io/hgeorge123/netcheck-probe
-  digest: sha256:<probe-image-digest>
+# Images: the published chart already points to the images of its release on
+# Docker Hub, pinned by digest. Uncomment only for an ECR mirror (same digests).
+# image:
+#   repository: <account-id>.dkr.ecr.<region>.amazonaws.com/netcheck
+#   digest: sha256:<netcheck-image-digest>
+# probeImage:
+#   repository: <account-id>.dkr.ecr.<region>.amazonaws.com/netcheck-probe
+#   digest: sha256:<probe-image-digest>
 
 auth:
   # CIDR the proxy in front of NetCheck connects from: the NGINX Gateway Fabric

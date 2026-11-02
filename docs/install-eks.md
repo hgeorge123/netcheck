@@ -21,7 +21,7 @@ checks: they catch most problems.
 7. Storage: gp3, Availability Zones and Pod rescheduling
 8. Exposure: NGINX Gateway Fabric or AWS Load Balancer Controller (ALB)
 9. VPC network data
-10. Container images: GHCR or an ECR mirror
+10. Container images: Docker Hub or an ECR mirror
 11. Image digests
 12. NetCheck namespace
 13. The `values-eks.yaml` file
@@ -441,21 +441,19 @@ aws eks describe-cluster --name "$CLUSTER_NAME" --query cluster.kubernetesNetwor
 | VPC CIDR | `auth.trustedProxyCidrs` (Gateway or ALB Pod/subnet IPs with VPC CNI) |
 | Service CIDR and corporate ranges | Only if you decide to restrict `destinations.allowCidrs` (step 13) |
 
-## 10. Container images: GHCR or an ECR mirror
+## 10. Container images: Docker Hub or an ECR mirror
 
-NetCheck publishes public, multi-architecture (`amd64`, `arm64`) images on GitHub Container Registry:
+NetCheck publishes public, multi-architecture (`amd64`, `arm64`) images on Docker Hub and, with the same digests, on
+GitHub Container Registry:
 
-| Image | Repository |
-|---|---|
-| Application (API, UI and controller) | `ghcr.io/hgeorge123/netcheck` |
-| Probe (static Go binary, no shell) | `ghcr.io/hgeorge123/netcheck-probe` |
+| Image | Docker Hub (chart default) | GHCR |
+|---|---|---|
+| Application (API, UI and controller) | `docker.io/hgeorge123/netcheck` | `ghcr.io/hgeorge123/netcheck` |
+| Probe (static Go binary, no shell) | `docker.io/hgeorge123/netcheck-probe` | `ghcr.io/hgeorge123/netcheck-probe` |
 
-The same images, with the same digests, are also published on Docker Hub (`docker.io/hgeorge123/netcheck` and
-`docker.io/hgeorge123/netcheck-probe`). Either registry works: set `image.repository` and `probeImage.repository`
-accordingly.
-
-Nodes in private subnets reach `ghcr.io` through a NAT Gateway. If your nodes have **no Internet egress**, or your
-policy requires images from your own account, mirror them to ECR:
+Each chart version already points to the images of its release on Docker Hub, pinned by digest: by default you do
+not set any image values. Nodes in private subnets reach Docker Hub through a NAT Gateway. If your nodes have **no
+Internet egress**, or your policy requires images from your own account, mirror them to ECR:
 
 ```bash
 for repo in netcheck netcheck-probe; do
@@ -474,22 +472,23 @@ To build the images yourself instead, see [install.md](install.md), step 4.
 
 ## 11. Image digests
 
-NetCheck is **always deployed by digest**. The digests of each version are listed in its
-[GitHub release](https://github.com/hgeorge123/netcheck/releases); you can also read them from the registry:
+NetCheck is **always deployed by digest**. The chart of each release carries them; read them from it (they are
+also listed in the [GitHub release](https://github.com/hgeorge123/netcheck/releases)):
 
 ```bash
-export APP_DIGEST=$(docker buildx imagetools inspect ghcr.io/hgeorge123/netcheck:$VERSION --format '{{.Manifest.Digest}}')
-export PROBE_DIGEST=$(docker buildx imagetools inspect ghcr.io/hgeorge123/netcheck-probe:$VERSION --format '{{.Manifest.Digest}}')
-echo "$APP_DIGEST $PROBE_DIGEST"     # both must start with sha256:
+helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" | grep -A3 -E '^(image|probeImage):'
+export APP_DIGEST=sha256:...      # image.digest
+export PROBE_DIGEST=sha256:...    # probeImage.digest
 ```
 
-**ECR mirror only.** Copy both images with [crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane)
-(or `skopeo copy --all`), which keeps every architecture and the same digest, and check the scan:
+You only need these variables for an **ECR mirror**. Copy both images with
+[crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane) (or `skopeo copy --all`), which keeps
+every architecture and the same digest, and check the scan:
 
 ```bash
 aws ecr get-login-password --region "$AWS_REGION" | crane auth login "$ECR" -u AWS --password-stdin
-crane copy "ghcr.io/hgeorge123/netcheck@$APP_DIGEST" "$ECR/netcheck:$VERSION"
-crane copy "ghcr.io/hgeorge123/netcheck-probe@$PROBE_DIGEST" "$ECR/netcheck-probe:$VERSION"
+crane copy "docker.io/hgeorge123/netcheck@$APP_DIGEST" "$ECR/netcheck:$VERSION"
+crane copy "docker.io/hgeorge123/netcheck-probe@$PROBE_DIGEST" "$ECR/netcheck-probe:$VERSION"
 crane digest "$ECR/netcheck:$VERSION"             # must equal $APP_DIGEST
 crane digest "$ECR/netcheck-probe:$VERSION"       # must equal $PROBE_DIGEST
 
@@ -531,8 +530,7 @@ Fill every `<...>`:
 | Value | Example | Source |
 |---|---|---|
 | `clusterId` | `my-cluster` | `$CLUSTER_NAME` (shown in the UI) |
-| `image.repository` / `image.digest` | `ghcr.io/hgeorge123/netcheck` (or your ECR mirror) / `sha256:…` | Steps 10 and 11 |
-| `probeImage.repository` / `probeImage.digest` | `ghcr.io/hgeorge123/netcheck-probe` (or your ECR mirror) / `sha256:…` | Steps 10 and 11 |
+| `image.*` / `probeImage.*` | Leave commented out | The chart already points to its images by digest. Only for an ECR mirror: its repositories and the digests of step 11 |
 | `auth.trustedProxyCidrs` | `[10.0.0.0/16]` | VPC CIDR (step 9): covers the Gateway Pods and the ALB subnets |
 | `auth.bootstrapAdmin.password` | `NetCheck-ChangeMe-1` (default) | Change it or use `existingSecret` (step 18) |
 | `namespace.create` / `namespace.name` | `false` / `""` | Step 12 |
@@ -589,12 +587,7 @@ Full example:
 ```yaml
 environment: production
 clusterId: my-cluster
-image:
-  repository: ghcr.io/hgeorge123/netcheck
-  digest: sha256:<APP_DIGEST>
-probeImage:
-  repository: ghcr.io/hgeorge123/netcheck-probe
-  digest: sha256:<PROBE_DIGEST>
+# image / probeImage: not needed, the chart already pins its images by digest
 auth:
   trustedProxyCidrs: [10.0.0.0/16]
   bootstrapAdmin:
@@ -717,7 +710,7 @@ kubectl -n "$NC_NS" get secret netcheck-bootstrap-admin -o jsonpath='{.data.pass
 2. The UI is in **English** by default. For Spanish choose **Español** in the **Language** selector before signing in; it
    is saved in your account.
 3. Sign in as `admin`. NetCheck **forces a password change** (at least 12 characters) before anything else.
-4. Check **Administration → System and versions**: it must show version `0.2.0` and the digests you published.
+4. Check **Administration → System and versions**: it must show version `0.2.0` and the image digests of the chart.
 5. Create the users ([admin guide](admin-guide.md), Part II).
 
 The Secret password only creates the first administrator; afterwards it is no longer valid, but the Secret is kept for
@@ -749,9 +742,10 @@ emergency recovery.
 ## 21. Upgrade, roll back and uninstall
 
 ```bash
-# Upgrade: step 11 (new VERSION and digests), then
+# Upgrade: the new chart version brings the digests of its images
+# (with an ECR mirror, copy the new images first: step 11)
 helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version "$VERSION" -n "$NC_NS" -f values-eks.yaml \
-  --set image.digest="$APP_DIGEST" --set probeImage.digest="$PROBE_DIGEST" --wait --timeout 10m
+  --wait --timeout 10m
 
 # Always pass -f values-eks.yaml (or --reset-then-reuse-values). Do NOT use --reuse-values: it skips the
 # chart's new default values and the templates may fail or render incomplete.
@@ -772,7 +766,7 @@ The UI shows the running version and the version history in **Administration →
 |---|---|---|
 | Pod `Pending` with `volume node affinity conflict` | No nodes in the EBS zone | Step 7.2: capacity in that zone |
 | PVC `Pending` | EBS CSI driver missing or without role | Step 6; `kubectl -n $NC_NS describe pvc netcheck-data` |
-| `ImagePullBackOff` | Node cannot reach `ghcr.io` (no NAT), cannot read the ECR mirror, or wrong digest | Step 10; check digests |
+| `ImagePullBackOff` | Node cannot reach Docker Hub (no NAT), Docker Hub rate limits, cannot read the ECR mirror, or wrong digest | Step 10; check digests |
 | `CrashLoopBackOff` | Invalid configuration | `kubectl -n $NC_NS logs deploy/netcheck --previous` |
 | HTTPRoute `Accepted=False` | `allowedRoutes` or `sectionName` | Step 8A |
 | Ingress without address | Controller missing, without IAM permissions or no tagged subnets | `kubectl -n $NC_NS describe ingress netcheck`; step 8B |
@@ -807,7 +801,7 @@ Open `http://localhost:8080` (or `https://netcheck.lab.test:8443` with the Gatew
 - [ ] VPC CNI with `--enable-network-policy=true`.
 - [ ] EBS CSI driver active with its IAM role.
 - [ ] `persistence.createStorageClass.zones` pinned to a zone with nodes (recommended).
-- [ ] Images deployed by **digest** (GHCR, or an ECR mirror with the scan reviewed).
+- [ ] Images deployed by **digest** (the chart defaults, or an ECR mirror with the scan reviewed).
 - [ ] `values-eks.yaml` complete; `--dry-run=server` without errors.
 - [ ] Only one exposure enabled: HTTPRoute `Accepted=True` (A) or ALB target `healthy` (B); DNS resolves; HTTPS answers 200.
 - [ ] `admin` password changed right after installing.

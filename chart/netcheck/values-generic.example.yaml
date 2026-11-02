@@ -4,13 +4,14 @@
 environment: production
 clusterId: <cluster-name>
 
-# Published images on ghcr.io. Digests are listed in the GitHub release notes.
-image:
-  repository: ghcr.io/hgeorge123/netcheck
-  digest: sha256:<netcheck-image-digest>
-probeImage:
-  repository: ghcr.io/hgeorge123/netcheck-probe
-  digest: sha256:<probe-image-digest>
+# Images: the published chart already points to the images of its release on
+# Docker Hub, pinned by digest. Uncomment only to use a mirror or your own build.
+# image:
+#   repository: <registry>/netcheck
+#   digest: sha256:<netcheck-image-digest>
+# probeImage:
+#   repository: <registry>/netcheck-probe
+#   digest: sha256:<probe-image-digest>
 
 auth:
   # CIDR the Gateway data plane Pods connect from (usually the Pod CIDR).

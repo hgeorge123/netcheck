@@ -4,7 +4,7 @@
 #   docker buildx build --platform linux/amd64,linux/arm64 -t <ecr>/netcheck:<tag> --push .
 # Pin base images by digest in CI (pending, see README).
 ARG NODE_IMAGE=node:24-bookworm-slim
-ARG GO_IMAGE=golang:1.27-bookworm
+ARG GO_IMAGE=golang:1.27.3-bookworm
 ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12:nonroot
 
 # The web bundle is architecture independent: build it once natively.

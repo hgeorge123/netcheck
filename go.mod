@@ -1,10 +1,10 @@
 module github.com/hgeorge123/netcheck
 
-go 1.27.0
+go 1.27.3
 
 require (
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1

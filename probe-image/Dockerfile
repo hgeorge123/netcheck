@@ -3,7 +3,7 @@
 # package manager. Build from the repository root (multi-arch for EKS):
 #   docker buildx build --platform linux/amd64,linux/arm64 -f probe-image/Dockerfile -t <ecr>/netcheck-probe:<tag> --push .
 # Deploy it ONLY by digest (the chart and the admission policy require it).
-ARG GO_IMAGE=golang:1.27-bookworm
+ARG GO_IMAGE=golang:1.27.3-bookworm
 ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12:nonroot
 
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS build

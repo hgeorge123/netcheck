@@ -168,7 +168,8 @@ Repository settings the workflow needs:
 - **Recommended:** protect `main` (**Settings → Branches**) with the required
   status check `release/images` and "require branches to be up to date before
   merging". The workflow keeps `release/images` pending on the release pull
-  request until its images are built and pinned, so it cannot be merged early.
+  request until its images are built and pinned, so it cannot be merged early. Other
+  pull requests get it as passing from the `release-guard` workflow.
 
 ## License
 

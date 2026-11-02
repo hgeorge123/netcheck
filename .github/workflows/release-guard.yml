@@ -1,0 +1,27 @@
+name: release-guard
+
+# "release/images" is a required check on main. The release workflow reports it
+# on the release pull request (pending until its images are pinned); every
+# other pull request gets it as passing here, so the rule only blocks releases.
+# pull_request_target gives a token that can write statuses also on Dependabot
+# and fork pull requests; the job never checks out or runs pull request code.
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  statuses: write
+
+jobs:
+  not-a-release:
+    if: github.event.pull_request.head.ref != 'release-please--branches--main--components--netcheck'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report release/images as not applicable
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api --silent -X POST "repos/${GH_REPO}/statuses/${SHA}" \
+            -f state=success -f context=release/images -f description="Not a release pull request"

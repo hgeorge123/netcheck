@@ -450,6 +450,10 @@ NetCheck publishes public, multi-architecture (`amd64`, `arm64`) images on GitHu
 | Application (API, UI and controller) | `ghcr.io/hgeorge123/netcheck` |
 | Probe (static Go binary, no shell) | `ghcr.io/hgeorge123/netcheck-probe` |
 
+The same images, with the same digests, are also published on Docker Hub (`docker.io/hgeorge123/netcheck` and
+`docker.io/hgeorge123/netcheck-probe`). Either registry works: set `image.repository` and `probeImage.repository`
+accordingly.
+
 Nodes in private subnets reach `ghcr.io` through a NAT Gateway. If your nodes have **no Internet egress**, or your
 policy requires images from your own account, mirror them to ECR:
 

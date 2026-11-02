@@ -103,6 +103,10 @@ export APP_DIGEST=sha256:...      # first value
 export PROBE_DIGEST=sha256:...    # second value
 ```
 
+The same images, with the same digests, are also on Docker Hub as `docker.io/hgeorge123/netcheck` and
+`docker.io/hgeorge123/netcheck-probe`. To pull from Docker Hub instead of GHCR, set `image.repository` and
+`probeImage.repository` to those names; the digests do not change.
+
 The Helm chart is published as an OCI artifact:
 
 ```bash

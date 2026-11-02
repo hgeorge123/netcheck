@@ -1,6 +1,8 @@
 name: release
 
 # Push a tag like v0.2.0 (it must match appVersion in chart/netcheck/Chart.yaml).
+# Images go to GHCR and, when the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
+# repository secrets are set, also to Docker Hub (same build, same digests).
 on:
   push:
     tags: ["v*.*.*"]
@@ -11,6 +13,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io/${{ github.repository_owner }}
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
   images:
@@ -34,6 +37,14 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          app="${REGISTRY}/netcheck:${version}"
+          probe="${REGISTRY}/netcheck-probe:${version}"
+          if [ -n "${DOCKERHUB_USERNAME}" ]; then
+            app="${app},docker.io/${DOCKERHUB_USERNAME}/netcheck:${version}"
+            probe="${probe},docker.io/${DOCKERHUB_USERNAME}/netcheck-probe:${version}"
+          fi
+          echo "app_tags=${app}" >> "$GITHUB_OUTPUT"
+          echo "probe_tags=${probe}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -42,6 +53,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        if: env.DOCKERHUB_USERNAME != ''
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - id: app
         name: Build and push the NetCheck image
@@ -50,7 +66,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/netcheck:${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.app_tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             COMMIT=${{ github.sha }}
@@ -68,7 +84,7 @@ jobs:
           file: probe-image/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/netcheck-probe:${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.probe_tags }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=Apache-2.0
@@ -98,13 +114,19 @@ jobs:
           APP_DIGEST: ${{ needs.images.outputs.app_digest }}
           PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
         run: |
-          cat > notes.md <<EOF
-          ## Images
-
-          | Image | Digest |
-          |---|---|
-          | \`${REGISTRY}/netcheck:${VERSION}\` | \`${APP_DIGEST}\` |
-          | \`${REGISTRY}/netcheck-probe:${VERSION}\` | \`${PROBE_DIGEST}\` |
+          {
+            echo "## Images"
+            echo
+            echo "| Image | Digest |"
+            echo "|---|---|"
+            echo "| \`${REGISTRY}/netcheck:${VERSION}\` | \`${APP_DIGEST}\` |"
+            echo "| \`${REGISTRY}/netcheck-probe:${VERSION}\` | \`${PROBE_DIGEST}\` |"
+            if [ -n "${DOCKERHUB_USERNAME}" ]; then
+              echo "| \`docker.io/${DOCKERHUB_USERNAME}/netcheck:${VERSION}\` | \`${APP_DIGEST}\` |"
+              echo "| \`docker.io/${DOCKERHUB_USERNAME}/netcheck-probe:${VERSION}\` | \`${PROBE_DIGEST}\` |"
+            fi
+          } > notes.md
+          cat >> notes.md <<EOF
 
           ## Install
 

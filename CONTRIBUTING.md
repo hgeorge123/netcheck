@@ -121,6 +121,12 @@ Maintainers create releases by pushing a `vX.Y.Z` tag. The
 images, publishes them to `ghcr.io/hgeorge123`, pushes the Helm chart as an OCI
 artifact and creates the GitHub release with the image digests.
 
+The same images are also pushed to Docker Hub (`docker.io/hgeorge123`) when the
+repository has two Actions secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+(a Docker Hub personal access token with read and write access). Both registries
+receive the same build, so the digests are identical. Without those secrets the
+Docker Hub step is skipped.
+
 ## License
 
 By contributing you agree that your contributions are licensed under the

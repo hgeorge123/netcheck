@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/hgeorge123/netcheck/compare/v0.4.0...v0.4.1) (2026-11-02)
+
+
+### Documentation
+
+* draw the architecture and the life of a test as diagrams ([f970bcc](https://github.com/hgeorge123/netcheck/commit/f970bcc226d156e5751442d5af0381daf824f627))
+* replace the component diagram with a static image ([c49158c](https://github.com/hgeorge123/netcheck/commit/c49158c2126c43fc80a11aef9b05b25e15b21be3))
+
 ## [0.4.0](https://github.com/hgeorge123/netcheck/compare/v0.3.0...v0.4.0) (2026-11-02)
 
 

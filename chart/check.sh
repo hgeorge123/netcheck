@@ -34,6 +34,11 @@ expect_not() {
 }
 expect "all mode renders a ClusterRole" "${TMP}/eks.yaml" '^kind: ClusterRole$'
 expect "all mode can create probe ServiceAccounts" "${TMP}/eks.yaml" 'resources: \["serviceaccounts"\]'
+if grep -A1 -F 'resources: ["resourcequotas", "limitranges"]' "${TMP}/eks.yaml" | grep -qF 'verbs: ["list"]'; then
+  echo "PASS  quotas and limit ranges are read-only"
+else
+  echo "FAIL  quotas and limit ranges are read-only"; failures=$((failures + 1))
+fi
 expect "HTTPRoute attaches to the HTTPS listener" "${TMP}/eks.yaml" 'sectionName: https'
 expect "gp3 encrypted StorageClass" "${TMP}/eks.yaml" 'provisioner: ebs.csi.aws.com'
 expect "bootstrap admin Secret" "${TMP}/eks.yaml" 'name: netcheck-bootstrap-admin'

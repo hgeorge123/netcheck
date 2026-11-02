@@ -64,10 +64,11 @@ uses Kyverno or Gatekeeper, you can port the same rules there as an extra layer.
 
 | Mode | Objects | Permissions |
 |---|---|---|
-| `all` (default) | ClusterRole + ClusterRoleBinding | `jobs` create/get/list/watch/delete, `pods` get/list/watch, `pods/log` get, `networkpolicies` get/list, `namespaces` get/list/watch, `serviceaccounts` get/create |
+| `all` (default) | ClusterRole + ClusterRoleBinding | `jobs` create/get/list/watch/delete, `pods` get/list/watch, `pods/log` get, `networkpolicies` get/list, `namespaces` get/list/watch, `serviceaccounts` get/create, `resourcequotas` and `limitranges` list |
 | `list` | Role + RoleBinding per listed namespace | The same, without cluster-wide rights; probe ServiceAccounts are created by the chart |
 
-Never granted: `pods/create`, `pods/exec`, `secrets`, RBAC objects, NetworkPolicy changes or admission policies.
+Never granted: `pods/create`, `pods/exec`, `secrets`, RBAC objects, NetworkPolicy or quota changes, or admission policies.
+Quotas and LimitRanges are only read, to tell before creating a Job whether the probe fits in the source namespace.
 Verify it after installing:
 
 ```bash

@@ -32,6 +32,10 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "create"]
+  # Read-only: the probe is checked against quotas before its Job is created.
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges"]
+    verbs: ["list"]
   {{- if .Values.networkPolicyRead }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
@@ -88,6 +92,10 @@ rules:
     resources: ["serviceaccounts"]
     resourceNames: [{{ $.Values.probe.serviceAccountName | quote }}]
     verbs: ["get"]
+  # Read-only: the probe is checked against quotas before its Job is created.
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges"]
+    verbs: ["list"]
   {{- if $.Values.networkPolicyRead }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]

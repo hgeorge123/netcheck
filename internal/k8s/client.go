@@ -25,6 +25,8 @@ type JobAPI interface {
 	ListNamespaces(ctx context.Context) ([]corev1.Namespace, error)
 	GetServiceAccount(ctx context.Context, namespace, name string) (*corev1.ServiceAccount, error)
 	CreateServiceAccount(ctx context.Context, sa *corev1.ServiceAccount) error
+	ListResourceQuotas(ctx context.Context, namespace string) ([]corev1.ResourceQuota, error)
+	ListLimitRanges(ctx context.Context, namespace string) ([]corev1.LimitRange, error)
 }
 
 // Client implements JobAPI with client-go.
@@ -100,6 +102,24 @@ func (c *Client) GetServiceAccount(ctx context.Context, namespace, name string) 
 func (c *Client) CreateServiceAccount(ctx context.Context, sa *corev1.ServiceAccount) error {
 	_, err := c.CS.CoreV1().ServiceAccounts(sa.Namespace).Create(ctx, sa, metav1.CreateOptions{FieldManager: ManagedByValue})
 	return err
+}
+
+// ListResourceQuotas lists the quotas of a namespace (read-only).
+func (c *Client) ListResourceQuotas(ctx context.Context, namespace string) ([]corev1.ResourceQuota, error) {
+	list, err := c.CS.CoreV1().ResourceQuotas(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
+// ListLimitRanges lists the LimitRanges of a namespace (read-only).
+func (c *Client) ListLimitRanges(ctx context.Context, namespace string) ([]corev1.LimitRange, error) {
+	list, err := c.CS.CoreV1().LimitRanges(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
 }
 
 // ListNetworkPolicies lists native NetworkPolicies (read-only).

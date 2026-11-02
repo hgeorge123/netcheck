@@ -211,7 +211,7 @@ The result page refreshes by itself while the probe works (usually 5 to 30 secon
 | Queued / Running | The probe is being created or is measuring |
 | **All checks passed** | Every check succeeded |
 | **Connectivity failures** | At least one network check failed (refused, timed out, DNS, no ICMP reply…) |
-| **Infrastructure error** | NetCheck could not run the probe (permissions, quota, image…). **It is not a network result**: tell your platform team |
+| **Infrastructure error** | NetCheck could not run the probe (permissions, quota, image…). **It is not a network result**: tell your platform team. When the namespace quota is full, the message names the quota and how much is missing |
 
 The **Details** block also shows the **probe Pod IP** and the **node** the measurement came from.
 

@@ -506,7 +506,8 @@ provider if you no longer need it.
 | Ping/traceroute: "ICMP is not allowed inside the probe" | The node does not support the `net.ipv4.ping_group_range` sysctl, or an external admission policy (Kyverno, Gatekeeper) blocks it | Kubernetes ≥ 1.30 allows it as a safe sysctl; review those policies |
 | Ping "no reply" but TCP succeeds | ICMP filtered by NetworkPolicies, security groups or firewalls | Expected; not a NetCheck failure |
 | "Not allowed by the destination policy" | Metadata, API server, loopback or link-local (always protected), or the destination policy restricts it | The message gives the exact reason; check **Administration → Destination policy** |
-| "The Job did not create any Pod" | Pod Security, ResourceQuota or LimitRange in the source namespace | `kubectl -n <ns> describe job` |
+| "Namespace … has no room for the probe Pod" | A ResourceQuota or LimitRange of the source namespace; the message names it and gives the numbers. No Job was created | The namespace owner raises the quota or frees resources. The probe needs 50m CPU and 32Mi memory (requests), 200m and 64Mi (limits), 16Mi of ephemeral storage, one Pod and one Job |
+| "The Job did not create any Pod" | Pod Security, an admission webhook (Kyverno, Gatekeeper) or a quota NetCheck cannot evaluate (scope selectors) | `kubectl -n <ns> describe job` |
 | "The netcheck-probe ServiceAccount has the IRSA annotation" | Someone attached a cloud IAM role to the probe | Remove the annotation or association; the probe must have no credentials |
 | A new namespace does not show up | 30-second cache, or the namespace is excluded | Wait a minute; check **Administration → Namespaces** |
 | The NetCheck namespace does not show up | Hidden by design | Check "Allow tests in the NetCheck namespace" for that user |

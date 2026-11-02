@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -127,6 +128,11 @@ func (e *Executor) execute(ctx context.Context, run store.Run, spec probes.Spec,
 			e.fail(run, jobName, failure{diagnostics.CategoryInfraError, "Could not build the Job: " + err.Error()}, false)
 			return
 		}
+		if msg := e.quotaRoom(ctx, job); msg != "" {
+			log.Warn("no quota room for the probe", "message", msg)
+			e.fail(run, jobName, failure{diagnostics.CategoryAdmissionRejected, truncateMsg(msg)}, false)
+			return
+		}
 		if err := e.Jobs.CreateJob(ctx, job); err != nil && !apierrors.IsAlreadyExists(err) {
 			if ctx.Err() != nil {
 				return // shutdown: Recover decides on next start
@@ -152,6 +158,24 @@ func (e *Executor) execute(ctx context.Context, run store.Run, spec probes.Spec,
 		return
 	}
 	e.collect(ctx, run, spec, jobName, pod)
+}
+
+// quotaRoom checks the ResourceQuotas and LimitRanges of the source
+// namespace before the Job is created, so a full quota is reported at once
+// and by name. When they cannot be read (older RBAC) the check is skipped and
+// Kubernetes still enforces them.
+func (e *Executor) quotaRoom(ctx context.Context, job *batchv1.Job) string {
+	quotas, err := e.Jobs.ListResourceQuotas(ctx, job.Namespace)
+	if err != nil {
+		e.Log.Debug("resource quotas not readable; check skipped", "namespace", job.Namespace, "error", err)
+		return ""
+	}
+	ranges, err := e.Jobs.ListLimitRanges(ctx, job.Namespace)
+	if err != nil {
+		e.Log.Debug("limit ranges not readable; check skipped", "namespace", job.Namespace, "error", err)
+		ranges = nil
+	}
+	return k8s.CheckQuotaRoom(job, quotas, ranges)
 }
 
 // ensureProbeServiceAccount verifies (and in mode=all creates) the dedicated

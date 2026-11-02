@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -36,6 +37,7 @@ type fakeJobs struct {
 	deleted   []string
 	policies  []networkingv1.NetworkPolicy
 	sas       map[string]*corev1.ServiceAccount
+	quotas    []corev1.ResourceQuota
 }
 
 func newFakeJobs() *fakeJobs {
@@ -131,6 +133,14 @@ func (f *fakeJobs) ReadPodLogs(_ context.Context, _, pod string, _ int64) ([]byt
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return []byte(f.logs[pod]), nil
+}
+
+func (f *fakeJobs) ListResourceQuotas(context.Context, string) ([]corev1.ResourceQuota, error) {
+	return f.quotas, nil
+}
+
+func (f *fakeJobs) ListLimitRanges(context.Context, string) ([]corev1.LimitRange, error) {
+	return nil, nil
 }
 
 func (f *fakeJobs) ListNetworkPolicies(context.Context, string) ([]networkingv1.NetworkPolicy, error) {
@@ -338,6 +348,25 @@ func TestNoPodCreatedReportsAdmission(t *testing.T) {
 	run, _ := e.runSync(t, e.create(t, spec), spec)
 	if run.Status != store.RunInfraError || run.FailureCategory != diagnostics.CategoryAdmissionRejected {
 		t.Fatalf("run = %+v", run)
+	}
+}
+
+func TestFullQuotaFailsBeforeCreatingTheJob(t *testing.T) {
+	e := newEnv(t)
+	full := corev1.ResourceList{corev1.ResourcePods: resource.MustParse("4")}
+	e.jobs.quotas = []corev1.ResourceQuota{{
+		ObjectMeta: metav1.ObjectMeta{Name: "team-pods"},
+		Spec:       corev1.ResourceQuotaSpec{Hard: full},
+		Status:     corev1.ResourceQuotaStatus{Hard: full, Used: full},
+	}}
+	spec := testSpec(t, probes.CheckRequest{Method: probes.MethodTCP})
+	run, _ := e.runSync(t, e.create(t, spec), spec)
+	if run.Status != store.RunInfraError || run.FailureCategory != diagnostics.CategoryAdmissionRejected ||
+		!strings.Contains(run.ErrorMessage, "ResourceQuota team-pods: pods uses 4 of 4") {
+		t.Fatalf("run = %+v", run)
+	}
+	if len(e.jobs.jobs) != 0 {
+		t.Error("a Job was created although the quota is full")
 	}
 }
 

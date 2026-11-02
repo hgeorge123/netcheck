@@ -1,12 +1,15 @@
 apiVersion: v2
 name: netcheck
-description: Network connectivity diagnostics from Kubernetes namespaces using short-lived probe Jobs.
+description: >-
+  Network connectivity diagnostics from Kubernetes namespaces using short-lived
+  probe Jobs.
 type: application
-version: 0.2.0 # x-release-please-version
-appVersion: "0.2.0" # x-release-please-version
-kubeVersion: ">=1.30.0-0"
+version: 0.2.0
+appVersion: 0.2.0
+kubeVersion: '>=1.30.0-0'
 home: https://github.com/hgeorge123/netcheck
-icon: https://raw.githubusercontent.com/hgeorge123/netcheck/main/docs/brand/netcheck-mark.png
+icon: >-
+  https://raw.githubusercontent.com/hgeorge123/netcheck/main/docs/brand/netcheck-mark.png
 sources:
   - https://github.com/hgeorge123/netcheck
 keywords:

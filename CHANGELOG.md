@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/hgeorge123/netcheck/compare/v0.2.3...v0.2.4) (2026-11-02)
+
+
+### Bug Fixes
+
+* **release:** pin the release images in the git tag ([d8a7ecc](https://github.com/hgeorge123/netcheck/commit/d8a7ecc4a4c3e1a94029013ba58b966594efd6ef))
+
 ## [0.2.3](https://github.com/hgeorge123/netcheck/compare/v0.2.2...v0.2.3) (2026-11-02)
 
 

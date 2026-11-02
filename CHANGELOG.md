@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/hgeorge123/netcheck/compare/v0.2.2...v0.2.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** build with Go 1.27.3 and golang.org/x/net 0.62.0 ([8951ed1](https://github.com/hgeorge123/netcheck/commit/8951ed1787c1dbf8c71c3cc95b2aad3110b07f20))
+
 ## [0.2.2](https://github.com/hgeorge123/netcheck/compare/v0.2.1...v0.2.2) (2026-11-02)
 
 

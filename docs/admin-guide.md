@@ -462,6 +462,16 @@ the cluster can do it.
   creation, deletion and changes, tests started or rejected, destination policy, retention and namespace changes,
   and probe security events. It never contains passwords or tokens.
 - **Logs** of the Pod in JSON, with a `request_id` on every request: `kubectl -n netcheck logs deploy/netcheck`.
+- **Log level** (`logLevel` in the chart values, `info` by default), validated at startup:
+
+  | Level | What the log contains |
+  |---|---|
+  | `debug` | Everything in `info`, plus internal retries while following a test Job. Only for troubleshooting |
+  | `info` | Startup and version, every HTTP request (load balancer health checks included), every test Job, purges and administrator changes, plus `warn` and `error` |
+  | `warn` | Only problems that do not stop the service, and errors. Much less volume |
+  | `error` | Only failures |
+
+  Change it with `helm upgrade ... --set logLevel=warn` (or in your values file); the Pod restarts with the new level.
 - There is no audit viewer in the interface yet. To query it, restore a snapshot and open the file with `sqlite3`.
 
 ## 7. Uninstalling

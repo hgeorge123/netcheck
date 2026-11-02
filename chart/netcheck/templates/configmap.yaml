@@ -10,6 +10,7 @@ data:
   config.yaml: |
     environment: {{ .Values.environment }}
     clusterId: {{ .Values.clusterId | quote }}
+    logLevel: {{ .Values.logLevel | quote }}
     listen: ":8080"
     webDir: /app/web
     database:

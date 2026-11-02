@@ -107,6 +107,7 @@ must_fail "invalid image tag" "image.tag must be a lowercase image tag" "${EKS[@
 must_fail "probe image by tag" "probeImage.digest must be a sha256" "${EKS[@]}" "${GW[@]}" --set probeImage.digest=latest
 must_fail "insecure cookie in production" "cookieSecure=false is only allowed in development" "${EKS[@]}" "${GW[@]}" --set auth.cookieSecure=false
 must_fail "no forced password change in production" "forcePasswordChange=false is only allowed in development" "${EKS[@]}" "${GW[@]}" --set auth.bootstrapAdmin.forcePasswordChange=false
+must_fail "bad log level" "logLevel must be debug, info, warn or error" "${EKS[@]}" "${GW[@]}" --set logLevel=verbose
 must_fail "bad namespace mode" "namespaceScope.mode must be all or list" "${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=everything
 must_fail "list mode without namespaces" "at least one namespace in list mode" "${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=list
 must_fail "kube-system as source" "kube-system is not allowed" "${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=list --set 'namespaceScope.namespaces={kube-system}'

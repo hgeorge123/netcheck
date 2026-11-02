@@ -98,6 +98,9 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- if not $v.auth.cookieSecure -}}{{- fail "auth.cookieSecure=false is only allowed in development" -}}{{- end -}}
 {{- if not $v.auth.bootstrapAdmin.forcePasswordChange -}}{{- fail "auth.bootstrapAdmin.forcePasswordChange=false is only allowed in development" -}}{{- end -}}
 {{- end -}}
+{{- if not (has $v.logLevel (list "debug" "info" "warn" "error")) -}}
+{{- fail "logLevel must be debug, info, warn or error" -}}
+{{- end -}}
 {{- if not (has $v.namespaceScope.mode (list "all" "list")) -}}
 {{- fail "namespaceScope.mode must be all or list" -}}
 {{- end -}}

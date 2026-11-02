@@ -37,8 +37,10 @@ func main() {
 	configPath := flag.String("config", "/etc/netcheck/config.yaml", "path to the configuration file")
 	flag.Parse()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	if err := run(*configPath, log); err != nil {
+	// Info until the configuration is loaded, then its logLevel.
+	level := new(slog.LevelVar)
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+	if err := run(*configPath, log, level); err != nil {
 		log.Error("fatal", "error", err)
 		os.Exit(1)
 	}
@@ -66,11 +68,12 @@ func kubeClient(cfg config.Config, log *slog.Logger) k8s.JobAPI {
 	return &k8s.Client{CS: cs}
 }
 
-func run(configPath string, log *slog.Logger) error {
+func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	cfg, err := config.Load(configPath, os.Getenv)
 	if err != nil {
 		return err
 	}
+	level.Set(cfg.SlogLevel())
 	if cfg.Environment == config.EnvDevelopment {
 		log.Warn("DEVELOPMENT MODE: relaxed cookie/bootstrap settings may be active; never expose this instance")
 	}

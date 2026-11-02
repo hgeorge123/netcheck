@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"net/netip"
 	"slices"
 	"strings"
@@ -82,6 +83,7 @@ func TestRejectsUnsafeConfig(t *testing.T) {
 		"bad cidr":             strings.Replace(baseYAML(""), "10.0.0.0/8", "10.0.0.0/99", 1),
 		"bad managedBy":        baseYAML("destinationsManagedBy: git"),
 		"huge job":             baseYAML("limits: {maxJobSeconds: 3600}"),
+		"bad log level":        baseYAML("logLevel: verbose"),
 		"root probe":           strings.Replace(baseYAML(""), "probe:\n", "probe:\n  runAsUser: 0\n", 1),
 	}
 	for name, y := range cases {
@@ -92,6 +94,19 @@ func TestRejectsUnsafeConfig(t *testing.T) {
 	// Environment mismatch with NETCHECK_ENV is refused.
 	if _, err := Parse([]byte(baseYAML("")), env(map[string]string{"NETCHECK_ENV": "development"})); err == nil {
 		t.Error("environment mismatch accepted")
+	}
+}
+
+func TestLogLevel(t *testing.T) {
+	cfg, err := Parse([]byte(baseYAML("")), env(nil))
+	if err != nil || cfg.SlogLevel() != slog.LevelInfo {
+		t.Fatalf("default level = %v, err = %v", cfg.SlogLevel(), err)
+	}
+	for name, want := range logLevels {
+		cfg, err := Parse([]byte(baseYAML("logLevel: "+name)), env(nil))
+		if err != nil || cfg.SlogLevel() != want {
+			t.Errorf("%s: level = %v, err = %v", name, cfg.SlogLevel(), err)
+		}
 	}
 }
 

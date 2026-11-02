@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
 	"regexp"
@@ -38,6 +39,7 @@ type Config struct {
 	ClusterID          string                   `json:"clusterId"`
 	Listen             string                   `json:"listen"`
 	WebDir             string                   `json:"webDir"`
+	LogLevel           string                   `json:"logLevel"` // debug, info, warn or error
 	Database           Database                 `json:"database"`
 	Auth               Auth                     `json:"auth"`
 	NamespaceScope     NamespaceScope           `json:"namespaceScope"`
@@ -150,6 +152,7 @@ func Defaults() Config {
 		Environment: EnvProduction,
 		ClusterID:   "default",
 		Listen:      ":8080",
+		LogLevel:    "info",
 		Database:    Database{Path: "/data/netcheck.db", WAL: true},
 		Auth: Auth{
 			SessionIdleMinutes:    60,
@@ -219,6 +222,12 @@ func Parse(b []byte, getenv func(string) string) (Config, error) {
 	return cfg, nil
 }
 
+// logLevels maps LogLevel to slog levels.
+var logLevels = map[string]slog.Level{"debug": slog.LevelDebug, "info": slog.LevelInfo, "warn": slog.LevelWarn, "error": slog.LevelError}
+
+// SlogLevel returns the configured log level.
+func (c Config) SlogLevel() slog.Level { return logLevels[c.LogLevel] }
+
 // EffectiveDestinations is the configured policy with the platform denies.
 func (c Config) EffectiveDestinations() probes.DestinationPolicy {
 	return c.Destinations.WithDenies(c.PlatformDenies...)
@@ -244,6 +253,9 @@ func (c *Config) validate(getenv func(string) string) error {
 
 	if c.Environment != EnvDevelopment && c.Environment != EnvProduction {
 		add("environment must be %q or %q", EnvDevelopment, EnvProduction)
+	}
+	if _, ok := logLevels[c.LogLevel]; !ok {
+		add("logLevel must be debug, info, warn or error")
 	}
 	if c.Environment != getenv("NETCHECK_ENV") && getenv("NETCHECK_ENV") != "" {
 		add("environment %q does not match NETCHECK_ENV=%q", c.Environment, getenv("NETCHECK_ENV"))

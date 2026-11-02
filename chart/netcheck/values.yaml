@@ -6,6 +6,10 @@
 environment: production
 # -- Free text shown in the UI and stored with every run (e.g. the EKS cluster name).
 clusterId: eks
+# -- Minimum level written to the Pod log: debug, info, warn or error. info logs
+# every HTTP request and test; warn keeps only problems; debug adds internal
+# retries (troubleshooting only).
+logLevel: info
 
 namespace:
   # -- Create the namespace where NetCheck runs (true) or use an existing one

@@ -2,19 +2,38 @@
 
 ## Components
 
-```
-                       ┌──────────────────────── netcheck namespace ────────────────────────┐
-Browser ──HTTPS──► Gateway / Ingress ──► Service ──► Pod netcheck                            │
-                       │                              ├─ HTTP API + web UI (React)           │
-                       │                              ├─ Scheduler / controller              │
-                       │                              └─ SQLite on a PersistentVolume        │
-                       └─────────────────────────────────────┬──────────────────────────────┘
-                                                             │ Kubernetes API (create Job, read logs)
-                                                             ▼
-                                   ┌──── source namespace (e.g. payments) ────┐
-                                   │  Job ─► probe Pod ──► destination          │
-                                   │        (same NetworkPolicies as the apps) │
-                                   └────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+  user(["User<br/>browser"])
+  lb["ALB Ingress or<br/>Gateway API<br/>(TLS)"]
+
+  subgraph ncns["netcheck namespace"]
+    svc["Service<br/>ClusterIP"]
+    subgraph pod["Pod netcheck · 1 replica"]
+      api["HTTP API + web UI<br/>sessions, roles, policy"]
+      ctrl["Scheduler and<br/>controller"]
+    end
+    db[("SQLite<br/>PersistentVolume")]
+  end
+
+  subgraph cp["Kubernetes control plane"]
+    kapi["API server"]
+    vap{{"Admission policies<br/>image, template,<br/>namespaces"}}
+  end
+
+  subgraph src["source namespace, e.g. payments"]
+    job["Job"] --> probe["probe Pod<br/>no shell, no token,<br/>non-root"]
+  end
+
+  dest[("Destination<br/>IP or DNS name")]
+
+  user -- HTTPS --> lb --> svc --> api
+  api <--> db
+  ctrl <--> db
+  ctrl -- "create Job · read Pod log" --> kapi
+  kapi -. checks .-> vap
+  kapi -- schedules --> job
+  probe -- "DNS · TCP · UDP · HTTP(S) · ICMP<br/>under the namespace's NetworkPolicies" --> dest
 ```
 
 | Component | Code | Notes |
@@ -29,6 +48,31 @@ Browser ──HTTPS──► Gateway / Ingress ──► Service ──► Pod n
 NetCheck runs as **one replica** with the `Recreate` strategy, because SQLite lives on a `ReadWriteOnce` volume.
 
 ## Life of a test
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant A as NetCheck API
+  participant S as Scheduler / controller
+  participant K as Kubernetes API
+  participant P as probe Pod (source namespace)
+  participant D as Destination
+
+  U->>A: New test (namespace, destination, checks)
+  A->>A: Session, namespaces, limits, destination policy
+  A-->>U: Run queued
+  S->>K: Create Job (fixed template, spec in NETCHECK_SPEC)
+  K->>K: Admission policies validate the Job
+  K->>P: Start the probe Pod
+  P->>P: Validate the spec, resolve names, check every IP
+  P->>D: Run each check with its own timeout
+  P-->>K: NETCHECK_RESULT on stdout
+  S->>K: Read the Pod log (pods/log)
+  S->>S: Store the result, diagnose, delete the Job
+  U->>A: Open the run
+  A-->>U: Result, diagnosis and equivalent commands
+```
 
 1. **Request.** The user submits a source namespace, a destination (IP or DNS name) and a list of checks, each with its
    own port and options. The API checks the session, the user's namespaces, the limits and the destination policy

@@ -56,10 +56,6 @@ jobs:
     outputs:
       app_digest: ${{ steps.app.outputs.digest }}
       probe_digest: ${{ steps.probe.outputs.digest }}
-      app_repo: ${{ steps.meta.outputs.app_repo }}
-      probe_repo: ${{ steps.meta.outputs.probe_repo }}
-      app_repos: ${{ steps.meta.outputs.app_repos }}
-      probe_repos: ${{ steps.meta.outputs.probe_repos }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -78,27 +74,12 @@ jobs:
             exit 1
           fi
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-          # The published chart points to Docker Hub when it is configured,
-          # otherwise to GHCR. "latest" is a convenience for docker pull; the
-          # chart always uses the digests.
-          app_repos="${REGISTRY}/netcheck"
-          probe_repos="${REGISTRY}/netcheck-probe"
-          app_repo="${app_repos}"
-          probe_repo="${probe_repos}"
-          if [ -n "${DOCKERHUB_USERNAME}" ]; then
-            app_repo="docker.io/${DOCKERHUB_USERNAME}/netcheck"
-            probe_repo="docker.io/${DOCKERHUB_USERNAME}/netcheck-probe"
-            app_repos="${app_repos} ${app_repo}"
-            probe_repos="${probe_repos} ${probe_repo}"
-          fi
+          . .github/scripts/image-repos.sh
+          # "latest" is a convenience for docker pull; the chart uses digests.
           tags() { for r in $1; do printf '%s:%s,%s:latest,' "$r" "$VERSION" "$r"; done | sed 's/,$//'; }
           {
-            echo "app_repo=${app_repo}"
-            echo "probe_repo=${probe_repo}"
-            echo "app_repos=${app_repos}"
-            echo "probe_repos=${probe_repos}"
-            echo "app_tags=$(tags "${app_repos}")"
-            echo "probe_tags=$(tags "${probe_repos}")"
+            echo "app_tags=$(tags "${APP_REPOS}")"
+            echo "probe_tags=$(tags "${PROBE_REPOS}")"
           } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -152,8 +133,6 @@ jobs:
       - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
       - name: Sign the images (keyless, Sigstore)
         env:
-          APP_REPOS: ${{ steps.meta.outputs.app_repos }}
-          PROBE_REPOS: ${{ steps.meta.outputs.probe_repos }}
           APP_DIGEST: ${{ steps.app.outputs.digest }}
           PROBE_DIGEST: ${{ steps.probe.outputs.digest }}
         run: |
@@ -191,18 +170,23 @@ jobs:
 
       - name: Pin the release images in the chart
         env:
-          APP_REPO: ${{ needs.images.outputs.app_repo }}
           APP_DIGEST: ${{ needs.images.outputs.app_digest }}
-          PROBE_REPO: ${{ needs.images.outputs.probe_repo }}
           PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
         run: |
+          . .github/scripts/image-repos.sh
           case "${APP_DIGEST}${PROBE_DIGEST}" in
             sha256:*sha256:*) ;;
             *) echo "missing image digests" >&2; exit 1 ;;
           esac
+          export APP_REPO PROBE_REPO
           yq -i '.image.repository = strenv(APP_REPO) | .image.digest = strenv(APP_DIGEST) |
             .probeImage.repository = strenv(PROBE_REPO) | .probeImage.digest = strenv(PROBE_DIGEST)' chart/netcheck/values.yaml
-          yq '{"image": .image, "probeImage": .probeImage}' chart/netcheck/values.yaml
+          # Render the chart with its defaults and check both pinned references.
+          helm template netcheck chart/netcheck --set httpRoute.enabled=false > rendered.yaml
+          for ref in "${APP_REPO}@${APP_DIGEST}" "${PROBE_REPO}@${PROBE_DIGEST}"; do
+            grep -q "${ref}" rendered.yaml || { echo "rendered chart does not use ${ref}" >&2; exit 1; }
+          done
+          rm rendered.yaml
 
       - id: push
         name: Package and push the chart (OCI)
@@ -233,18 +217,21 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
       - name: Add the images and the chart to the release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.release-please.outputs.tag }}
           VERSION: ${{ needs.release-please.outputs.version }}
-          APP_REPOS: ${{ needs.images.outputs.app_repos }}
-          PROBE_REPOS: ${{ needs.images.outputs.probe_repos }}
           APP_DIGEST: ${{ needs.images.outputs.app_digest }}
           PROBE_DIGEST: ${{ needs.images.outputs.probe_digest }}
           CHART_DIGEST: ${{ needs.chart.outputs.digest }}
         run: |
+          . .github/scripts/image-repos.sh
           gh release view "$TAG" --json body --jq .body > notes.md
           {
             echo

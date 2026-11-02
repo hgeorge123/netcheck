@@ -41,7 +41,20 @@ expect "VAP excludes system namespaces (incl. default)" "${TMP}/eks.yaml" '"kube
 expect "VAP allows only the ping sysctl" "${TMP}/eks.yaml" 'net.ipv4.ping_group_range'
 expect_not "no NetworkPolicy by default" "${TMP}/eks.yaml" '^kind: NetworkPolicy'
 expect_not "no Namespace by default" "${TMP}/eks.yaml" '^kind: Namespace'
-expect "default admin password in Secret" "${TMP}/eks.yaml" "password: $(printf NetCheck-ChangeMe-1 | base64)"
+# Initial admin password: random on a new install (helm template has no
+# existing Secret to keep), the chosen one if set, no Secret with existingSecret.
+expect "random 24-character admin password" "${TMP}/eks.yaml" '^  password: [A-Za-z0-9+/]{32}$'
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" > "${TMP}/eks2.yaml"
+if [ "$(grep -E '^  password: ' "${TMP}/eks.yaml")" != "$(grep -E '^  password: ' "${TMP}/eks2.yaml")" ]; then
+  echo "PASS  admin password differs per install"
+else
+  echo "FAIL  admin password differs per install"; failures=$((failures + 1))
+fi
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" --set auth.bootstrapAdmin.password=My-Initial-Password-1 > "${TMP}/pw.yaml"
+expect "chosen admin password in Secret" "${TMP}/pw.yaml" "password: $(printf My-Initial-Password-1 | base64)"
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" --set auth.bootstrapAdmin.existingSecret=my-admin > "${TMP}/existing.yaml"
+expect_not "no bootstrap Secret with existingSecret" "${TMP}/existing.yaml" 'name: netcheck-bootstrap-admin'
+expect "Deployment reads existingSecret" "${TMP}/existing.yaml" 'name: my-admin'
 expect "version env for System page" "${TMP}/eks.yaml" 'name: NETCHECK_CHART_VERSION'
 expect "ServiceAccount admission policy" "${TMP}/eks.yaml" 'name: netcheck-probe-serviceaccounts'
 expect "images pinned by digest" "${TMP}/eks.yaml" 'netcheck@sha256:1111'

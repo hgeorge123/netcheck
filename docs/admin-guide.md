@@ -38,7 +38,7 @@ the chart when `namespace.create` is `true`, otherwise you create it yourself):
 | Service `netcheck` (ClusterIP) | namespace | Backend of the HTTPRoute or the Ingress; never exposed directly |
 | HTTPRoute `netcheck` **or** Ingress `netcheck` (never both) | namespace | Publishes NetCheck on your Gateway (`httpRoute.enabled`) or through an Ingress controller such as the AWS Load Balancer Controller (`ingress.enabled`) |
 | ConfigMap `netcheck-config` | namespace | Configuration, validated at startup |
-| Secret `netcheck-bootstrap-admin` | namespace | Initial administrator password (`auth.bootstrapAdmin.password`; not created when you use `existingSecret`) |
+| Secret `netcheck-bootstrap-admin` | namespace | Initial administrator password, generated on the first install (or `auth.bootstrapAdmin.password`); upgrades never change it; not created when you use `existingSecret` |
 | PersistentVolumeClaim `netcheck-data` | namespace | SQLite database (users, history and audit) |
 | StorageClass `netcheck-gp3` (optional, `persistence.createStorageClass`) | cluster | Encrypted EBS gp3, `WaitForFirstConsumer`, `Retain`, expandable |
 | ServiceAccount `netcheck-controller` | namespace | Controller identity, **no cloud IAM role** |
@@ -129,7 +129,7 @@ that come up most often:
 
 | Topic | Summary |
 |---|---|
-| Initial username and password | `admin` / `NetCheck-ChangeMe-1` (or `auth.bootstrapAdmin.password` / `existingSecret`); the password must be changed at first sign-in |
+| Initial username and password | `admin` / random password generated on the first install, in the Secret `netcheck-bootstrap-admin` (or `auth.bootstrapAdmin.password` / `existingSecret`); the password must be changed at first sign-in |
 | NetCheck namespace | You create it (`namespace.create: false`) or the chart does (`true`). No NetworkPolicy needed |
 | NetworkPolicies | None in source namespaces or in the NetCheck namespace (optional: `networkPolicy.enabled`) |
 | CNI | Must enforce NetworkPolicy (Calico, Cilium, Amazon VPC CNI with `enableNetworkPolicy`, …), otherwise results are meaningless |

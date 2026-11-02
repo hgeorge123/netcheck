@@ -135,9 +135,11 @@ NetCheck has its own user database (no external identity provider is required):
 - **No built-in MFA.** If you need it, put NetCheck behind your SSO proxy. Mitigations: lockout, rate limiting,
   mandatory HTTPS and sign-in auditing.
 
-**Initial administrator.** `admin` / `NetCheck-ChangeMe-1` unless you set `auth.bootstrapAdmin.password` or
-`existingSecret`. The password must be changed at first sign-in; sign in right after installing, because until then
-anyone who can reach the URL and knows the default could use it.
+**Initial administrator.** `admin`, with a random 24-character password that the chart generates on the first install
+(unless you set `auth.bootstrapAdmin.password` or `existingSecret`). Upgrades never change the Secret, and the
+application only uses it when no administrator exists or during the break-glass recovery, so existing passwords are
+never reset. It must be changed at first sign-in; do it right after installing, because until then anyone who can read
+the Secret could use it.
 
 ## 7. Audit
 

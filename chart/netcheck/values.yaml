@@ -64,10 +64,11 @@ auth:
     username: admin
     # -- Must stay true outside development.
     forcePasswordChange: true
-    # -- Default initial password. The admin MUST change it at the first
-    # sign-in. Override it (or use existingSecret) and sign in right after
-    # installing: until then anyone reaching the URL could use it.
-    password: "NetCheck-ChangeMe-1"
+    # -- Initial password. Empty (default): a random one is generated on the
+    # first install. Either way it only applies when the Secret is created:
+    # upgrades never change an existing Secret. The admin must change it at
+    # the first sign-in.
+    password: ""
     # -- Existing Secret holding the initial password (overrides password).
     existingSecret: ""
     secretKey: password

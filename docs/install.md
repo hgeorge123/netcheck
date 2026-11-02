@@ -210,8 +210,13 @@ Settings you usually keep:
 - **Destinations:** any name, IP and port can be tested by default. The cloud metadata service, the Kubernetes API
   server, loopback and link-local addresses are always denied (`protectPlatformDestinations: true`). After installation
   administrators can restrict destinations in **Administration → Destination policy** without redeploying.
-- **Initial admin password:** `admin` / `NetCheck-ChangeMe-1`, which must be changed at first sign-in. To set your own
-  without storing it in the values file, create a Secret and reference it:
+- **Initial admin password:** the chart generates a random one for `admin` on the first install and stores it in the
+  Secret `netcheck-bootstrap-admin`. Upgrades never change that Secret, and it survives `helm uninstall`, so a
+  reinstall reuses it. The password must be changed at first sign-in. Alternatives:
+  - `auth.bootstrapAdmin.password`: your own value, used only when the Secret is created.
+  - `existingSecret`: a Secret you manage, which keeps the password out of the values file. Use it too with tools that
+    render the chart with `helm template` (for example Argo CD): they cannot see the existing Secret and would
+    generate a new value on every sync.
 
   ```bash
   kubectl -n "$NC_NS" create secret generic netcheck-initial-admin --from-literal=password='<a-long-password>'
@@ -229,7 +234,7 @@ Settings you usually keep:
 - **Sessions:** 60 min idle, 12 h maximum, 15 min lockout after 5 failed attempts.
 - **`probe.settleSeconds`:** 3 s wait so the CNI applies policies to the new probe Pod before measuring (step 12).
 
-Keep `values.yaml` in your configuration repository. It holds no secrets if you use `existingSecret`.
+Keep `values.yaml` in your configuration repository. It holds no secrets: the initial password lives only in the cluster.
 
 ## 8. Validate against the cluster
 
@@ -302,14 +307,14 @@ kubectl -n "$NC_NS" port-forward svc/netcheck 8080:8080
 
 | User | Initial password |
 |---|---|
-| `admin` | `NetCheck-ChangeMe-1`, or the one in `auth.bootstrapAdmin.password` / `existingSecret` |
+| `admin` | Generated randomly on the first install (or the one in `auth.bootstrapAdmin.password` / `existingSecret`). Read it with the command below |
 
 ```bash
 kubectl -n "$NC_NS" get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-1. Open NetCheck **right after installing**. Until the password is changed, anyone who can reach the URL and knows the
-   default could sign in.
+1. Open NetCheck **right after installing** and change the password. Anyone who can read the Secret could sign in until
+   then.
 2. The interface is in English; choose **Español** in the **Language** selector if you prefer Spanish.
 3. Sign in as `admin`. NetCheck **forces a password change** (at least 12 characters) before anything else.
 4. Open **Administration → System and versions**: it must show the version and the image digests of the chart.
@@ -384,8 +389,9 @@ bash test/integration/lab.sh deploy    # builds the images and installs the char
 kubectl --context kind-netcheck-lab -n netcheck port-forward svc/netcheck 8080:8080
 ```
 
-Open `http://localhost:8080` and sign in as `admin` / `NetCheck-ChangeMe-1` (the lab does not force the password
-change). Try a TCP test to `echo.nc-target.svc.cluster.local` port `8080` from `nc-allow` (succeeds) and from
+Open `http://localhost:8080` and sign in as `admin` with the password from
+`kubectl --context kind-netcheck-lab -n netcheck get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d`
+(the lab does not force the password change). Try a TCP test to `echo.nc-target.svc.cluster.local` port `8080` from `nc-allow` (succeeds) and from
 `nc-deny` (times out). Remove everything with `bash test/integration/lab.sh down`.
 
 Requirements: Docker, kind, kubectl and Helm. See [test/integration/README.md](../test/integration/README.md).

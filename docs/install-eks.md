@@ -537,7 +537,7 @@ Fill every `<...>`:
 | `clusterId` | `my-cluster` | `$CLUSTER_NAME` (shown in the UI) |
 | `image.*` / `probeImage.*` | Leave commented out | The chart already points to its images by digest. Only for an ECR mirror: its repositories and the digests of step 11 |
 | `auth.trustedProxyCidrs` | `[10.0.0.0/16]` | VPC CIDR (step 9): covers the Gateway Pods and the ALB subnets |
-| `auth.bootstrapAdmin.password` | `NetCheck-ChangeMe-1` (default) | Change it or use `existingSecret` (step 18) |
+| `auth.bootstrapAdmin.password` | Leave it empty | A random password is generated on the first install and never changed by upgrades. Or use `existingSecret` (step 18) |
 | `namespace.create` / `namespace.name` | `false` / `""` | Step 12 |
 | `namespaceScope.mode` | `all` | `all`: every namespace, including future ones (ClusterRole). `list`: only `namespaceScope.namespaces` (per-namespace Roles, no cluster permissions) |
 | `namespaceScope.exclude` | `[amazon-cloudwatch, karpenter, <gateway-ns>]` | Platform namespaces nobody may use (also enforced by admission). `kube-system`, `kube-public`, `kube-node-lease` and `default` always are. Afterwards administrators can **add** exclusions in the web (**Administration → Namespaces**) without redeploying |
@@ -595,8 +595,6 @@ clusterId: my-cluster
 # image / probeImage: not needed, the chart already pins its images by digest
 auth:
   trustedProxyCidrs: [10.0.0.0/16]
-  bootstrapAdmin:
-    password: "Another-Long-Initial-Password"
 namespaceScope:
   mode: all
   exclude: [amazon-cloudwatch, amazon-guardduty, karpenter, nginx-gateway]
@@ -651,7 +649,7 @@ helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --versi
 ```
 <!-- x-release-please-end -->
 
-Keep `values-eks.yaml` in your configuration repository (it holds no secrets if you use `existingSecret`).
+Keep `values-eks.yaml` in your configuration repository (it holds no secrets: the initial password lives only in the cluster).
 
 ## 16. Verify the installation
 
@@ -708,14 +706,14 @@ curl -sI https://netcheck.example.com/ | head -1      # HTTP/2 200
 
 | User | Initial password |
 |---|---|
-| `admin` | `NetCheck-ChangeMe-1`, or the one in `auth.bootstrapAdmin.password` / `existingSecret` |
+| `admin` | Generated randomly on the first install (or the one in `auth.bootstrapAdmin.password` / `existingSecret`). Read it with the command below |
 
 ```bash
 kubectl -n "$NC_NS" get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-1. Open `https://netcheck.example.com` **right after installing**. Until you change the password, anyone reaching the URL
-   who knows the default value could sign in.
+1. Open `https://netcheck.example.com` **right after installing** and change the password. Anyone who can read the
+   Secret could sign in until then.
 2. The UI is in **English** by default. For Spanish choose **Español** in the **Language** selector before signing in; it
    is saved in your account.
 3. Sign in as `admin`. NetCheck **forces a password change** (at least 12 characters) before anything else.
@@ -802,8 +800,8 @@ bash test/integration/lab.sh deploy    # builds the images and installs the char
 kubectl --context kind-netcheck-lab -n netcheck port-forward svc/netcheck 8080:8080
 ```
 
-Open `http://localhost:8080` (or `https://netcheck.lab.test:8443` with the Gateway). User `admin`, password
-`NetCheck-ChangeMe-1` (the lab does not force the change; EKS does). To remove everything:
+Open `http://localhost:8080` (or `https://netcheck.lab.test:8443` with the Gateway). User `admin`, password in the
+Secret `netcheck-bootstrap-admin` (the lab does not force the change; EKS does). To remove everything:
 `bash test/integration/lab.sh down`.
 
 ## Appendix B. Final checklist

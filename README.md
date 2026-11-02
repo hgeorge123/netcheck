@@ -63,7 +63,14 @@ helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --versi
 ```
 <!-- x-release-please-end -->
 
-Sign in as `admin` / `NetCheck-ChangeMe-1` and set a new password straight away. The full step-by-step guides:
+The chart generates a random initial password for `admin` on the first install. Read it, sign in and set a new
+password straight away:
+
+```bash
+kubectl -n netcheck get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+The full step-by-step guides:
 
 - [Install on any Kubernetes cluster](docs/install.md)
 - [Install on Amazon EKS](docs/install-eks.md) (VPC CNI, EBS, ALB or Gateway API)

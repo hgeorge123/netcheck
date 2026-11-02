@@ -7,8 +7,10 @@ Namespace scope: {{ .Values.namespaceScope.mode }}{{ if eq .Values.namespaceScop
 
 2. Initial administrator (only created if no admin exists):
    username: {{ .Values.auth.bootstrapAdmin.username }}
-{{- if not .Values.auth.bootstrapAdmin.existingSecret }}
-   password: the value of auth.bootstrapAdmin.password (default: NetCheck-ChangeMe-1)
+{{- if .Values.auth.bootstrapAdmin.existingSecret }}
+   password: the one in the Secret {{ .Values.auth.bootstrapAdmin.existingSecret }}
+{{- else }}
+   password: generated on the first install and kept on upgrades
 {{- end }}
    Sign in NOW and change it. To read it from the cluster:
    kubectl -n {{ include "netcheck.namespace" . }} get secret {{ include "netcheck.bootstrapSecretName" . }} -o jsonpath='{.data.{{ .Values.auth.bootstrapAdmin.secretKey }}}' | base64 -d; echo

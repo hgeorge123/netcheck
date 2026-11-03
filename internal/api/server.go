@@ -36,9 +36,12 @@ type SlotLimiter interface {
 
 // Server holds API dependencies.
 type Server struct {
-	Store     *store.Store
-	Authn     auth.Authenticator
-	Local     *auth.LocalAuth
+	Store *store.Store
+	Authn auth.Authenticator
+	Local *auth.LocalAuth
+	// OIDC is single sign-on (nil when disabled); SSOName labels its button.
+	OIDC      *auth.OIDC
+	SSOName   string
 	Authz     *auth.Authorizer
 	ScopeMode string
 	Starter   RunStarter
@@ -94,12 +97,21 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("PUT /api/v1/admin/policy", requireAdmin(http.HandlerFunc(s.adminSetPolicy)))
 	api.Handle("POST /api/v1/admin/policy/check", requireAdmin(http.HandlerFunc(s.adminCheckDestination)))
 	api.Handle("GET /api/v1/admin/retention", requireAdmin(http.HandlerFunc(s.adminRetention)))
+	api.Handle("GET /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminAccessRules)))
+	api.Handle("POST /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminSaveAccessRule)))
+	api.Handle("PUT /api/v1/admin/access-rules/{id}", requireAdmin(http.HandlerFunc(s.adminSaveAccessRule)))
+	api.Handle("DELETE /api/v1/admin/access-rules/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteAccessRule)))
 	api.Handle("PUT /api/v1/admin/retention", requireAdmin(http.HandlerFunc(s.adminSetRetention)))
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "resource not found", nil)
 	})
-	// Login is the only API endpoint reachable without a session.
+	// Sign-in endpoints are the only ones reachable without a session. The
+	// SSO callback is a cross-site navigation from the provider: it is
+	// protected by the state cookie, the PKCE verifier and the nonce.
 	mux.Handle("POST /api/v1/auth/login", noStore(withCSRFProtection(http.HandlerFunc(s.login))))
+	mux.Handle("GET /api/v1/auth/providers", noStore(http.HandlerFunc(s.providers)))
+	mux.Handle("GET /api/v1/auth/oidc/start", noStore(http.HandlerFunc(s.oidcStart)))
+	mux.Handle("GET /api/v1/auth/oidc/callback", noStore(http.HandlerFunc(s.oidcCallback)))
 	mux.Handle("/api/", noStore(s.authenticated(withCSRFProtection(api))))
 	mux.Handle("/", s.static())
 
@@ -193,7 +205,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	body := map[string]any{"id": id.ID, "username": id.Username, "display": id.Display, "role": id.Role,
 		"allNamespaces": id.AllNamespaces, "mustChangePassword": id.MustChangePassword, "clusterId": s.ClusterID,
 		"namespaceScope": s.ScopeMode, "namespaces": []auth.NamespaceGrant{}, "language": id.Language,
-		"allowNetcheckNamespace": id.AllowNetcheckNamespace, "version": s.Version.Version}
+		"allowNetcheckNamespace": id.AllowNetcheckNamespace, "version": s.Version.Version, "source": id.Source}
 	if !id.MustChangePassword {
 		g, ok := s.grants(w, r)
 		if !ok {

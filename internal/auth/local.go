@@ -30,6 +30,8 @@ var (
 	ErrRateLimited = errors.New("too many login attempts")
 	// ErrForbiddenSelf protects admins from locking themselves out.
 	ErrForbiddenSelf = errors.New("operation not allowed on your own account")
+	// ErrSSOAccount is returned for password operations on SSO accounts.
+	ErrSSOAccount = errors.New("the account signs in with single sign-on")
 )
 
 // InputError is a user-correctable validation error. Code is stable and
@@ -100,7 +102,14 @@ func identityOf(u store.User, sessionHash string) Identity {
 	}
 	return Identity{ID: u.ID, Username: u.Username, Display: display, Role: u.Role, AllNamespaces: u.AllNamespaces,
 		Namespaces: ns, MustChangePassword: u.MustChangePassword, Language: languageOrDefault(u.Language),
-		AllowNetcheckNamespace: u.AllowNetcheckNamespace, SessionHash: sessionHash}
+		AllowNetcheckNamespace: u.AllowNetcheckNamespace, Source: sourceOf(u), SessionHash: sessionHash}
+}
+
+func sourceOf(u store.User) string {
+	if u.Source == "" {
+		return store.SourceLocal
+	}
+	return u.Source
 }
 
 func newSessionID() string {
@@ -203,9 +212,12 @@ func (l *LocalAuth) Login(ctx context.Context, username, password, clientIP, use
 	now := l.now()
 	ok, _ := VerifyPassword(password, u.PasswordHash)
 	locked := u.LockedUntil != nil && now.Before(*u.LockedUntil)
-	if !ok || locked || u.Disabled {
+	sso := sourceOf(u) != store.SourceLocal
+	if !ok || locked || u.Disabled || sso {
 		reason := "bad password"
 		switch {
+		case sso:
+			reason = "single sign-on account"
 		case locked:
 			reason = "locked"
 		case u.Disabled:
@@ -213,22 +225,28 @@ func (l *LocalAuth) Login(ctx context.Context, username, password, clientIP, use
 		}
 		ev := store.AuditEvent{ActorID: u.ID, Action: "auth.login", Outcome: "failed", RequestID: requestID,
 			DetailsJSON: details(map[string]any{"username": u.Username, "reason": reason, "clientIp": clientIP})}
-		if !ok && !locked {
+		if !ok && !locked && !sso {
 			_, _ = l.Store.RecordLoginFailure(ctx, u.ID, l.MaxFailures, now.Add(l.LockDuration), ev)
 		} else {
 			_ = l.Store.InsertAudit(ctx, ev)
 		}
 		return "", Identity{}, ErrInvalidCredentials
 	}
+	return l.newSession(ctx, u, clientIP, userAgent, requestID, map[string]any{"username": u.Username, "clientIp": clientIP})
+}
+
+// newSession creates a session for an authenticated user and audits the
+// sign-in. It returns the raw token for the cookie.
+func (l *LocalAuth) newSession(ctx context.Context, u store.User, clientIP, userAgent, requestID string, audit map[string]any) (string, Identity, error) {
+	now := l.now()
 	token := newToken()
 	h := hashToken(token)
 	if len(userAgent) > 256 {
 		userAgent = userAgent[:256]
 	}
-	err = l.Store.CreateSession(ctx, store.Session{ID: newSessionID(), TokenHash: h, UserID: u.ID, CreatedAt: now, LastSeenAt: now,
+	err := l.Store.CreateSession(ctx, store.Session{ID: newSessionID(), TokenHash: h, UserID: u.ID, CreatedAt: now, LastSeenAt: now,
 		ExpiresAt: now.Add(l.SessionMax), ClientIP: clientIP, UserAgent: userAgent},
-		store.AuditEvent{ActorID: u.ID, Action: "auth.login", Outcome: "success", RequestID: requestID,
-			DetailsJSON: details(map[string]any{"username": u.Username, "clientIp": clientIP})})
+		store.AuditEvent{ActorID: u.ID, Action: "auth.login", Outcome: "success", RequestID: requestID, DetailsJSON: details(audit)})
 	if err != nil {
 		return "", Identity{}, err
 	}
@@ -262,6 +280,9 @@ func (l *LocalAuth) ChangeOwnPassword(ctx context.Context, id Identity, current,
 	u, err := l.Store.GetUser(ctx, id.ID)
 	if err != nil {
 		return err
+	}
+	if sourceOf(u) != store.SourceLocal {
+		return ErrSSOAccount
 	}
 	if ok, _ := VerifyPassword(current, u.PasswordHash); !ok {
 		_ = l.Store.InsertAudit(ctx, store.AuditEvent{ActorID: u.ID, Action: "auth.password_change", Outcome: "failed", RequestID: requestID,
@@ -364,11 +385,17 @@ func (l *LocalAuth) UpdateUser(ctx context.Context, actor Identity, userID strin
 	if err != nil {
 		return store.User{}, err
 	}
+	if sourceOf(u) != store.SourceLocal {
+		// Role and namespaces of SSO accounts come from the access rules.
+		in.DisplayName, in.Role, in.AllNamespaces, in.Namespaces, in.AllowNetcheckNamespace = u.DisplayName, u.Role, u.AllNamespaces, u.Namespaces, u.AllowNetcheckNamespace
+	}
 	if userID == actor.ID && (in.Role != store.RoleAdmin || in.Disabled) {
 		return store.User{}, ErrForbiddenSelf
 	}
-	if err := l.validateProfile(ctx, &in); err != nil {
-		return store.User{}, err
+	if sourceOf(u) == store.SourceLocal {
+		if err := l.validateProfile(ctx, &in); err != nil {
+			return store.User{}, err
+		}
 	}
 	u.DisplayName, u.Role, u.AllNamespaces, u.Namespaces, u.Disabled = in.DisplayName, in.Role, in.AllNamespaces, in.Namespaces, in.Disabled
 	u.AllowNetcheckNamespace = in.AllowNetcheckNamespace
@@ -387,6 +414,9 @@ func (l *LocalAuth) ResetPassword(ctx context.Context, actor Identity, userID, p
 	u, err := l.Store.GetUser(ctx, userID)
 	if err != nil {
 		return err
+	}
+	if sourceOf(u) != store.SourceLocal {
+		return ErrSSOAccount
 	}
 	if err := ValidatePassword(password, u.Username); err != nil {
 		return weak("password", err)

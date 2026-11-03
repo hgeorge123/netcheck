@@ -123,3 +123,33 @@ func TestListModeOwnNamespace(t *testing.T) {
 		t.Error("own namespace accepted as probe source")
 	}
 }
+
+func TestOIDCConfig(t *testing.T) {
+	oidc := func(extra string) string {
+		return baseYAML("auth:\n  oidc:\n    enabled: true\n    issuerUrl: https://sso.example.com/dex\n    clientId: netcheck\n" +
+			"    redirectUrl: https://netcheck.example.com/api/v1/auth/oidc/callback\n" + extra)
+	}
+	cfg, err := Parse([]byte(oidc("")), env(nil))
+	if err != nil {
+		t.Fatalf("valid OIDC rejected: %v", err)
+	}
+	if o := cfg.Auth.OIDC; o.UsernameClaim != "email" || o.GroupsClaim != "groups" || o.ProviderName != "SSO" || len(o.Scopes) != 4 {
+		t.Errorf("defaults = %+v", o)
+	}
+	if _, err := Parse([]byte(oidc("    internalUrl: http://netcheck-dex:5556/dex\n")), env(nil)); err != nil {
+		t.Errorf("plain HTTP inside the cluster rejected: %v", err)
+	}
+	bad := map[string]string{
+		"http issuer":       strings.Replace(oidc(""), "https://sso", "http://sso", 1),
+		"no client":         strings.Replace(oidc(""), "clientId: netcheck", "clientId: \"\"", 1),
+		"wrong callback":    strings.Replace(oidc(""), "/api/v1/auth/oidc/callback", "/callback", 1),
+		"no openid scope":   oidc("    scopes: [email]\n"),
+		"unknown claim":     oidc("    usernameClaim: phone\n"),
+		"relative internal": oidc("    internalUrl: netcheck-dex\n"),
+	}
+	for name, y := range bad {
+		if _, err := Parse([]byte(y), env(nil)); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}

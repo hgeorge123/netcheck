@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"net/url"
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/yaml"
@@ -90,6 +92,24 @@ type Auth struct {
 	CookieSecure          bool           `json:"cookieSecure"`
 	TrustedProxyCIDRs     []string       `json:"trustedProxyCidrs"`
 	BootstrapAdmin        BootstrapAdmin `json:"bootstrapAdmin"`
+	OIDC                  OIDC           `json:"oidc"`
+}
+
+// OIDC configures single sign-on with an OpenID Connect provider. The
+// client secret comes from the NETCHECK_OIDC_CLIENT_SECRET environment
+// variable (Kubernetes Secret). Local accounts keep working alongside.
+type OIDC struct {
+	Enabled bool `json:"enabled"`
+	// ProviderName is the label of the sign-in button.
+	ProviderName string `json:"providerName"`
+	IssuerURL    string `json:"issuerUrl"`
+	// InternalURL reaches the provider inside the cluster (bundled Dex).
+	InternalURL   string   `json:"internalUrl"`
+	ClientID      string   `json:"clientId"`
+	RedirectURL   string   `json:"redirectUrl"`
+	Scopes        []string `json:"scopes"`
+	UsernameClaim string   `json:"usernameClaim"`
+	GroupsClaim   string   `json:"groupsClaim"`
 }
 
 // BootstrapAdmin is the initial administrator. The password comes from the
@@ -162,6 +182,8 @@ func Defaults() Config {
 			LoginAttemptsPerIPMin: 20,
 			CookieSecure:          true,
 			BootstrapAdmin:        BootstrapAdmin{Username: "admin", ForcePasswordChange: true},
+			OIDC: OIDC{ProviderName: "SSO", Scopes: []string{"openid", "profile", "email", "groups"},
+				UsernameClaim: "email", GroupsClaim: "groups"},
 		},
 		NamespaceScope:              NamespaceScope{Mode: ScopeAll},
 		ProtectPlatformDestinations: true,
@@ -285,6 +307,37 @@ func (c *Config) validate(getenv func(string) string) error {
 	for _, s := range a.TrustedProxyCIDRs {
 		if _, err := netip.ParsePrefix(s); err != nil {
 			add("auth.trustedProxyCidrs: invalid CIDR %q", s)
+		}
+	}
+	if o := a.OIDC; o.Enabled {
+		// Plain HTTP only in development: tokens and codes travel on these URLs.
+		urlOK := func(name, v string, internal bool) {
+			u, err := url.Parse(v)
+			switch {
+			case v == "" && internal:
+			case err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http"):
+				add("auth.oidc.%s must be an absolute URL", name)
+			case u.Scheme == "http" && !internal && c.Environment != EnvDevelopment:
+				add("auth.oidc.%s must use https outside development", name)
+			}
+		}
+		urlOK("issuerUrl", o.IssuerURL, false)
+		urlOK("redirectUrl", o.RedirectURL, false)
+		urlOK("internalUrl", o.InternalURL, true)
+		if o.RedirectURL != "" && !strings.HasSuffix(o.RedirectURL, "/api/v1/auth/oidc/callback") {
+			add("auth.oidc.redirectUrl must end with /api/v1/auth/oidc/callback")
+		}
+		if o.ClientID == "" {
+			add("auth.oidc.clientId is required")
+		}
+		if !slices.Contains(o.Scopes, "openid") {
+			add("auth.oidc.scopes must include openid")
+		}
+		if !slices.Contains([]string{"email", "preferred_username", "sub", "name"}, o.UsernameClaim) {
+			add("auth.oidc.usernameClaim must be email, preferred_username, sub or name")
+		}
+		if o.GroupsClaim == "" || len(o.ProviderName) > 40 {
+			add("auth.oidc.groupsClaim is required and providerName is at most 40 characters")
 		}
 	}
 	if c.Database.Path == "" {

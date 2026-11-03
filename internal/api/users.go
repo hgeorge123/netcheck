@@ -27,6 +27,10 @@ type UserView struct {
 	Language           string     `json:"language"`
 
 	AllowNetcheckNamespace bool `json:"allowNetcheckNamespace"`
+	// Source is "local" or "oidc"; SSO accounts take role and namespaces
+	// from the access rules and show the groups of their last sign-in.
+	Source string   `json:"source"`
+	Groups []string `json:"groups"`
 }
 
 func userView(u store.User, now time.Time) UserView {
@@ -37,7 +41,14 @@ func userView(u store.User, now time.Time) UserView {
 	locked := u.LockedUntil != nil && now.Before(*u.LockedUntil)
 	v := UserView{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, Role: u.Role, AllNamespaces: u.AllNamespaces,
 		Namespaces: ns, Disabled: u.Disabled, Locked: locked, MustChangePassword: u.MustChangePassword, CreatedAt: u.CreatedAt,
-		LastLoginAt: u.LastLoginAt, PasswordChangedAt: u.PasswordChangedAt, Language: u.Language, AllowNetcheckNamespace: u.AllowNetcheckNamespace}
+		LastLoginAt: u.LastLoginAt, PasswordChangedAt: u.PasswordChangedAt, Language: u.Language, AllowNetcheckNamespace: u.AllowNetcheckNamespace,
+		Source: u.Source, Groups: u.ExternalGroups}
+	if v.Source == "" {
+		v.Source = store.SourceLocal
+	}
+	if v.Groups == nil {
+		v.Groups = []string{}
+	}
 	if locked {
 		v.LockedUntil = u.LockedUntil
 	}
@@ -64,6 +75,8 @@ func (s *Server) writeUserError(w http.ResponseWriter, r *http.Request, err erro
 		writeError(w, r, http.StatusNotFound, "not_found", "user not found", nil)
 	case errors.Is(err, store.ErrLastAdmin):
 		writeError(w, r, http.StatusConflict, "last_admin", "the system cannot be left without an active administrator", nil)
+	case errors.Is(err, auth.ErrSSOAccount):
+		writeError(w, r, http.StatusConflict, "sso_account", "this account signs in with single sign-on and has no NetCheck password", nil)
 	case errors.Is(err, auth.ErrForbiddenSelf):
 		writeError(w, r, http.StatusConflict, "self_operation", "you cannot delete, disable or demote your own account", nil)
 	default:

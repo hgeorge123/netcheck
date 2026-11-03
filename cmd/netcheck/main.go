@@ -68,6 +68,19 @@ func kubeClient(cfg config.Config, log *slog.Logger) k8s.JobAPI {
 	return &k8s.Client{CS: cs}
 }
 
+// newOIDC returns the single sign-on client, or nil when it is disabled.
+// The client secret comes from a Kubernetes Secret and is never logged.
+func newOIDC(cfg config.Config, local *auth.LocalAuth, log *slog.Logger) *auth.OIDC {
+	o := cfg.Auth.OIDC
+	if !o.Enabled {
+		return nil
+	}
+	log.Info("single sign-on enabled", "issuer", o.IssuerURL, "internal_url", o.InternalURL, "username_claim", o.UsernameClaim)
+	return &auth.OIDC{Local: local, HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		Config: auth.OIDCConfig{Issuer: o.IssuerURL, ClientID: o.ClientID, ClientSecret: os.Getenv("NETCHECK_OIDC_CLIENT_SECRET"),
+			RedirectURL: o.RedirectURL, InternalURL: o.InternalURL, Scopes: o.Scopes, UsernameClaim: o.UsernameClaim, GroupsClaim: o.GroupsClaim}}
+}
+
 func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	cfg, err := config.Load(configPath, os.Getenv)
 	if err != nil {
@@ -223,6 +236,8 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 
 	srv := &api.Server{
 		Version: build,
+		OIDC:    newOIDC(cfg, local, log),
+		SSOName: cfg.Auth.OIDC.ProviderName,
 		Store:   st,
 		Authn:   local,
 		Local:   local,

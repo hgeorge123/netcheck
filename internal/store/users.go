@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"sort"
 	"strings"
@@ -44,7 +45,19 @@ type User struct {
 	// AllowNetcheckNamespace lets the user run probes from the namespace
 	// where NetCheck is installed (hidden for everybody else).
 	AllowNetcheckNamespace bool
+	// Source is SourceLocal (password) or SourceOIDC (single sign-on).
+	Source string
+	// ExternalSubject identifies an SSO account at its identity provider.
+	ExternalSubject string
+	// ExternalGroups are the groups of the last SSO sign-in.
+	ExternalGroups []string
 }
+
+// Account sources.
+const (
+	SourceLocal = "local"
+	SourceOIDC  = "oidc"
+)
 
 // Session is a server-side login session. ID is a public random identifier
 // for administration; the token itself is never stored.
@@ -71,17 +84,23 @@ func isUnique(err error) bool {
 }
 
 const userColumns = `id, username, display_name, role, password_hash, must_change_password, disabled, all_namespaces,
-	failed_attempts, locked_until, created_at, updated_at, last_login_at, password_changed_at, language, allow_netcheck_namespace`
+	failed_attempts, locked_until, created_at, updated_at, last_login_at, password_changed_at, language, allow_netcheck_namespace,
+	source, external_subject, external_groups`
 
 func scanUser(sc interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var must, disabled, all, own int
 	var locked, lastLogin sql.NullString
-	var created, updated, pwChanged string
+	var created, updated, pwChanged, groups string
+	var subject sql.NullString
 	if err := sc.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.PasswordHash, &must, &disabled, &all,
-		&u.FailedAttempts, &locked, &created, &updated, &lastLogin, &pwChanged, &u.Language, &own); err != nil {
+		&u.FailedAttempts, &locked, &created, &updated, &lastLogin, &pwChanged, &u.Language, &own,
+		&u.Source, &subject, &groups); err != nil {
 		return User{}, err
 	}
+	u.ExternalSubject = subject.String
+	u.ExternalGroups = []string{}
+	_ = json.Unmarshal([]byte(groups), &u.ExternalGroups)
 	u.MustChangePassword, u.Disabled, u.AllNamespaces, u.AllowNetcheckNamespace = must == 1, disabled == 1, all == 1, own == 1
 	u.LockedUntil, u.LastLoginAt = parseTS(locked), parseTS(lastLogin)
 	for dst, s := range map[*time.Time]string{&u.CreatedAt: created, &u.UpdatedAt: updated, &u.PasswordChangedAt: pwChanged} {
@@ -134,9 +153,17 @@ func (s *Store) CreateUser(ctx context.Context, u User, ev AuditEvent) error {
 		if u.Language == "" {
 			u.Language = "en"
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO users (`+userColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		if u.Source == "" {
+			u.Source = SourceLocal
+		}
+		var subject any
+		if u.ExternalSubject != "" {
+			subject = u.ExternalSubject
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO users (`+userColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			u.ID, u.Username, u.DisplayName, u.Role, u.PasswordHash, b2i(u.MustChangePassword), b2i(u.Disabled), b2i(u.AllNamespaces),
-			0, nil, ts(u.CreatedAt), ts(u.UpdatedAt), nil, ts(u.PasswordChangedAt), u.Language, b2i(u.AllowNetcheckNamespace))
+			0, nil, ts(u.CreatedAt), ts(u.UpdatedAt), nil, ts(u.PasswordChangedAt), u.Language, b2i(u.AllowNetcheckNamespace),
+			u.Source, subject, jsonList(u.ExternalGroups))
 		if err != nil {
 			return err
 		}
@@ -166,6 +193,11 @@ func (s *Store) getUser(ctx context.Context, where string, arg any) (User, error
 // GetUser returns a user by id.
 func (s *Store) GetUser(ctx context.Context, id string) (User, error) {
 	return s.getUser(ctx, "id = ?", id)
+}
+
+// GetUserByExternalSubject returns the SSO account of an identity provider subject.
+func (s *Store) GetUserByExternalSubject(ctx context.Context, subject string) (User, error) {
+	return s.getUser(ctx, "external_subject = ?", subject)
 }
 
 // GetUserByUsername returns a user by case-insensitive username.

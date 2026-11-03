@@ -28,6 +28,8 @@ type Identity struct {
 	Language           string   `json:"language"`
 	// AllowNetcheckNamespace exposes the NetCheck namespace as a source.
 	AllowNetcheckNamespace bool `json:"allowNetcheckNamespace"`
+	// Source is "local" (password) or "oidc" (single sign-on).
+	Source string `json:"source"`
 	// SessionHash identifies the current session (never serialised).
 	SessionHash string `json:"-"`
 }

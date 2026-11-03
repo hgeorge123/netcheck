@@ -247,6 +247,11 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
+	// Trusted certificate authorities for HTTPS checks, managed the same way.
+	trustedCAs, err := api.LoadTrustedCAs(ctx, st, cfg.TrustedCAs, cfg.TrustedCAsManagedBy == config.DestinationsManagedByUI, time.Now())
+	if err != nil {
+		return err
+	}
 
 	srv := &api.Server{
 		Version: build,
@@ -258,15 +263,16 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 		Authz:   &auth.Authorizer{Source: visible, OwnNamespace: cfg.OwnNamespace},
 		NSAdmin: &api.NamespaceAdmin{All: nsAll, Web: visible, HelmExcluded: cfg.NamespaceScope.Exclude,
 			System: config.SystemNamespaces},
-		ScopeMode: cfg.NamespaceScope.Mode,
-		Starter:   exec,
-		Limiter:   limiter,
-		Policies:  policies,
-		Retention: retention,
-		Limits:    cfg.ProbeLimits(),
-		ClusterID: cfg.ClusterID,
-		WebDir:    cfg.WebDir,
-		Log:       log,
+		ScopeMode:  cfg.NamespaceScope.Mode,
+		Starter:    exec,
+		Limiter:    limiter,
+		Policies:   policies,
+		TrustedCAs: trustedCAs,
+		Retention:  retention,
+		Limits:     cfg.ProbeLimits(),
+		ClusterID:  cfg.ClusterID,
+		WebDir:     cfg.WebDir,
+		Log:        log,
 	}
 	httpSrv := &http.Server{
 		Addr:              cfg.Listen,

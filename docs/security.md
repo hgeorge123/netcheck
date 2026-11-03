@@ -41,6 +41,10 @@ specification:
   of checks per test and of concurrent Jobs per namespace and in total.
 - **Specification:** passed as an immutable JSON environment variable (`NETCHECK_SPEC`) and validated again by the
   probe. No ConfigMaps, no arguments, no user-controlled headers or bodies.
+- **Extra certificate authorities:** the authorities administrators add for HTTPS (corporate PKI, TLS inspection
+  proxies) travel in that same specification, only for tests with an HTTPS check. They are public certificates, never
+  keys; the probe parses them again, accepts only CA certificates and **adds** them to the public authorities without
+  replacing them. Adding them needs no volume, no ConfigMap, no change to the admission policies and no custom image.
 - **Output:** the probe prints a single structured result line; the controller reads it through the API server
   (`pods/log`), not over the network, and then deletes the Job.
 

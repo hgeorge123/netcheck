@@ -30,3 +30,27 @@ func TestDestinationPolicyRoundTrip(t *testing.T) {
 		t.Errorf("audit events = %d, want 2", n)
 	}
 }
+
+func TestTrustedCAsRoundTrip(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	if _, err := s.GetTrustedCAs(ctx); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("empty database: %v", err)
+	}
+	now := time.Date(2026, 11, 3, 10, 0, 0, 0, time.UTC)
+	for i, body := range []string{`[]`, `["-----BEGIN CERTIFICATE-----"]`} {
+		ev := AuditEvent{ActorID: "u1", Action: "trusted_cas.update", Outcome: "success"}
+		if err := s.SaveTrustedCAs(ctx, StoredTrustedCAs{CertificatesJSON: body, UpdatedAt: now.Add(time.Duration(i) * time.Hour), UpdatedBy: "admin"}, ev); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c, err := s.GetTrustedCAs(ctx)
+	if err != nil || c.CertificatesJSON != `["-----BEGIN CERTIFICATE-----"]` || c.UpdatedBy != "admin" || !c.UpdatedAt.Equal(now.Add(time.Hour)) {
+		t.Fatalf("got %+v %v", c, err)
+	}
+	var n int
+	s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM audit_events WHERE action = 'trusted_cas.update'`).Scan(&n)
+	if n != 2 {
+		t.Errorf("audit events = %d, want 2", n)
+	}
+}

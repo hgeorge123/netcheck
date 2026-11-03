@@ -173,12 +173,16 @@ expect "AKS uses the Azure Disk class" "${TMP}/aks.yaml" "storageClassName: mana
 expect_not "AKS creates no AWS StorageClass" "${TMP}/aks.yaml" "ebs.csi.aws.com"
 expect "AKS denies the Azure platform address" "${TMP}/aks.yaml" "168.63.129.16/32"
 
-for values in eks list kind sso aks; do
+# Windows helm needs a native path for --set-file.
+CA_FILE="${CHART}/ci/trusted-ca.pem"
+command -v cygpath > /dev/null && CA_FILE="$(cygpath -m "${CA_FILE}")"
+for values in eks list kind sso aks cas; do
   case "${values}" in
     eks) extra=("${EKS[@]}" "${GW[@]}") ;;
     list) extra=("${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=list --set 'namespaceScope.namespaces={payments}' --set 'namespaceScope.exclude=null') ;;
     sso) extra=("${EKS[@]}" "${ALB[@]}" "${DEX[@]}") ;;
     aks) extra=("${AKS[@]}") ;;
+    cas) extra=("${EKS[@]}" "${GW[@]}" --set trustedCasManagedBy=helm --set-file "trustedCas[0]=${CA_FILE}") ;;
     kind) extra=(-f "${ROOT}/test/integration/values-kind.yaml" --set image.repository=localhost:5001/netcheck --set image.tag=lab
           --set probeImage.repository=localhost:5001/netcheck-probe --set "probeImage.digest=sha256:$(printf '0%.0s' {1..64})") ;;
   esac
@@ -197,6 +201,10 @@ expect "default destinations allow every port" "${TMP}/cm-kind.yaml" 'to: 65535'
 expect "metadata/API server protections on by default" "${TMP}/cm-kind.yaml" 'protectPlatformDestinations: true'
 expect "destination policy managed in the web by default" "${TMP}/cm-kind.yaml" 'destinationsManagedBy: "ui"'
 must_fail "unknown policy manager" "destinationsManagedBy must be ui" "${EKS[@]}" "${GW[@]}" --set destinationsManagedBy=git
+expect_not "no trusted authorities by default" "${TMP}/cm-kind.yaml" 'BEGIN CERTIFICATE'
+expect "trusted authorities managed in the web by default" "${TMP}/cm-kind.yaml" 'trustedCasManagedBy: "ui"'
+expect "trusted authority rendered as PEM" "${TMP}/cm-cas.yaml" 'BEGIN CERTIFICATE'
+must_fail "unknown trusted authorities manager" "trustedCasManagedBy must be ui" "${EKS[@]}" "${GW[@]}" --set trustedCasManagedBy=git
 
 [ "${failures}" -eq 0 ] || { echo "${failures} chart check(s) failed"; exit 1; }
 echo "All chart checks passed."

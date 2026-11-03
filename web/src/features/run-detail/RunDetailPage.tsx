@@ -121,6 +121,7 @@ function CheckDetail({ c }: { c: ExecutionView }) {
   }
   if (r?.http?.tlsNames?.length) pairs.push({ label: t('run.tlsNames'), value: r.http.tlsNames.join(', ') });
   if (r?.http?.tlsIssuer) pairs.push({ label: t('run.tlsIssuer'), value: r.http.tlsIssuer });
+  if (r?.http?.tlsTrustedCa) pairs.push({ label: t('run.tlsTrustedCa'), value: t('run.tlsTrustedCaValue', { name: r.http.tlsTrustedCa }) });
   if (r?.udp) {
     const u = r.udp;
     pairs.push({ label: t('run.udp.protocol'), value: t(`newTest.udp.${u.protocol}`) });

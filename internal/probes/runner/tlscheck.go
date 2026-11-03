@@ -17,12 +17,16 @@ type certReport struct {
 	detail   string   // one sentence per problem, for people
 	names    []string // DNS names and IP addresses of the certificate
 	issuer   string
+	// trustedCA is the configured authority (one of extra) the chain ends
+	// at, when no public authority validates it.
+	trustedCA string
 }
 
 // inspectCertificate checks the server certificate the way a browser would,
 // but reports every problem instead of stopping at the first: validity
 // dates, the host name and the chain of trust are checked independently.
-func inspectCertificate(certs []*x509.Certificate, host string, roots *x509.CertPool, now time.Time) certReport {
+// extra are the trusted authorities configured in NetCheck, already in roots.
+func inspectCertificate(certs []*x509.Certificate, host string, roots *x509.CertPool, extra []*x509.Certificate, now time.Time) certReport {
 	if len(certs) == 0 {
 		return certReport{problems: []string{probes.TLSInvalid}, detail: "the server sent no certificate"}
 	}
@@ -69,7 +73,10 @@ func inspectCertificate(certs []*x509.Certificate, host string, roots *x509.Cert
 	for _, c := range certs[1:] {
 		inter.AddCert(c)
 	}
-	if _, err := leaf.Verify(x509.VerifyOptions{Roots: roots, Intermediates: inter, CurrentTime: at}); err != nil {
+	chains, err := leaf.Verify(x509.VerifyOptions{Roots: roots, Intermediates: inter, CurrentTime: at})
+	if err == nil {
+		r.trustedCA = configuredAuthority(chains, extra)
+	} else {
 		var unknown x509.UnknownAuthorityError
 		switch {
 		case errors.As(err, &unknown) && selfSigned(leaf):
@@ -82,6 +89,51 @@ func inspectCertificate(certs []*x509.Certificate, host string, roots *x509.Cert
 	}
 	r.detail = strings.Join(parts, "; ")
 	return r
+}
+
+// trustPool returns the roots for HTTPS: the public ones (r.RootCAs in
+// tests) plus the authorities configured in NetCheck, which are returned too.
+func (r *Runner) trustPool(pems []string) (*x509.CertPool, []*x509.Certificate, error) {
+	if len(pems) == 0 {
+		return r.RootCAs, nil, nil
+	}
+	extra, err := probes.ParseTrustedCAs(pems)
+	if err != nil {
+		return nil, nil, err
+	}
+	var pool *x509.CertPool
+	if r.RootCAs != nil {
+		pool = r.RootCAs.Clone()
+	} else if pool, err = x509.SystemCertPool(); err != nil {
+		pool = x509.NewCertPool()
+	}
+	for _, c := range extra {
+		pool.AddCert(c)
+	}
+	return pool, extra, nil
+}
+
+// configuredAuthority returns the name of the configured authority every
+// chain ends at, or "" when a chain ends at another (public) authority.
+func configuredAuthority(chains [][]*x509.Certificate, extra []*x509.Certificate) string {
+	name := ""
+	for _, chain := range chains {
+		root := chain[len(chain)-1]
+		configured := false
+		for _, c := range extra {
+			if bytes.Equal(c.Raw, root.Raw) {
+				configured = true
+				break
+			}
+		}
+		if !configured {
+			return ""
+		}
+		if name == "" {
+			name = probes.CertName(root)
+		}
+	}
+	return name
 }
 
 // selfSigned reports a certificate issued and signed by itself (a server

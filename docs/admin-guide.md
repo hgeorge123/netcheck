@@ -4,7 +4,8 @@ This guide is for the people who **install and operate** NetCheck and for those 
 interface. For day-to-day use, see the [user guide](user-guide.md).
 
 - **Part I:** what gets deployed, how probes work and which NetworkPolicies are needed.
-- **Part II:** administration from the web (users, roles, namespaces, destination policy, sessions and versions).
+- **Part II:** administration from the web (users, roles, namespaces, destination policy, certificate authorities,
+  sessions and versions).
 - **Part III:** operations (upgrades, backups, recovery, uninstall and troubleshooting).
 
 Installation itself is covered step by step in [install.md](install.md) (any Kubernetes cluster) and
@@ -422,6 +423,43 @@ stops working when the account is disabled.
 **Revoke** it when it is no longer needed or may have leaked: pipelines using it fail at once with an authentication
 error. Expired tokens are deleted automatically. Creating and revoking tokens is audited (`token.create`,
 `token.revoke`).
+
+## 18. Certificate authorities
+
+HTTPS checks verify certificates against the **public** authorities only. A server with a certificate from your
+corporate PKI, or traffic that a proxy inspects (the proxy re-signs every certificate with its own authority), is
+reported as *signed by an authority the probe does not trust*. **Administration → Certificate authorities** adds
+authorities that HTTPS checks trust **on top of** the public ones:
+
+1. Click **Add certificates** and paste the authority in PEM, from `-----BEGIN CERTIFICATE-----` to
+   `-----END CERTIFICATE-----`. A bundle with several certificates is split; duplicates are dropped.
+2. Click **Add certificates** again to save. New tests use the list at once; there is nothing to redeploy and no custom
+   image.
+
+The list shows the subject, the issuer, the expiry (expired authorities are marked) and the SHA-256 fingerprint, to
+compare with the one your PKI team gives you. Select an authority and **Remove** it to stop trusting it.
+
+Only certificates of authorities are accepted: a server certificate (`CA:FALSE`), anything that is not PEM and any
+private key are refused. At most 50 certificates and 64 KiB in total, because the list travels inside the
+specification of every HTTPS test. Tests without an HTTPS check never receive it. Every change is in the audit log
+(`trusted_cas.update`) with the subject and fingerprint of each certificate, never the PEM.
+
+When a certificate was validated through one of these authorities, the result says so (**Trusted through: … (authority
+configured in NetCheck, not a public one)**) and the equivalent command adds `--cacert`. If a public site such as
+`www.google.com` shows up as trusted through your corporate authority, something on the path is inspecting TLS.
+
+**With Helm or Argo CD.** The initial list comes from `trustedCas` in the values (certificates are public data, safe in
+Git). Like the destination policy, `trustedCasManagedBy: ui` (default) copies it to the database on the first start
+and the web manages it afterwards; `trustedCasManagedBy: helm` makes the values authoritative and the page read-only:
+
+```yaml
+trustedCasManagedBy: helm
+trustedCas:
+  - |
+    -----BEGIN CERTIFICATE-----
+    ...
+    -----END CERTIFICATE-----
+```
 
 ---
 

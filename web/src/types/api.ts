@@ -184,6 +184,8 @@ export interface HTTPResult {
   tlsIgnored?: boolean;
   tlsNames?: string[];
   tlsIssuer?: string;
+  /** Trusted authority configured in NetCheck (not a public one) the certificate chains to. */
+  tlsTrustedCa?: string;
   connectMs?: number;
   tlsMs?: number;
   firstByteMs?: number;
@@ -348,6 +350,24 @@ export interface SystemInfo {
   destinations: DestinationPolicy;
   destinationsManagedBy: 'ui' | 'helm';
   retention: RetentionView;
+}
+
+export interface TrustedCertificate {
+  pem: string;
+  subject: string;
+  issuer: string;
+  notBefore: string;
+  notAfter: string;
+  fingerprintSha256: string;
+  expired: boolean;
+}
+
+export interface TrustedCAsView {
+  certificates: TrustedCertificate[];
+  managedBy: 'ui' | 'helm';
+  editable: boolean;
+  updatedAt: string;
+  updatedBy: string;
 }
 
 export interface RetentionView {

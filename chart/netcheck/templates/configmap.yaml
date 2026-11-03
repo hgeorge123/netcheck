@@ -51,6 +51,9 @@ data:
       {{- toYaml .Values.destinations | nindent 6 }}
     protectPlatformDestinations: {{ .Values.protectPlatformDestinations }}
     destinationsManagedBy: {{ .Values.destinationsManagedBy | quote }}
+    trustedCasManagedBy: {{ .Values.trustedCasManagedBy | quote }}
+    trustedCas:
+      {{- toYaml .Values.trustedCas | nindent 6 }}
     kubeApiServerCidrs:
       {{- toYaml (concat .Values.kubeApiServerCidrs .Values.networkPolicy.apiServer.cidrs | uniq) | nindent 6 }}
     limits:

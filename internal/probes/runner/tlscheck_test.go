@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"math/big"
 	"net"
 	"net/http"
@@ -106,13 +107,13 @@ func TestInspectCertificate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rep := inspectCertificate([]*x509.Certificate{tc.cert}, tc.host, roots, now)
+			rep := inspectCertificate([]*x509.Certificate{tc.cert}, tc.host, roots, nil, now)
 			if !slices.Equal(rep.problems, tc.want) || !strings.Contains(rep.detail, tc.fragment) {
 				t.Fatalf("problems = %v, detail = %q", rep.problems, rep.detail)
 			}
 		})
 	}
-	if rep := inspectCertificate(nil, "x", roots, now); !slices.Equal(rep.problems, []string{probes.TLSInvalid}) {
+	if rep := inspectCertificate(nil, "x", roots, nil, now); !slices.Equal(rep.problems, []string{probes.TLSInvalid}) {
 		t.Errorf("no certificate: %+v", rep)
 	}
 }
@@ -167,5 +168,50 @@ func TestHTTPSCertificateProblems(t *testing.T) {
 	cr = one(t, r, mkSpec(t, "127.0.0.1", okPort, c))
 	if cr.Status != probes.StatusSucceeded || len(cr.HTTP.TLSProblems) != 0 || cr.HTTP.TLSIgnored {
 		t.Fatalf("valid certificate = %+v http = %+v", cr, cr.HTTP)
+	}
+}
+
+func pemOf(c *x509.Certificate) string {
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw}))
+}
+
+func TestHTTPSConfiguredAuthority(t *testing.T) {
+	public := newCA(t, "Public Root")
+	corp := newCA(t, "Corp Inspection CA")
+	now := time.Now()
+	pool := x509.NewCertPool()
+	pool.AddCert(public.cert)
+	r, _ := newRunner(nil)
+	r.RootCAs = pool
+
+	// A certificate from the corporate authority (a proxy inspecting TLS)
+	// is untrusted until the authority is configured.
+	corpPort := tlsServer(t, &corp, []string{"127.0.0.1"}, now.Add(-time.Hour), now.Add(time.Hour))
+	cr := one(t, r, mkSpec(t, "127.0.0.1", corpPort, httpCheck("GET", "https", "/")))
+	if cr.Status != probes.StatusFailed || !slices.Equal(cr.HTTP.TLSProblems, []string{probes.TLSUnknownAuthority}) {
+		t.Fatalf("without the authority = %+v http = %+v", cr, cr.HTTP)
+	}
+
+	spec := mkSpec(t, "127.0.0.1", corpPort, httpCheck("GET", "https", "/"))
+	spec.TrustedCAs = []string{pemOf(corp.cert)}
+	cr = one(t, r, spec)
+	if cr.Status != probes.StatusSucceeded || len(cr.HTTP.TLSProblems) != 0 || cr.HTTP.TLSTrustedCA != "Corp Inspection CA" {
+		t.Fatalf("with the authority = %+v http = %+v", cr, cr.HTTP)
+	}
+	n := len(cr.Equivalent)
+	if n < 4 || cr.Equivalent[n-4] != "--cacert" || cr.Equivalent[n-2] != "--" || !strings.HasPrefix(cr.Equivalent[n-1], "https://") {
+		t.Errorf("equivalent command = %v", cr.Equivalent)
+	}
+	if !strings.Contains(cr.Output, "configured authority Corp Inspection CA") {
+		t.Errorf("output = %q", cr.Output)
+	}
+
+	// The public authorities stay trusted, and are not reported as configured.
+	publicPort := tlsServer(t, &public, []string{"127.0.0.1"}, now.Add(-time.Hour), now.Add(time.Hour))
+	spec = mkSpec(t, "127.0.0.1", publicPort, httpCheck("GET", "https", "/"))
+	spec.TrustedCAs = []string{pemOf(corp.cert)}
+	cr = one(t, r, spec)
+	if cr.Status != probes.StatusSucceeded || cr.HTTP.TLSTrustedCA != "" || slices.Contains(cr.Equivalent, "--cacert") {
+		t.Fatalf("public certificate = %+v http = %+v", cr, cr.HTTP)
 	}
 }

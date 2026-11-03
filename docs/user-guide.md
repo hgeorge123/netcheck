@@ -244,6 +244,7 @@ The **Details** block also shows the **probe Pod IP** and the **node** the measu
 | HTTP/HTTPS **200–299** | The service answered fine | — |
 | HTTP/HTTPS **401/403/404/5xx** | **There is connectivity**; the problem is in the application. Shown as a warning, not as a network failure | A network problem |
 | TLS **certificate not valid** | It connected, but the certificate failed; the detail says which problem: expired or not yet valid, issued for another name, signed by an authority the probe does not trust, or self-signed | A network block |
+| HTTPS **Trusted through** an authority *configured in NetCheck* | The certificate is valid, but only thanks to an authority your administrators added (corporate PKI or a TLS inspection proxy, [admin guide §18](admin-guide.md#18-certificate-authorities)) | That other clients trust it: they need the same authority installed |
 | HTTPS answered, **certificate errors ignored** (warning) | You chose *Ignore certificate errors*: the network and the application answer, but the certificate has the problems listed | That clients will accept it: anything that verifies certificates still rejects it |
 | Ping **no reply** | No echo reply arrived | That TCP is blocked: ICMP is often filtered while TCP works |
 | Ping **partial loss** | Some requests got no reply; the host is reachable | — |

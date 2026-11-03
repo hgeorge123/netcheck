@@ -117,6 +117,9 @@ type Spec struct {
 	Policy         DestinationPolicy `json:"policy"`
 	MaxOutputBytes int               `json:"maxOutputBytes"`
 	SettleMS       int               `json:"settleMs"`
+	// TrustedCAs are PEM certificate authorities trusted for HTTPS on top of
+	// the public ones; only sent when the run has an HTTPS check.
+	TrustedCAs []string `json:"trustedCas,omitempty"`
 }
 
 // SourceInfo describes where the probe actually ran.
@@ -205,6 +208,10 @@ type HTTPResult struct {
 	TLSIgnored       bool     `json:"tlsIgnored,omitempty"`
 	TLSNames         []string `json:"tlsNames,omitempty"`
 	TLSIssuer        string   `json:"tlsIssuer,omitempty"`
+	// TLSTrustedCA names the trusted certificate authority configured in
+	// NetCheck (not a public one) the certificate chains to: a corporate PKI
+	// or a proxy that inspects TLS.
+	TLSTrustedCA string `json:"tlsTrustedCa,omitempty"`
 }
 
 // UDPResult holds UDP specific evidence.

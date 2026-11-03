@@ -22,6 +22,7 @@ import type {
   SessionsResponse,
   Stats,
   SystemInfo,
+  TrustedCAsView,
   UserInput,
   UserView,
 } from '../types/api';
@@ -136,6 +137,8 @@ export const api = {
     policy: () => request<PolicyView>('/api/v1/admin/policy'),
     savePolicy: (p: DestinationPolicy) => put<PolicyView>('/api/v1/admin/policy', p),
     checkDestination: (target: string, port?: number) => post<PolicyCheck>('/api/v1/admin/policy/check', port ? { target, port } : { target }),
+    trustedCAs: () => request<TrustedCAsView>('/api/v1/admin/trusted-cas'),
+    saveTrustedCAs: (certificates: string[]) => put<TrustedCAsView>('/api/v1/admin/trusted-cas', { certificates }),
     retention: () => request<RetentionView>('/api/v1/admin/retention'),
     saveRetention: (r: { outputDays: number; metadataDays: number }) => put<RetentionView>('/api/v1/admin/retention', r),
     accessRules: () => request<{ items: AccessRule[]; ssoEnabled: boolean }>('/api/v1/admin/access-rules'),

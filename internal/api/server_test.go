@@ -93,9 +93,10 @@ func newFixture(t *testing.T) *fixture {
 		Starter: starter, Limiter: lim,
 		Policies: NewDestinationPolicies(probes.DestinationPolicy{AllowCIDRs: []string{"10.0.0.0/8"}, AllowHostnameSuffixes: []string{".svc.cluster.local"},
 			AllowPorts: []probes.PortRange{{From: 80, To: 443}}}, probes.BuiltinDenyCIDRs, true),
-		Retention: NewRetentionSettings(15, 45),
-		Limits:    probes.Limits{MaxChecks: 5, DefaultCheckTimeout: 5 * time.Second, MaxCheckTimeout: 10 * time.Second, MaxJobDuration: 60 * time.Second, MaxOutputBytes: 65536},
-		ClusterID: "lab", WebDir: web, Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		TrustedCAs: mustTrustedCAs(t, st),
+		Retention:  NewRetentionSettings(15, 45),
+		Limits:     probes.Limits{MaxChecks: 5, DefaultCheckTimeout: 5 * time.Second, MaxCheckTimeout: 10 * time.Second, MaxJobDuration: 60 * time.Second, MaxOutputBytes: 65536},
+		ClusterID:  "lab", WebDir: web, Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 	f := &fixture{t: t, srv: srv, h: srv.Handler(), store: st, local: local, ns: ns, starter: starter}
 	f.admin = f.login("admin", adminPass, http.StatusOK)

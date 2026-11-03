@@ -138,6 +138,22 @@ destinations:
   allowPorts:
     - {from: 1, to: 65535}
 
+# -- Who manages the trusted certificate authorities: "ui" (default) = trustedCas
+# is only the INITIAL list, copied to the database on the first start;
+# afterwards administrators manage it in Administration > Certificate
+# authorities. "helm" = trustedCas is authoritative and the web page is read-only.
+trustedCasManagedBy: ui
+
+# -- Certificate authorities (PEM) HTTPS checks trust on top of the public ones:
+# your corporate PKI or the CA of a proxy that inspects TLS. Public data, safe
+# in Git. Each entry may be a bundle; private keys are refused. Example:
+# trustedCas:
+#   - |
+#     -----BEGIN CERTIFICATE-----
+#     ...
+#     -----END CERTIFICATE-----
+trustedCas: []
+
 # -- Keep true. Always denies cloud metadata (169.254.169.254, fd00:ec2::254,
 # where a Pod could read the node IAM credentials), the Kubernetes API server,
 # loopback, link-local, multicast and reserved ranges, whatever destinations

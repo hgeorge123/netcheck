@@ -54,11 +54,16 @@ type Config struct {
 	// DestinationsManagedBy is "ui" (Destinations only seed the policy stored
 	// in the database, administrators edit it in the web) or "helm" (the
 	// configuration is authoritative and the web is read-only).
-	DestinationsManagedBy string    `json:"destinationsManagedBy"`
-	Limits                Limits    `json:"limits"`
-	Probe                 Probe     `json:"probe"`
-	Retention             Retention `json:"retention"`
-	NetworkPolicyRead     bool      `json:"networkPolicyRead"`
+	DestinationsManagedBy string `json:"destinationsManagedBy"`
+	// TrustedCAs are PEM certificate authorities trusted by HTTPS checks on
+	// top of the public ones (corporate PKI, TLS inspection proxies).
+	// TrustedCAsManagedBy works like DestinationsManagedBy.
+	TrustedCAs          []string  `json:"trustedCas"`
+	TrustedCAsManagedBy string    `json:"trustedCasManagedBy"`
+	Limits              Limits    `json:"limits"`
+	Probe               Probe     `json:"probe"`
+	Retention           Retention `json:"retention"`
+	NetworkPolicyRead   bool      `json:"networkPolicyRead"`
 
 	// OwnNamespace is where NetCheck runs (POD_NAMESPACE); always excluded.
 	OwnNamespace string `json:"-"`
@@ -188,6 +193,7 @@ func Defaults() Config {
 		NamespaceScope:              NamespaceScope{Mode: ScopeAll},
 		ProtectPlatformDestinations: true,
 		DestinationsManagedBy:       DestinationsManagedByUI,
+		TrustedCAsManagedBy:         DestinationsManagedByUI,
 		Limits: Limits{
 			MaxChecksPerRun:            7,
 			DefaultCheckTimeoutSeconds: 5,
@@ -375,6 +381,12 @@ func (c *Config) validate(getenv func(string) string) error {
 
 	if c.DestinationsManagedBy != DestinationsManagedByUI && c.DestinationsManagedBy != DestinationsManagedByHelm {
 		add("destinationsManagedBy must be ui or helm")
+	}
+	if c.TrustedCAsManagedBy != DestinationsManagedByUI && c.TrustedCAsManagedBy != DestinationsManagedByHelm {
+		add("trustedCasManagedBy must be ui or helm")
+	}
+	if _, err := probes.NormalizeTrustedCAs(c.TrustedCAs); err != nil {
+		add("trustedCas: %v", err)
 	}
 	if !digestImageRef.MatchString(c.Probe.Image) {
 		add("probe.image must be pinned by digest (repo@sha256:<64 hex>)")

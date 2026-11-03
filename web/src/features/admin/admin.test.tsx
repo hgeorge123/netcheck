@@ -1,16 +1,17 @@
 import createWrapper from '@cloudscape-design/components/test-utils/dom';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api } from '../../services/api';
 import { renderI18n } from '../../test/render';
-import type { DestinationPolicy, PolicyView, UserView } from '../../types/api';
+import type { DestinationPolicy, PolicyView, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
 import { AccessRulesPage } from './AccessRulesPage';
 import { NamespacesPage } from './NamespacesPage';
 import { ALLOW_ALL, PolicyPage } from './PolicyPage';
 import { RetentionPage } from './RetentionPage';
 import { browserName, SessionsPage } from './SessionsPage';
 import { shortDigest, SystemPage } from './SystemPage';
+import { shortFingerprint, TrustedCAsPage } from './TrustedCAsPage';
 import { UserFormPage } from './UserFormPage';
 import { UsersPage } from './UsersPage';
 
@@ -73,6 +74,8 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     checkDestination: vi.fn().mockResolvedValue({ allowed: false, reason: '169.254.169.254 is in denied range 169.254.0.0/16', isIp: true }),
     retention: vi.fn().mockResolvedValue({ outputDays: 15, metadataDays: 45, updatedAt: common.createdAt, updatedBy: 'helm (initial values)' }),
     saveRetention: vi.fn().mockImplementation((r: { outputDays: number; metadataDays: number }) => Promise.resolve({ ...r, updatedAt: common.createdAt, updatedBy: 'admin' })),
+    trustedCAs: vi.fn().mockResolvedValue(trustedView()),
+    saveTrustedCAs: vi.fn().mockImplementation((certificates: string[]) => Promise.resolve({ ...trustedView(), certificates: certificates.map((pem, i) => ({ ...corpCA, pem, fingerprintSha256: String(i).repeat(64) })), updatedBy: 'admin' })),
     accessRules: vi.fn().mockResolvedValue({ items: [], ssoEnabled: true }),
     createAccessRule: vi.fn().mockResolvedValue(undefined),
     updateAccessRule: vi.fn().mockResolvedValue(undefined),
@@ -81,6 +84,21 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     revokeToken: vi.fn().mockResolvedValue(undefined),
     ...over,
   };
+}
+
+const corpCA: TrustedCertificate = {
+  pem: 'CORP PEM',
+  subject: 'CN=Corp Root,O=Corp',
+  issuer: 'CN=Corp Root,O=Corp',
+  notBefore: '2020-01-01T00:00:00Z',
+  notAfter: '2040-01-01T00:00:00Z',
+  fingerprintSha256: 'ab12'.repeat(16),
+  expired: false,
+};
+const oldCA: TrustedCertificate = { ...corpCA, pem: 'OLD', subject: 'CN=Old Proxy CA', issuer: 'CN=Corp Root,O=Corp', notAfter: '2025-01-01T00:00:00Z', fingerprintSha256: 'cd34'.repeat(16), expired: true };
+
+function trustedView(editable = true): TrustedCAsView {
+  return { certificates: [corpCA, oldCA], managedBy: editable ? 'ui' : 'helm', editable, updatedAt: common.createdAt, updatedBy: 'helm (initial values)' };
 }
 
 function policyView(editable = true): PolicyView {
@@ -336,6 +354,60 @@ describe('RetentionPage', () => {
     expect(screen.getByText('Must be at least the technical output period.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(admin.saveRetention).not.toHaveBeenCalled();
+  });
+});
+
+describe('TrustedCAsPage', () => {
+  it('lists the authorities with their expiry and fingerprint', async () => {
+    const { container } = renderI18n(<TrustedCAsPage admin={mockAdmin()} notify={vi.fn()} />);
+    expect(await screen.findByText('CN=Old Proxy CA')).toBeInTheDocument();
+    const rows = createWrapper(container).findTable()!.findRows().map((r) => r.getElement().textContent ?? '');
+    expect(rows[0]).toContain('Itself (root)');
+    expect(rows[0]).toContain(shortFingerprint('ab12'.repeat(16)));
+    expect(rows[1]).toMatch(/Expired/);
+    expect(shortFingerprint('ab12'.repeat(16))).toBe('AB12 AB12 AB12 AB12 AB12 AB12 AB12 AB12…');
+  });
+
+  it('adds pasted certificates to the existing ones', async () => {
+    const admin = mockAdmin();
+    const notify = vi.fn();
+    renderI18n(<TrustedCAsPage admin={admin} notify={notify} />);
+    await screen.findByText('CN=Old Proxy CA');
+    await userEvent.click(screen.getByRole('button', { name: 'Add certificates' }));
+    await userEvent.type(screen.getByLabelText('Certificates (PEM)'), 'NEW PEM');
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add certificates' }));
+    await waitFor(() => expect(admin.saveTrustedCAs).toHaveBeenCalledWith([corpCA.pem, 'OLD', 'NEW PEM']));
+    expect(notify).toHaveBeenCalledWith('success', 'Certificate authorities saved. New tests use them at once.');
+  });
+
+  it('explains why a certificate is refused', async () => {
+    const admin = mockAdmin({
+      saveTrustedCAs: vi.fn().mockRejectedValue(new ApiError(400, 'validation_failed', 'x', [{ field: 'certificates[2]', code: 'not_a_ca', message: 'x' }])),
+    });
+    renderI18n(<TrustedCAsPage admin={admin} notify={vi.fn()} />);
+    await screen.findByText('CN=Old Proxy CA');
+    await userEvent.click(screen.getByRole('button', { name: 'Add certificates' }));
+    await userEvent.type(screen.getByLabelText('Certificates (PEM)'), 'SERVER PEM');
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add certificates' }));
+    expect(await screen.findByText(/is not a certificate authority/)).toBeInTheDocument();
+  });
+
+  it('removes the selected authority', async () => {
+    const admin = mockAdmin();
+    const { container } = renderI18n(<TrustedCAsPage admin={admin} notify={vi.fn()} />);
+    await screen.findByText('CN=Old Proxy CA');
+    createWrapper(container).findTable()!.findRowSelectionArea(2)!.click();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(screen.getByText(/will stop trusting CN=Old Proxy CA/)).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(admin.saveTrustedCAs).toHaveBeenCalledWith([corpCA.pem]));
+  });
+
+  it('is read-only when managed in Helm', async () => {
+    renderI18n(<TrustedCAsPage admin={mockAdmin({ trustedCAs: vi.fn().mockResolvedValue(trustedView(false)) })} notify={vi.fn()} />);
+    expect(await screen.findByText('Managed in the Helm values')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add certificates' })).not.toBeInTheDocument();
   });
 });
 

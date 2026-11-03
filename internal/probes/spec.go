@@ -329,6 +329,9 @@ func (s Spec) Validate() error {
 	if s.SettleMS < 0 || s.SettleMS > 30000 {
 		return errors.New("invalid settleMs")
 	}
+	if _, err := ParseTrustedCAs(s.TrustedCAs); err != nil {
+		return fmt.Errorf("trustedCas: %w", err)
+	}
 	ids := map[string]bool{}
 	for _, c := range s.Checks {
 		entry, ok := catalogEntry(c.Method)

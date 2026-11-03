@@ -74,6 +74,8 @@ func TestRejectsUnsafeConfig(t *testing.T) {
 		"no forced change":     baseYAML("auth: {bootstrapAdmin: {forcePasswordChange: false}}"),
 		"bad trusted proxy":    baseYAML("auth: {trustedProxyCidrs: [nope]}"),
 		"lockout too lax":      baseYAML("auth: {maxFailedLogins: 1000}"),
+		"trusted CA not PEM":   baseYAML("trustedCas: [hello]"),
+		"trusted CAs manager":  baseYAML("trustedCasManagedBy: git"),
 		"list without ns":      baseYAML("namespaceScope: {mode: list}"),
 		"list kube-system":     baseYAML("namespaceScope: {mode: list, namespaces: [kube-system]}"),
 		"list default":         baseYAML("namespaceScope: {mode: list, namespaces: [default]}"),

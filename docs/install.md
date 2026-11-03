@@ -253,6 +253,9 @@ Settings you usually keep:
 - **Retention:** test output 15 days, test history and audit 45 days. These are initial values: administrators change
   them later in **Administration → Data retention**.
 - **Sessions:** 60 min idle, 12 h maximum, 15 min lockout after 5 failed attempts.
+- **Certificate authorities:** HTTPS checks trust the public authorities only. If your services use a corporate PKI or
+  a proxy inspects TLS, list its authority in `trustedCas` (PEM, public data) or add it later in
+  **Administration → Certificate authorities** ([admin guide §18](admin-guide.md#18-certificate-authorities)).
 - **`probe.settleSeconds`:** 3 s wait so the CNI applies policies to the new probe Pod before measuring (step 12).
 
 Keep `values.yaml` in your configuration repository. It holds no secrets: the initial password lives only in the cluster.

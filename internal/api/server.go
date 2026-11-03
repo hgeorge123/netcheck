@@ -50,6 +50,9 @@ type Server struct {
 	NSAdmin *NamespaceAdmin
 	// Policies is the destination policy for new runs (editable by admins).
 	Policies *DestinationPolicies
+	// TrustedCAs are the certificate authorities HTTPS checks trust on top
+	// of the public ones (editable by admins; nil means none).
+	TrustedCAs *TrustedCAs
 	// Retention is how long test data is kept (editable by admins).
 	Retention *RetentionSettings
 	Limits    probes.Limits
@@ -101,6 +104,8 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("GET /api/v1/admin/policy", requireAdmin(http.HandlerFunc(s.adminPolicy)))
 	api.Handle("PUT /api/v1/admin/policy", requireAdmin(http.HandlerFunc(s.adminSetPolicy)))
 	api.Handle("POST /api/v1/admin/policy/check", requireAdmin(http.HandlerFunc(s.adminCheckDestination)))
+	api.Handle("GET /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminTrustedCAs)))
+	api.Handle("PUT /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminSetTrustedCAs)))
 	api.Handle("GET /api/v1/admin/retention", requireAdmin(http.HandlerFunc(s.adminRetention)))
 	api.Handle("GET /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminAccessRules)))
 	api.Handle("POST /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminSaveAccessRule)))
@@ -273,6 +278,9 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 	}
 	runID := newID(16)
 	spec, err := probes.BuildSpec(runID, req, s.Policies.Effective(), s.Limits)
+	if err == nil {
+		spec.TrustedCAs = s.TrustedCAs.forSpec(spec)
+	}
 	var ve probes.ValidationErrors
 	var de *probes.DeniedError
 	switch {

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -283,6 +284,10 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 	}
 	cr.Equivalent = append(cr.Equivalent, "--", u)
 
+	roots, extra, err := r.trustPool(spec.TrustedCAs)
+	if err != nil {
+		return err
+	}
 	transport := &http.Transport{
 		Proxy: nil, // never use environment proxies: the probe must test the Pod's direct path
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
@@ -291,11 +296,17 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		},
 		// The certificate is checked by inspectCertificate, which reports
 		// every problem; the handshake fails on them unless they are ignored.
-		TLSClientConfig: &tls.Config{RootCAs: r.RootCAs, MinVersion: tls.VersionTLS12, InsecureSkipVerify: true,
+		TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12, InsecureSkipVerify: true,
 			VerifyConnection: func(cs tls.ConnectionState) error {
-				rep := inspectCertificate(cs.PeerCertificates, t.Host, r.RootCAs, time.Now())
+				rep := inspectCertificate(cs.PeerCertificates, t.Host, roots, extra, time.Now())
 				h := cr.HTTP
 				h.TLSNames, h.TLSIssuer = rep.names, rep.issuer
+				h.TLSTrustedCA, _ = Truncate(Sanitize(rep.trustedCA), 256)
+				if rep.trustedCA != "" {
+					st.printf("certificate trusted through the configured authority %s", h.TLSTrustedCA)
+					// curl must be given the same authorities to reproduce it.
+					cr.Equivalent = slices.Insert(cr.Equivalent, len(cr.Equivalent)-2, "--cacert", "netcheck-trusted-cas.pem")
+				}
 				if len(rep.problems) == 0 {
 					return nil
 				}

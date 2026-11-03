@@ -107,24 +107,21 @@ func (a *Authorizer) CanRun(ctx context.Context, id Identity, ns string) (bool, 
 	return slices.ContainsFunc(grants, func(g NamespaceGrant) bool { return g.Name == ns }), nil
 }
 
-// ViewScope returns the history visibility of the identity: everything for
-// admins and "all namespaces" users, otherwise the assigned namespaces
-// (even if they no longer exist, so their history stays readable).
-func (a *Authorizer) ViewScope(id Identity) (all bool, namespaces []string) {
-	if id.IsAdmin() || id.AllNamespaces {
-		return true, nil
+// RunScope says whose tests the identity may read: every test for
+// administrators; otherwise only the tests the identity started, with the web
+// or its API tokens, whatever its namespaces. Namespaces decide where a user
+// may run tests, not whose results they see.
+func RunScope(id Identity) (all bool, actorID string) {
+	if id.IsAdmin() {
+		return true, ""
 	}
-	list := slices.Clone(id.Namespaces)
-	if a.OwnNamespace != "" && id.AllowNetcheckNamespace {
-		list = append(list, a.OwnNamespace)
-	}
-	return false, list
+	return false, id.ID
 }
 
-// CanView reports whether the identity may read runs of namespace ns.
-func (a *Authorizer) CanView(id Identity, ns string) bool {
-	all, list := a.ViewScope(id)
-	return all || slices.Contains(list, ns)
+// CanViewRun reports whether the identity may read a test started by actorID.
+func CanViewRun(id Identity, actorID string) bool {
+	all, own := RunScope(id)
+	return all || (own != "" && own == actorID)
 }
 
 type ctxKey struct{}

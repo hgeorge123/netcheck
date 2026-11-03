@@ -393,9 +393,11 @@ func TestConcurrencyLimit(t *testing.T) {
 	}
 }
 
-func seedRun(t *testing.T, st *store.Store, id, ns string) {
+func seedRun(t *testing.T, st *store.Store, id, ns string) { seedRunBy(t, st, id, ns, "x") }
+
+func seedRunBy(t *testing.T, st *store.Store, id, ns, actorID string) {
 	t.Helper()
-	err := st.CreateRun(context.Background(), store.Run{ID: id, CreatedAt: time.Now(), ActorID: "x", Namespace: ns, ClusterID: "lab",
+	err := st.CreateRun(context.Background(), store.Run{ID: id, CreatedAt: time.Now(), ActorID: actorID, Namespace: ns, ClusterID: "lab",
 		Target: "10.0.0.1", Status: "queued", RequestJSON: "{}", SpecJSON: "{}"},
 		[]store.Execution{{ID: id + "-1", Seq: 1, CheckID: "1-tcp", Method: "tcp", Status: "queued"}}, store.AuditEvent{Action: "seed", Outcome: "ok"})
 	if err != nil {
@@ -405,27 +407,49 @@ func seedRun(t *testing.T, st *store.Store, id, ns string) {
 
 func TestRunReadIsolation(t *testing.T) {
 	f := newFixture(t)
-	seedRun(t, f.store, "aaaaaaaaaaaaaaaa", "payments")
-	seedRun(t, f.store, "cccccccccccccccc", "secret")
+	bob, err := f.store.GetUserByUsername(context.Background(), "bob")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Each user only reads the tests they started, even in a namespace they
+	// share with others; administrators read every test.
+	seedRunBy(t, f.store, "aaaaaaaaaaaaaaaa", "payments", bob.ID)
+	seedRunBy(t, f.store, "bbbbbbbbbbbbbbbb", "payments", "u-someone-else")
+	seedRunBy(t, f.store, "cccccccccccccccc", "secret", "u-someone-else")
 	if rec := f.do(f.user, "GET", "/api/v1/runs/aaaaaaaaaaaaaaaa", ""); rec.Code != 200 {
-		t.Errorf("own namespace run: %d", rec.Code)
+		t.Errorf("own run: %d", rec.Code)
 	}
-	secret := f.do(f.user, "GET", "/api/v1/runs/cccccccccccccccc", "")
 	missing := f.do(f.user, "GET", "/api/v1/runs/dddddddddddddddd", "")
-	if secret.Code != 404 || missing.Code != 404 || errCode(t, secret) != errCode(t, missing) {
-		t.Errorf("unauthorized run must look missing: %d vs %d", secret.Code, missing.Code)
+	for _, id := range []string{"bbbbbbbbbbbbbbbb", "cccccccccccccccc"} {
+		other := f.do(f.user, "GET", "/api/v1/runs/"+id, "")
+		if other.Code != 404 || missing.Code != 404 || errCode(t, other) != errCode(t, missing) {
+			t.Errorf("another user's run %s must look missing: %d vs %d", id, other.Code, missing.Code)
+		}
 	}
-	if rec := f.do(f.admin, "GET", "/api/v1/runs/cccccccccccccccc", ""); rec.Code != 200 {
+	if rec := f.do(f.admin, "GET", "/api/v1/runs/bbbbbbbbbbbbbbbb", ""); rec.Code != 200 {
 		t.Errorf("admin must see every run: %d", rec.Code)
 	}
 	var list struct{ Items []RunSummary }
 	json.Unmarshal(f.do(f.user, "GET", "/api/v1/runs?pageSize=50", "").Body.Bytes(), &list)
-	if len(list.Items) != 1 || list.Items[0].Namespace != "payments" {
+	if len(list.Items) != 1 || list.Items[0].ID != "aaaaaaaaaaaaaaaa" {
 		t.Fatalf("user list leaked: %+v", list.Items)
 	}
+	json.Unmarshal(f.do(f.user, "GET", "/api/v1/runs?pageSize=50&namespace=payments", "").Body.Bytes(), &list)
+	if len(list.Items) != 1 {
+		t.Errorf("namespace filter leaked other users' runs: %+v", list.Items)
+	}
 	json.Unmarshal(f.do(f.admin, "GET", "/api/v1/runs?pageSize=50", "").Body.Bytes(), &list)
-	if len(list.Items) != 2 {
+	if len(list.Items) != 3 {
 		t.Errorf("admin list = %d", len(list.Items))
+	}
+	var stats struct{ Total int }
+	json.Unmarshal(f.do(f.user, "GET", "/api/v1/stats", "").Body.Bytes(), &stats)
+	if stats.Total != 1 {
+		t.Errorf("user dashboard counts other users' runs: %d", stats.Total)
+	}
+	json.Unmarshal(f.do(f.admin, "GET", "/api/v1/stats", "").Body.Bytes(), &stats)
+	if stats.Total != 3 {
+		t.Errorf("admin dashboard = %d", stats.Total)
 	}
 	for _, q := range []string{"pageSize=0", "pageSize=1000", "status=hacked", "from=yesterday", "cursor=***"} {
 		if rec := f.do(f.user, "GET", "/api/v1/runs?"+q, ""); rec.Code != 400 {

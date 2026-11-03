@@ -330,11 +330,21 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"id": runID, "status": store.RunQueued})
 }
 
+// runFilter restricts history and statistics to what the identity may read:
+// every test for administrators, otherwise only the tests it started.
+func runFilter(id auth.Identity) store.ListFilter {
+	all, own := auth.RunScope(id)
+	if all {
+		return store.ListFilter{AllNamespaces: true}
+	}
+	return store.ListFilter{AllNamespaces: true, ActorID: own}
+}
+
 func (s *Server) listRuns(w http.ResponseWriter, r *http.Request) {
 	id := identity(r)
 	q := r.URL.Query()
-	all, allowed := s.Authz.ViewScope(id)
-	f := store.ListFilter{AllNamespaces: all, AllowedNamespaces: allowed, Namespace: q.Get("namespace"), Status: q.Get("status"), Cursor: q.Get("cursor")}
+	f := runFilter(id)
+	f.Namespace, f.Status, f.Cursor = q.Get("namespace"), q.Get("status"), q.Get("cursor")
 	if v := q.Get("pageSize"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 || n > 100 {
@@ -393,7 +403,7 @@ func (s *Server) getRun(w http.ResponseWriter, r *http.Request) {
 	}
 	run, execs, err := s.Store.GetRun(r.Context(), runID)
 	// Unauthorized and missing runs are indistinguishable to the caller.
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !s.Authz.CanView(identity(r), run.Namespace)) {
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !auth.CanViewRun(identity(r), run.ActorID)) {
 		writeError(w, r, http.StatusNotFound, "not_found", "run not found", nil)
 		return
 	}

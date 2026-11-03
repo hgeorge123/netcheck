@@ -193,3 +193,26 @@ func TestPurgeRetention(t *testing.T) {
 		t.Error("active runs must never be purged")
 	}
 }
+
+func TestListRunsAndStatsByActor(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	for i, actor := range []string{"u-ann", "u-ann", "u-bob"} {
+		id := fmt.Sprintf("%016d", i+1)
+		if err := s.CreateRun(ctx, Run{ID: id, CreatedAt: time.Now(), ActorID: actor, Namespace: "shared", ClusterID: "lab",
+			Target: "10.0.0.1", Status: RunQueued, RequestJSON: "{}", SpecJSON: "{}"}, nil, AuditEvent{Action: "seed", Outcome: "ok"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runs, _, err := s.ListRuns(ctx, ListFilter{AllNamespaces: true, ActorID: "u-ann"})
+	if err != nil || len(runs) != 2 || runs[0].ActorID != "u-ann" || runs[1].ActorID != "u-ann" {
+		t.Fatalf("ann's runs = %d %v", len(runs), err)
+	}
+	st, err := s.Stats(ctx, ListFilter{AllNamespaces: true, ActorID: "u-bob"}, time.Now().Add(-time.Hour))
+	if err != nil || st.Total != 1 {
+		t.Fatalf("bob's stats = %+v %v", st, err)
+	}
+	if all, _, _ := s.ListRuns(ctx, ListFilter{AllNamespaces: true}); len(all) != 3 {
+		t.Errorf("unfiltered = %d", len(all))
+	}
+}

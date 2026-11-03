@@ -63,8 +63,8 @@ NetworkPolicies, DNS and routes. Up to seven checks run one after another in the
 
 | Feature | What it does | How to use it |
 |---|---|---|
-| Dashboard | Tests of the last 24 hours by status and method, your namespaces and the latest tests | [User guide §3](user-guide.md#3-dashboard) |
-| Test history | Tests of your namespaces (administrators: all of them), with filters and configurable columns | [User guide §6](user-guide.md#6-test-history) |
+| Dashboard | Your tests of the last 24 hours by status and method, your namespaces and your latest tests | [User guide §3](user-guide.md#3-dashboard) |
+| Test history | Your own tests only, private to each user (administrators: every test), with filters and configurable columns | [User guide §6](user-guide.md#6-test-history) |
 | Data retention | Technical output and history are deleted after a configurable number of days | [Admin guide §12](admin-guide.md#12-data-retention) |
 
 ## 5. Pipelines and the command line

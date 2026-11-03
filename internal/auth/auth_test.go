@@ -298,9 +298,6 @@ func TestAuthorizerDynamicAllNamespaces(t *testing.T) {
 	if g, _ := a.Grants(ctx, none); len(g) != 0 {
 		t.Error("user without namespaces must see nothing")
 	}
-	if !a.CanView(some, "gone") || a.CanView(some, "payments") || !a.CanView(all, "anything") {
-		t.Error("view scope wrong")
-	}
 	if ok, _ := a.CanRun(ctx, Identity{Role: RoleAdmin}, "payments"); !ok {
 		t.Error("admin must run everywhere available")
 	}
@@ -337,8 +334,27 @@ func TestNetcheckNamespaceOnlyWithFlag(t *testing.T) {
 	if ok, _ := a.CanRun(ctx, flagged, "netcheck"); !ok {
 		t.Error("flagged user cannot use the NetCheck namespace")
 	}
-	if !a.CanView(flagged, "netcheck") {
-		t.Error("flagged user cannot read NetCheck namespace history")
+}
+
+func TestRunVisibilityIsPerAuthor(t *testing.T) {
+	ann := Identity{ID: "u-ann", Role: RoleUser, AllNamespaces: true}
+	bob := Identity{ID: "u-bob", Role: RoleUser, Namespaces: []string{"payments"}}
+	admin := Identity{ID: "u-admin", Role: RoleAdmin}
+	// Even with every namespace, a user only reads the tests they started.
+	if !CanViewRun(ann, "u-ann") || CanViewRun(ann, "u-bob") || CanViewRun(bob, "u-ann") {
+		t.Error("users must only read their own tests")
+	}
+	if !CanViewRun(admin, "u-ann") || !CanViewRun(admin, "u-bob") {
+		t.Error("administrators read every test")
+	}
+	if all, own := RunScope(bob); all || own != "u-bob" {
+		t.Errorf("user scope = %v %q", all, own)
+	}
+	if all, own := RunScope(admin); !all || own != "" {
+		t.Errorf("admin scope = %v %q", all, own)
+	}
+	if CanViewRun(Identity{Role: RoleUser}, "") {
+		t.Error("an identity without ID must read nothing")
 	}
 }
 

@@ -384,11 +384,12 @@ func (s *Store) GetRun(ctx context.Context, id string) (Run, []Execution, error)
 }
 
 // ListFilter selects runs. The authorization filter is applied in SQL, never
-// only in the UI: either AllNamespaces (admins and "all namespaces" users)
-// or a non-empty AllowedNamespaces list.
+// only in the UI: either AllNamespaces or a non-empty AllowedNamespaces list,
+// and ActorID (when set) keeps only the runs that user started.
 type ListFilter struct {
 	AllNamespaces     bool
 	AllowedNamespaces []string
+	ActorID           string
 	Namespace         string
 	Status            string
 	From, To          *time.Time
@@ -434,6 +435,9 @@ func (s *Store) ListRuns(ctx context.Context, f ListFilter) ([]Run, string, erro
 		for _, n := range f.AllowedNamespaces {
 			args = append(args, n)
 		}
+	}
+	if f.ActorID != "" {
+		where, args = append(where, "actor_id = ?"), append(args, f.ActorID)
 	}
 	if f.Namespace != "" {
 		where, args = append(where, "namespace = ?"), append(args, f.Namespace)

@@ -150,7 +150,7 @@ that come up most often:
 |---|:---:|:---:|
 | Sign in, choose the language and change their own password | ✔ | ✔ |
 | Run tests | From assigned namespaces | From every available namespace |
-| See the dashboard and history | Of assigned namespaces | Of every namespace |
+| See the dashboard and history | Only their own tests | Every test of every user |
 | Create, edit, disable, unlock and delete users; reset passwords | — | ✔ |
 | See signed-in users and end their sessions | — | ✔ |
 | See the running version, version history and platform settings | — | ✔ |
@@ -393,7 +393,8 @@ change under the control of whoever operates the cluster and in your configurati
 ## 15. Full history
 
 Administrators see in **Test history** the tests of every namespace and every user, with filters by namespace and
-status.
+status. Other users only see the tests they started (from the web or with their API tokens), even in namespaces they
+share with others: the namespaces assigned to a user decide where they may run tests, not whose results they see.
 
 ![Administrator history](images/admin-14-full-history.png)
 

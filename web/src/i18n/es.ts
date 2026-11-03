@@ -80,7 +80,7 @@ export const es: Record<MessageKey, string> = {
   'lang.es': 'Español',
 
   'dashboard.title': 'Panel',
-  'dashboard.description': 'Resumen de las pruebas de conectividad que puedes ver.',
+  'dashboard.description': 'Resumen de tus pruebas de conectividad (los administradores ven las de todos).',
   'dashboard.overview': 'Resumen',
   'dashboard.last24h': 'Últimas 24 horas',
   'dashboard.total': 'Pruebas',
@@ -329,7 +329,7 @@ export const es: Record<MessageKey, string> = {
   'fidelity.notAppliesToProbe': 'no se aplica a la sonda',
 
   'history.title': 'Historial de pruebas',
-  'history.description': 'Pruebas de los namespaces que puedes ver, de la más reciente a la más antigua.',
+  'history.description': 'Las pruebas que lanzaste, desde la web o con tus tokens de API, de la más reciente a la más antigua. Los administradores ven todas.',
   'history.allNamespaces': 'Todos los namespaces',
   'history.allStatuses': 'Todos los estados',
   'history.filterNamespace': 'Filtrar por namespace',

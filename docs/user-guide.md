@@ -16,8 +16,8 @@ With the **User** role you can:
   telnet and curl) as a single block ready to paste.
 - See each result with an indicative diagnosis, the technical output and an equivalent command to reproduce it by
   hand.
-- Browse the dashboard and the test history of your namespaces, including tests run by colleagues with access to
-  them.
+- Browse the dashboard and the history of your own tests. Each user sees only the tests they started, from the web or
+  with their API tokens; administrators see every test.
 - See where the traffic stops (**Path**) and **what is missing** for it to flow: nothing, a suggested NetworkPolicy or
   a ready-to-send request for the firewall team.
 - Run tests from pipelines with an **API token** and `netcheck-cli`.
@@ -90,9 +90,9 @@ NetCheck returns to the sign-in page.
 
 ## 3. Dashboard
 
-The **Dashboard** is the home page. For the namespaces you can see and the last 24 hours it shows the number of tests
-and how many passed, had connectivity failures or infrastructure errors; the checks by method; the namespaces you can
-test from; and the most recent tests.
+The **Dashboard** is the home page. For your tests of the last 24 hours (administrators: everyone's) it shows how many
+passed, had connectivity failures or infrastructure errors; the checks by method; the namespaces you can test from; and
+your most recent tests.
 
 ![Dashboard](images/user-03-dashboard.png)
 
@@ -334,7 +334,9 @@ whoever owns the change what to do. ICMP cannot be allowed with a NetworkPolicy,
 
 ## 6. Test history
 
-**Test history** lists the tests of your namespaces, newest first, with filters by namespace and status. Click the
+**Test history** lists the tests you started, from the web or with your API tokens, newest first, with filters by
+namespace and status. Other users' tests are private: they do not appear, and their links answer "not found", even in
+a namespace you share. Administrators see every test. Click the
 date to open the full result. The gear icon of the table sets the page size and the visible columns (remembered in
 your browser).
 

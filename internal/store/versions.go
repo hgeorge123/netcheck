@@ -88,6 +88,10 @@ func (s *Store) Stats(ctx context.Context, f ListFilter, since time.Time) (RunSt
 			args = append(args, n)
 		}
 	}
+	if f.ActorID != "" {
+		where += " AND r.actor_id = ?"
+		args = append(args, f.ActorID)
+	}
 	rows, err := s.db.QueryContext(ctx, `SELECT r.status, COUNT(*) FROM runs r WHERE `+where+` GROUP BY r.status`, args...)
 	if err != nil {
 		return st, err

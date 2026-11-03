@@ -85,7 +85,7 @@ export const en = {
 
   // Dashboard
   'dashboard.title': 'Dashboard',
-  'dashboard.description': 'Overview of the connectivity tests you can see.',
+  'dashboard.description': 'Overview of your connectivity tests (administrators see everyone’s).',
   'dashboard.overview': 'Overview',
   'dashboard.last24h': 'Last 24 hours',
   'dashboard.total': 'Tests',
@@ -342,7 +342,7 @@ export const en = {
 
   // History
   'history.title': 'Test history',
-  'history.description': 'Tests from the namespaces you can see, newest first.',
+  'history.description': 'The tests you started, from the web or with your API tokens, newest first. Administrators see every test.',
   'history.allNamespaces': 'All namespaces',
   'history.allStatuses': 'All statuses',
   'history.filterNamespace': 'Filter by namespace',

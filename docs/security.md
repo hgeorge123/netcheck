@@ -141,7 +141,8 @@ NetCheck has its own user database (no external identity provider is required):
 - Temporary passwords (new users, resets, the initial admin) must be changed before anything else.
 - Changing or resetting a password, or disabling or deleting a user, ends their sessions.
 - CSRF: mutating endpoints require JSON and reject cross-site `Origin` / `Sec-Fetch-Site`.
-- Authorization is checked on every request in the backend; runs from namespaces a user cannot see answer `404`.
+- Authorization is checked on every request in the backend. Users read only the tests they started (administrators read
+  every test); anyone else's test answers `404`, exactly like a test that does not exist.
 - Two roles: `admin` and `user`. The last active administrator cannot be removed, disabled or demoted.
 - **No built-in MFA for local accounts.** Use single sign-on (below) so the MFA of your identity provider applies, or
   put NetCheck behind your SSO proxy. Mitigations for local accounts: lockout, rate limiting, mandatory HTTPS and

@@ -37,8 +37,7 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 		}
 		hours = n
 	}
-	all, allowed := s.Authz.ViewScope(identity(r))
-	st, err := s.Store.Stats(r.Context(), store.ListFilter{AllNamespaces: all, AllowedNamespaces: allowed}, time.Now().Add(-time.Duration(hours)*time.Hour))
+	st, err := s.Store.Stats(r.Context(), runFilter(identity(r)), time.Now().Add(-time.Duration(hours)*time.Hour))
 	if err != nil {
 		s.Log.Error("stats failed", "request_id", RequestID(r.Context()), "error", err)
 		writeError(w, r, http.StatusInternalServerError, "internal", "internal error", nil)

@@ -20,7 +20,7 @@ import { NamespacesPage } from '../features/admin/NamespacesPage';
 import { PolicyPage } from '../features/admin/PolicyPage';
 import { RetentionPage } from '../features/admin/RetentionPage';
 import { TrustedCAsPage } from '../features/admin/TrustedCAsPage';
-import { ProxiesPage } from '../features/admin/ProxiesPage';
+import { ProxiesPage, type ProxyCalls } from '../features/admin/ProxiesPage';
 import { SessionsPage } from '../features/admin/SessionsPage';
 import { SystemPage } from '../features/admin/SystemPage';
 import { UserFormPage } from '../features/admin/UserFormPage';
@@ -36,6 +36,15 @@ import { isLanguage, LANGUAGES, useI18n, type Language, type Translate } from '.
 import { ApiError, api, setSessionListener } from '../services/api';
 import type { Catalog, Me } from '../types/api';
 import { hrefFor, isAdminRoute, type Route, useHashRoute } from './router';
+
+// Stable call sets, so the pages do not reload on every render.
+const adminProxyCalls: ProxyCalls = {
+  list: api.admin.proxies,
+  create: api.admin.createProxy,
+  update: api.admin.updateProxy,
+  remove: api.admin.deleteProxy,
+};
+const myProxyCalls: ProxyCalls = api.myProxies;
 
 function Help({ t }: { t: Translate }) {
   return (
@@ -106,6 +115,9 @@ function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
       break;
     case 'proxies':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.proxies'), href: '#/admin/proxies' });
+      break;
+    case 'my-proxies':
+      items.push({ text: t('myProxies.title'), href: '#/account/proxies' });
       break;
     case 'tokens':
       items.push({ text: t('tokens.title'), href: '#/account/tokens' });
@@ -322,7 +334,9 @@ export function App() {
   } else if (route.page === 'trusted-cas') {
     content = <TrustedCAsPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'proxies') {
-    content = <ProxiesPage admin={api.admin} notify={notify} />;
+    content = <ProxiesPage scope="admin" calls={adminProxyCalls} notify={notify} />;
+  } else if (route.page === 'my-proxies') {
+    content = <ProxiesPage scope="personal" calls={myProxyCalls} notify={notify} />;
   } else if (route.page === 'tokens') {
     content = <TokensPage scope="mine" list={api.tokens.list} create={api.tokens.create} revoke={api.tokens.revoke} notify={notify} />;
   } else if (route.page === 'admin-tokens') {
@@ -405,6 +419,7 @@ export function App() {
                 }
                 if (detail.id === 'password') navigate({ page: 'password' });
                 if (detail.id === 'tokens') navigate({ page: 'tokens' });
+                if (detail.id === 'proxies') navigate({ page: 'my-proxies' });
                 if (detail.id === 'logout') void logout();
               },
               items: [
@@ -412,6 +427,7 @@ export function App() {
                 // SSO accounts have no NetCheck password.
                 ...(me.source === 'oidc' ? [] : [{ id: 'password', text: t('nav.userMenu.password'), disabled: me.mustChangePassword }]),
                 { id: 'tokens', text: t('tokens.title'), disabled: me.mustChangePassword },
+                { id: 'proxies', text: t('myProxies.title'), disabled: me.mustChangePassword },
                 { id: 'logout', text: t('nav.userMenu.signOut') },
               ],
             },

@@ -29,7 +29,8 @@ NetworkPolicies, DNS and routes. Up to seven checks run one after another in the
 | HTTPS | The same over TLS, verifying the certificate; TLS version, certificate name, issuer and expiry in the result | [User guide §4.2](user-guide.md#42-checks) |
 | Certificate problems | Expired, not yet valid, issued for another name, untrusted authority or self-signed: all of them are named in the result | [User guide §5.2](user-guide.md#52-interpreting-each-check) |
 | Corporate certificate authorities | HTTPS trusts your corporate PKI or the authority of a TLS inspection proxy on top of the public ones, and the result says when one was used. No custom image | [Admin guide §18](admin-guide.md#18-certificate-authorities) |
-| Through a proxy | TCP and HTTPS optionally go through a configured HTTP proxy (CONNECT tunnel); the result says whether the proxy was unreachable, refused, required authentication or could not reach the destination | [User guide §4.2](user-guide.md#42-checks), [CLI `--proxy`](cli.md#4-run-a-test) |
+| Through a proxy | TCP, HTTP and HTTPS optionally go through a shared or personal HTTP proxy (CONNECT tunnel or forwarded request), with the proxy's own certificate authority if it inspects TLS; the result says whether the proxy was unreachable, refused, required authentication or could not reach the destination | [User guide §4.2](user-guide.md#42-checks), [CLI `--proxy`](cli.md#4-run-a-test) |
+| My proxies | Each user's own proxies, visible and usable only by them; others only see that a test used a personal proxy | [User guide §4.2](user-guide.md#42-checks) |
 | Ignore certificate errors | HTTPS goes on despite certificate problems (like `curl --insecure`); the result is a warning that still lists them | [User guide §4.2](user-guide.md#42-checks), [CLI `--ignore-tls-errors`](cli.md#4-run-a-test) |
 | Ping | 1 to 10 ICMP echo requests with loss and RTT, without privileges (no `NET_RAW`, no root) | [User guide §5.3](user-guide.md#53-ping-and-traceroute) |
 | Traceroute | ICMP traceroute up to 30 hops, without privileges | [User guide §5.3](user-guide.md#53-ping-and-traceroute) |
@@ -100,7 +101,7 @@ Changes apply at once, without redeploying, and are audited.
 | Namespaces | Exclude namespaces (also ones that do not exist yet) and include them again | [Admin guide §10](admin-guide.md#10-namespaces) |
 | Destination policy | Allowed names, networks and ports, denied networks, presets, and a check that sends no traffic; optionally managed with Helm instead | [Admin guide §11](admin-guide.md#11-destination-policy) |
 | Certificate authorities | Add or remove trusted authorities (PEM) with subject, expiry and fingerprint; optionally managed with Helm instead | [Admin guide §18](admin-guide.md#18-certificate-authorities) |
-| Proxies | Define the HTTP proxies users may choose for TCP and HTTPS; optionally managed with Helm instead | [Admin guide §19](admin-guide.md#19-proxies) |
+| Proxies | Shared HTTP proxies for TCP, HTTP and HTTPS, for every user or administrators only, each with optional certificate authorities; optionally managed with Helm instead | [Admin guide §19](admin-guide.md#19-proxies) |
 | Data retention | Days of technical output and of history | [Admin guide §12](admin-guide.md#12-data-retention) |
 | System and versions | Running version, image digests, chart version and the history of every version deployed | [Admin guide §13](admin-guide.md#13-system-and-versions) |
 | Audit log | Sign-ins, user, policy, namespace, retention, rule and token changes | [Admin guide, audit and logs](admin-guide.md#6-audit-and-logs) |

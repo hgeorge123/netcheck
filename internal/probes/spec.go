@@ -185,9 +185,9 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 		if cr.Proxy != "" {
 			switch p, found := findProxy(proxies, cr.Proxy); {
 			case !ProxyAllowed(cr.Method):
-				errs = append(errs, fieldErr(field+".proxy", "proxy_not_applicable", "only TCP and HTTPS checks can go through a proxy"))
+				errs = append(errs, fieldErr(field+".proxy", "proxy_not_applicable", "only TCP, HTTP and HTTPS checks can go through a proxy"))
 			case !found:
-				errs = append(errs, fieldErr(field+".proxy", "proxy_unknown", "there is no proxy named %q", cr.Proxy))
+				errs = append(errs, fieldErr(field+".proxy", "proxy_unknown", "there is no proxy %q available to you", cr.Proxy))
 			default:
 				c.Proxy = &p
 			}
@@ -277,7 +277,7 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 			}
 		}
 		if c.Proxy != nil {
-			if err := compiled.checkProxy(*c.Proxy); err != nil {
+			if err := compiled.CheckProxy(*c.Proxy); err != nil {
 				return Spec{}, err
 			}
 		}
@@ -298,9 +298,11 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 	return spec, nil
 }
 
-func findProxy(proxies []Proxy, name string) (Proxy, bool) {
+// findProxy finds the proxy a check names: by ID, or by name for proxies
+// without one (the API resolves names to IDs before building the spec).
+func findProxy(proxies []Proxy, ref string) (Proxy, bool) {
 	for _, p := range proxies {
-		if p.Name == name {
+		if (p.ID != "" && p.ID == ref) || (p.ID == "" && p.Name == ref) {
 			return p, true
 		}
 	}
@@ -380,7 +382,7 @@ func (s Spec) Validate() error {
 			return fmt.Errorf("check %s: hostname required", c.ID)
 		}
 		if c.Proxy != nil {
-			if p, err := normalizeProxy(*c.Proxy); err != nil || p != *c.Proxy || !ProxyAllowed(c.Method) {
+			if p, err := NormalizeProxy(*c.Proxy); err != nil || !p.equal(*c.Proxy) || !ProxyAllowed(c.Method) {
 				return fmt.Errorf("check %s: invalid proxy", c.ID)
 			}
 		}

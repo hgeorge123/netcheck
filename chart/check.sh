@@ -183,7 +183,8 @@ for values in eks list kind sso aks cas; do
     sso) extra=("${EKS[@]}" "${ALB[@]}" "${DEX[@]}") ;;
     aks) extra=("${AKS[@]}") ;;
     cas) extra=("${EKS[@]}" "${GW[@]}" --set trustedCasManagedBy=helm --set-file "trustedCas[0]=${CA_FILE}")
-          extra+=(--set proxiesManagedBy=helm --set "proxies[0].name=corp" --set "proxies[0].host=proxy.example.com" --set "proxies[0].port=3128") ;;
+          extra+=(--set proxiesManagedBy=helm --set "proxies[0].name=corp" --set "proxies[0].host=proxy.example.com" --set "proxies[0].port=3128"
+                  --set "proxies[0].shared=false" --set-file "proxies[0].trustedCas[0]=${CA_FILE}") ;;
     kind) extra=(-f "${ROOT}/test/integration/values-kind.yaml" --set image.repository=localhost:5001/netcheck --set image.tag=lab
           --set probeImage.repository=localhost:5001/netcheck-probe --set "probeImage.digest=sha256:$(printf '0%.0s' {1..64})") ;;
   esac

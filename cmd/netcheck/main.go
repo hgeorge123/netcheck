@@ -252,7 +252,11 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
-	proxies, err := api.LoadProxies(ctx, st, cfg.Proxies, cfg.ProxiesManagedBy == config.DestinationsManagedByUI, time.Now())
+	seedProxies := make([]api.SharedProxy, len(cfg.Proxies))
+	for i, p := range config.ProxyList(cfg.Proxies) {
+		seedProxies[i] = api.SharedProxy{Proxy: p, Shared: cfg.Proxies[i].IsShared()}
+	}
+	proxies, err := api.LoadProxies(ctx, st, seedProxies, cfg.ProxiesManagedBy == config.DestinationsManagedByUI, time.Now())
 	if err != nil {
 		return err
 	}

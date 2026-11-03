@@ -102,7 +102,7 @@ function CertificateAlert({ http, t }: { http: HTTPResult; t: Translate }) {
   );
 }
 
-function CheckDetail({ c }: { c: ExecutionView }) {
+function CheckDetail({ c, actor }: { c: ExecutionView; actor: string }) {
   const { t, formatDate } = useI18n();
   const r = c.result;
   const cmd = c.equivalentArgv.length > 0 ? shellQuote(c.equivalentArgv) : '';
@@ -115,11 +115,17 @@ function CheckDetail({ c }: { c: ExecutionView }) {
   ];
   if (r?.proxy) {
     const p = r.proxy;
-    pairs.push({ label: t('run.proxy'), value: t('run.proxyValue', { name: p.name, address: p.address, ip: p.usedIp ?? '—' }) });
-    pairs.push({
-      label: t('run.proxyReply'),
-      value: p.statusText ? `CONNECT → ${p.statusText}` : t(p.reached ? 'run.proxyNoReply' : 'run.proxyNotReached'),
-    });
+    // Only the author of the test receives the details of a personal proxy.
+    const name = p.name
+      ? t('run.proxyValue', { name: p.name, address: p.address ?? '—', ip: p.usedIp ?? '—' })
+      : t('run.proxyPersonalOf', { user: actor });
+    pairs.push({ label: p.personal ? t('run.proxyPersonal') : t('run.proxy'), value: name });
+    let reply: string;
+    if (p.statusText) reply = p.mode === 'forward' ? t('run.proxyAnsweredItself', { status: p.statusText }) : `CONNECT → ${p.statusText}`;
+    else if (p.mode === 'forward') reply = t(p.reached ? 'run.proxyForwarded' : 'run.proxyNotReached');
+    else reply = t(p.reached ? 'run.proxyNoReply' : 'run.proxyNotReached');
+    pairs.push({ label: t('run.proxyReply'), value: reply });
+    if (p.via) pairs.push({ label: 'Via', value: p.via });
   }
   if (r?.dns?.cname) pairs.push({ label: t('run.cname'), value: r.dns.cname });
   if (r?.http?.statusCode !== undefined) pairs.push({ label: t('run.httpStatus'), value: `${r.http.statusCode} (${r.http.proto ?? ''})` });
@@ -452,7 +458,7 @@ export function RunDetailPage({ id, load, onRunAgain, pollMs = 2000 }: Props) {
           ]}
         />
 
-        {done && selected && <CheckDetail key={selected.checkId} c={selected} />}
+        {done && selected && <CheckDetail key={selected.checkId} c={selected} actor={run.actor} />}
 
         {done && run.status !== 'infra_error' && run.checks.length > 0 && <MissingPanel run={run} />}
       </SpaceBetween>

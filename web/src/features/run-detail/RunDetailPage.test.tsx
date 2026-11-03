@@ -160,6 +160,23 @@ describe('RunDetailPage through a proxy', () => {
     expect(screen.getByText('CONNECT → 200 Connection established')).toBeInTheDocument();
   });
 
+  it('shows only that a personal proxy was used to anyone but its owner', async () => {
+    const hidden = proxied(false);
+    hidden.checks[0]!.result = { port: 5432, proxy: { personal: true, mode: 'connect', reached: true, status: 403, statusText: '403 Forbidden' } };
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(hidden)} />);
+    expect(await screen.findByText('Personal proxy of Dev (details visible only to them)')).toBeInTheDocument();
+    expect(screen.getByText('Personal proxy')).toBeInTheDocument();
+    expect(screen.queryByText(/proxy.corp.example/)).not.toBeInTheDocument();
+  });
+
+  it('tells a forwarded HTTP request from an error the proxy answered', async () => {
+    const fwd = proxied(true);
+    fwd.checks[0]!.result = { port: 80, proxy: { name: 'corp', address: 'proxy.corp.example:3128', usedIp: '10.0.0.9', mode: 'forward', reached: true, via: '1.1 squid' } };
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(fwd)} />);
+    expect(await screen.findByText('Request forwarded by the proxy')).toBeInTheDocument();
+    expect(screen.getByText('1.1 squid')).toBeInTheDocument();
+  });
+
   it('explains a refusal of the proxy', async () => {
     renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(proxied(false))} />);
     expect(await screen.findAllByText('The proxy refused the tunnel (its policy).')).not.toHaveLength(0);

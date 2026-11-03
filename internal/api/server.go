@@ -110,7 +110,14 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("GET /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminTrustedCAs)))
 	api.Handle("PUT /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminSetTrustedCAs)))
 	api.Handle("GET /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminProxies)))
-	api.Handle("PUT /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminSetProxies)))
+	api.Handle("POST /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminCreateProxy)))
+	api.Handle("PUT /api/v1/admin/proxies/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateProxy)))
+	api.Handle("DELETE /api/v1/admin/proxies/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteProxy)))
+	// Personal proxies: only their owner sees, changes and uses them.
+	api.HandleFunc("GET /api/v1/proxies", s.myProxies)
+	api.HandleFunc("POST /api/v1/proxies", s.createMyProxy)
+	api.HandleFunc("PUT /api/v1/proxies/{id}", s.updateMyProxy)
+	api.HandleFunc("DELETE /api/v1/proxies/{id}", s.deleteMyProxy)
 	api.Handle("GET /api/v1/admin/retention", requireAdmin(http.HandlerFunc(s.adminRetention)))
 	api.Handle("GET /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminAccessRules)))
 	api.Handle("POST /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminSaveAccessRule)))
@@ -244,8 +251,8 @@ func (s *Server) namespaces(w http.ResponseWriter, r *http.Request) {
 func (s *Server) catalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": probes.Catalog,
-		// Proxies users may choose for TCP and HTTPS checks (optional).
-		"proxies": s.Proxies.List(),
+		// Proxies the caller may choose for TCP, HTTP and HTTPS checks (optional).
+		"proxies": s.catalogProxies(r.Context(), identity(r)),
 		"limits": map[string]any{
 			"maxChecks":                  s.Limits.MaxChecks,
 			"defaultCheckTimeoutSeconds": int(s.Limits.DefaultCheckTimeout.Seconds()),
@@ -284,7 +291,11 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	runID := newID(16)
-	spec, err := probes.BuildSpec(runID, req, s.Policies.Effective(), s.Limits, s.Proxies.List()...)
+	proxies, err := s.resolveRunProxies(r.Context(), id, &req)
+	var spec probes.Spec
+	if err == nil {
+		spec, err = probes.BuildSpec(runID, req, s.Policies.Effective(), s.Limits, proxies...)
+	}
 	if err == nil {
 		spec.TrustedCAs = s.TrustedCAs.forSpec(spec)
 	}
@@ -412,7 +423,12 @@ func (s *Server) getRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusInternalServerError, "internal", "internal error", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, detail(run, execs))
+	d := detail(run, execs)
+	if identity(r).ID != run.ActorID {
+		// Only the author sees the details of personal proxies.
+		hidePersonalProxies(&d)
+	}
+	writeJSON(w, http.StatusOK, d)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {

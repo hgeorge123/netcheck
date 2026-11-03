@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/netip"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -289,6 +290,7 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 
 	// Never use environment proxies: only the proxy chosen for the check.
 	var dial func(ctx context.Context) (net.Conn, error)
+	var forwardTo *url.URL
 	var start, connectDone, tlsStart, tlsDone, firstByte time.Time
 	pinned := ""
 	if p := c.Proxy; p != nil {
@@ -297,19 +299,26 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 			return err
 		}
 		cr.Equivalent = append(cr.Equivalent, "--proxy", "http://"+p.Address(), "--", u)
-		// The tunnel is opened here, not by http.Transport, so every proxy
-		// result is written by this goroutine; the transport only gets the
-		// open tunnel and speaks TLS over it.
+		// The connection to the proxy (and the CONNECT tunnel for HTTPS) is
+		// opened here, not by http.Transport, so every proxy result is written
+		// by this goroutine; the transport only gets the open connection.
 		start = time.Now()
 		conn, err := r.dialProxy(ctx, policy, *p, cr, st)
 		if err != nil {
 			return err
 		}
 		defer conn.Close()
-		if err := proxyTunnel(ctx, conn, net.JoinHostPort(t.Host, strconv.Itoa(c.Port)), cr, st); err != nil {
-			return err
+		if c.Method == probes.MethodHTTPS {
+			cr.Proxy.Mode = probes.ProxyModeConnect
+			if err := proxyTunnel(ctx, conn, net.JoinHostPort(t.Host, strconv.Itoa(c.Port)), cr, st); err != nil {
+				return err
+			}
+		} else {
+			// Plain HTTP: the request goes to the proxy with the absolute URL.
+			cr.Proxy.Mode = probes.ProxyModeForward
+			forwardTo = &url.URL{Scheme: "http", Host: p.Address()}
 		}
-		connectDone = time.Now() // through the tunnel: TCP to the proxy plus CONNECT
+		connectDone = time.Now() // TCP to the proxy, plus CONNECT for HTTPS
 		tunnel := make(chan net.Conn, 1)
 		tunnel <- conn
 		dial = func(context.Context) (net.Conn, error) {
@@ -336,12 +345,21 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		cr.Equivalent = append(cr.Equivalent, "--", u)
 	}
 
-	roots, extra, err := r.trustPool(spec.TrustedCAs)
+	// The authorities of the proxy count only for checks through it.
+	cas := spec.TrustedCAs
+	if c.Proxy != nil {
+		cas = mergeCAs(cas, c.Proxy.TrustedCAs)
+	}
+	roots, extra, err := r.trustPool(cas)
 	if err != nil {
 		return err
 	}
+	var proxyFunc func(*http.Request) (*url.URL, error)
+	if forwardTo != nil {
+		proxyFunc = http.ProxyURL(forwardTo)
+	}
 	transport := &http.Transport{
-		Proxy:       nil,
+		Proxy:       proxyFunc,
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return dial(ctx) },
 		// The certificate is checked by inspectCertificate, which reports
 		// every problem; the handshake fails on them unless they are ignored.
@@ -420,6 +438,17 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 	h.Proto = resp.Proto
 	if loc := resp.Header.Get("Location"); loc != "" {
 		h.Location, _ = Truncate(Sanitize(loc), 512)
+	}
+	if cr.Proxy != nil && cr.Proxy.Mode == probes.ProxyModeForward {
+		cr.Proxy.Via, _ = Truncate(Sanitize(resp.Header.Get("Via")), 256)
+		// An error the proxy answered itself is a proxy result, not the
+		// destination's answer.
+		if proxyAnswered(resp) {
+			recordConnect(cr.Proxy, resp, time.Since(start))
+			cr.Category = proxyStatusCategory(resp.StatusCode)
+			st.printf("the proxy answered %s itself", cr.Proxy.StatusText)
+			return fmt.Errorf("proxy %s answered %q", cr.Proxy.Name, cr.Proxy.StatusText)
+		}
 	}
 	if resp.TLS != nil {
 		h.TLSVersion = tls.VersionName(resp.TLS.Version)

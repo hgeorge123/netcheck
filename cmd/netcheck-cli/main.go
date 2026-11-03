@@ -50,8 +50,8 @@ Example:
   netcheck-cli run -n payments -t db.corp.example -c dns -c tcp:5432 -c https:8443/health
 
 Flags of run: --timeout SECONDS, --wait DURATION (default 5m), --json, --ignore-tls-errors (HTTPS goes
-on despite certificate problems, which are still reported), --proxy NAME (TCP and HTTPS checks go through
-that proxy, configured by the administrators; the other checks stay direct).
+on despite certificate problems, which are still reported), --proxy NAME (TCP, HTTP and HTTPS checks go through
+that proxy: one of yours or a shared one, by name or ID; the other checks stay direct).
 
 Exit codes: 0 passed, 1 connectivity failures, 2 test not run or wait timed out, 3 usage or API error.
 `
@@ -123,7 +123,7 @@ func runCommand(ctx context.Context, args []string, getenv func(string) string, 
 	wait := fs.Duration("wait", 5*time.Minute, "maximum time to wait for the result")
 	asJSON := fs.Bool("json", false, "print the full result as JSON")
 	ignoreTLS := fs.Bool("ignore-tls-errors", false, "HTTPS checks go on despite certificate problems (still reported)")
-	proxy := fs.String("proxy", "", "TCP and HTTPS checks go through this configured proxy")
+	proxy := fs.String("proxy", "", "TCP, HTTP and HTTPS checks go through this proxy (yours or shared; name or ID)")
 	if err := fs.Parse(args); err != nil {
 		return usageErr("%v", err)
 	}

@@ -60,15 +60,16 @@ type Config struct {
 	// TrustedCAsManagedBy works like DestinationsManagedBy.
 	TrustedCAs          []string `json:"trustedCas"`
 	TrustedCAsManagedBy string   `json:"trustedCasManagedBy"`
-	// Proxies are HTTP proxies TCP and HTTPS checks may go through (CONNECT),
-	// always optional per check. ProxiesManagedBy works like
-	// DestinationsManagedBy.
-	Proxies           []probes.Proxy `json:"proxies"`
-	ProxiesManagedBy  string         `json:"proxiesManagedBy"`
-	Limits            Limits         `json:"limits"`
-	Probe             Probe          `json:"probe"`
-	Retention         Retention      `json:"retention"`
-	NetworkPolicyRead bool           `json:"networkPolicyRead"`
+	// Proxies are the administrators' HTTP proxies TCP, HTTP and HTTPS
+	// checks may go through, always optional per check. ProxiesManagedBy
+	// works like DestinationsManagedBy (users' personal proxies always live
+	// in the database).
+	Proxies           []ProxyConfig `json:"proxies"`
+	ProxiesManagedBy  string        `json:"proxiesManagedBy"`
+	Limits            Limits        `json:"limits"`
+	Probe             Probe         `json:"probe"`
+	Retention         Retention     `json:"retention"`
+	NetworkPolicyRead bool          `json:"networkPolicyRead"`
 
 	// OwnNamespace is where NetCheck runs (POD_NAMESPACE); always excluded.
 	OwnNamespace string `json:"-"`
@@ -397,7 +398,7 @@ func (c *Config) validate(getenv func(string) string) error {
 	if c.ProxiesManagedBy != DestinationsManagedByUI && c.ProxiesManagedBy != DestinationsManagedByHelm {
 		add("proxiesManagedBy must be ui or helm")
 	}
-	if _, err := probes.NormalizeProxies(c.Proxies); err != nil {
+	if _, err := probes.NormalizeProxies(ProxyList(c.Proxies)); err != nil {
 		add("%v", err)
 	}
 	if !digestImageRef.MatchString(c.Probe.Image) {
@@ -462,4 +463,28 @@ func (c Config) ProbeLimits() probes.Limits {
 		MaxOutputBytes:      c.Limits.MaxOutputBytes,
 		Settle:              time.Duration(c.Probe.SettleSeconds) * time.Second,
 	}
+}
+
+// ProxyConfig is an administrators' proxy of the Helm values.
+type ProxyConfig struct {
+	Name string `json:"name"`
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	// Shared (default true) lets every user choose it; false keeps it for
+	// administrators.
+	Shared *bool `json:"shared"`
+	// TrustedCAs are PEM authorities trusted only for checks through it.
+	TrustedCAs []string `json:"trustedCas"`
+}
+
+// IsShared reports whether every user may use the proxy.
+func (p ProxyConfig) IsShared() bool { return p.Shared == nil || *p.Shared }
+
+// ProxyList converts the configured proxies for validation.
+func ProxyList(in []ProxyConfig) []probes.Proxy {
+	out := make([]probes.Proxy, len(in))
+	for i, p := range in {
+		out[i] = probes.Proxy{Name: p.Name, Host: p.Host, Port: p.Port, TrustedCAs: p.TrustedCAs}
+	}
+	return out
 }

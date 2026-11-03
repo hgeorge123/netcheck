@@ -465,39 +465,67 @@ trustedCas:
 ## 19. Proxies
 
 When your applications reach a destination through a corporate HTTP proxy, testing the direct path from the Pod
-answers the wrong question. **Administration → Proxies** lists the proxies users may choose for **TCP and HTTPS**
-checks:
+answers the wrong question. Checks can go through a proxy instead, always **optionally** and per check: **TCP, HTTP and
+HTTPS** have a **Connection** choice, **Direct** by default. Without proxies the choice is hidden.
 
-1. Click **Add proxy** and give it a **name** (shown to users, for example `corp`), the **host name or IP** and the
-   **port** (usually 3128 or 8080).
-2. **Save.** Users see a **Connection** choice in the TCP and HTTPS settings: **Direct** (the default) or **Through proxy
-   corp**. Without proxies the choice is hidden.
+There are two kinds of proxies:
 
-Through a proxy, the probe connects to the proxy and asks it for a `CONNECT` tunnel to the destination; for HTTPS it
-then speaks TLS inside the tunnel, like `curl --proxy`. The result shows the proxy, its IP and its answer, and tells
-apart where the problem is: the proxy **could not be reached** from the Pod, it **refused the tunnel** (403, its policy;
-many proxies only allow port 443), it **requires authentication** (407), it **could not reach the destination**
-(502/503/504) or it **did not answer in time**.
+| | Shared proxies (administrators) | Personal proxies (each user) |
+|---|---|---|
+| Where | **Administration → Proxies** | **User menu → My proxies** |
+| Who creates, edits and deletes them | Administrators only | Only their owner |
+| Who sees and uses them | **Every user** (*Share with every user*) or **administrators only** | **Only their owner**, administrators included: nobody else |
+| Limit | 20 | 10 per user; deleted with the account |
+
+To add one, click **Add proxy** and give it a **name** (for example `corp`: lowercase letters, digits or dashes), the
+**host name or IP** and the **port** (usually 3128 or 8080), and optionally the **certificate authorities of this
+proxy** (see below). In a test, the user's own proxies are listed under **My proxies** and the shared ones under
+**Shared**.
+
+How a check goes through the proxy:
+
+- **TCP and HTTPS:** the probe asks the proxy for a `CONNECT` tunnel to the destination; for HTTPS it then speaks TLS
+  inside the tunnel, like `curl --proxy`.
+- **HTTP:** the probe sends the request to the proxy with the full URL and the proxy forwards it, like `curl -x`.
+
+The result shows the proxy, its IP and its answer, and tells apart where the problem is: the proxy **could not be
+reached** from the Pod, it **refused** (403, its policy; many proxies only allow `CONNECT` to port 443), it **requires
+authentication** (407), it **could not reach the destination** (502/503/504) or it **did not answer in time**. For
+HTTP, an error page the proxy answers itself (Squid's `X-Squid-Error`, `Proxy-Status`) is a proxy result; any other
+answer is the destination's.
+
+**Certificate authorities of a proxy.** A proxy that inspects TLS re-signs every certificate with its own authority.
+Paste that authority (PEM) in the proxy: it is trusted **only for HTTPS checks through that proxy**, by its owner (or by
+every user who may use a shared proxy), and the result says the certificate was trusted through it. A proxy that does
+not inspect TLS needs none. The authorities of **Certificate authorities** (§18) apply to every HTTPS check, with or
+without a proxy.
+
+**Privacy of personal proxies.** Each user only sees their own tests (§15). When an administrator opens a test that
+went through a personal proxy, it shows **"Personal proxy of \<user\>"**: the name, address, IPs and authorities of the
+proxy are hidden from the result, the output and the equivalent command. The audit log keeps who created, changed or
+deleted each proxy, with its name, address and the subject and fingerprint of its authorities (never the PEM).
 
 Rules and limits:
 
-- Each proxy must be a **destination the policy allows** (its address and port), like any destination; a test through
-  a proxy outside the policy is denied with that reason. The proxy needs an egress NetworkPolicy from the source
-  namespace like any other destination.
+- Each proxy, shared or personal, must be a **destination the policy allows** (its address and port), checked when it
+  is saved and on every test. It needs an egress NetworkPolicy from the source namespace like any destination.
 - The proxy, not the probe, resolves and connects to the destination, so the destination is checked by name and port
-  only. That is why only administrators define proxies.
+  only. Keep the destination policy in mind: a user's own proxy can reach whatever that proxy reaches.
 - **No authentication:** the probe never carries credentials. Use proxies that allow the cluster by source address.
-- HTTP, DNS, UDP, ping, traceroute and the firewall ticket always use the direct path.
-- If the proxy inspects TLS, add its authority in **Certificate authorities** (§18); the result then says the
-  certificate was trusted through it.
-- At most 20 proxies; names are 1–32 lowercase letters, digits or dashes. Changes are audited (`proxies.update`).
+- DNS, UDP, ping, traceroute and the firewall ticket always use the direct path.
+- Changes are audited (`proxies.create`, `proxies.update`, `proxies.delete`).
 
-**With Helm or Argo CD:** `proxies` in the values is the initial list, managed in the web afterwards
-(`proxiesManagedBy: ui`, default), or authoritative with `proxiesManagedBy: helm`:
+**With Helm or Argo CD:** `proxies` in the values is the initial list of shared proxies, managed in the web afterwards
+(`proxiesManagedBy: ui`, default), or authoritative with `proxiesManagedBy: helm` (then **Administration → Proxies**
+is read-only). Personal proxies are always managed in the web:
 
 ```yaml
 proxies:
-  - {name: corp, host: proxy.example.com, port: 3128}
+  - name: corp
+    host: proxy.example.com
+    port: 3128
+    shared: true        # false: administrators only
+    trustedCas: []      # PEM authorities trusted only through this proxy
 ```
 
 ---

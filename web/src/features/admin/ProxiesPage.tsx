@@ -1,6 +1,7 @@
 import Alert from '@cloudscape-design/components/alert';
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
+import Checkbox from '@cloudscape-design/components/checkbox';
 import ColumnLayout from '@cloudscape-design/components/column-layout';
 import ContentLayout from '@cloudscape-design/components/content-layout';
 import FormField from '@cloudscape-design/components/form-field';
@@ -9,60 +10,90 @@ import Input from '@cloudscape-design/components/input';
 import Modal from '@cloudscape-design/components/modal';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Table from '@cloudscape-design/components/table';
+import Textarea from '@cloudscape-design/components/textarea';
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorAlert, errorText, fieldErrorText } from '../../components/errors';
 import { useI18n } from '../../i18n';
-import { ApiError, type Api } from '../../services/api';
-import type { ProxiesView, Proxy } from '../../types/api';
+import { ApiError } from '../../services/api';
+import type { ProxiesView, Proxy, ProxyInput } from '../../types/api';
 
-interface Props {
-  admin: Api['admin'];
-  notify: (type: 'success' | 'error', message: string) => void;
+/** The calls of one kind of proxies: administrators' or the user's own. */
+export interface ProxyCalls {
+  list: () => Promise<ProxiesView>;
+  create: (p: ProxyInput) => Promise<Proxy>;
+  update: (id: string, p: ProxyInput) => Promise<Proxy>;
+  remove: (id: string) => Promise<undefined>;
 }
 
-// Author of the list copied from the Helm values on the first start.
-const SEED_ACTOR = 'helm (initial values)';
+interface Props {
+  /** admin: the administrators' proxies (shared or for administrators); personal: the user's own. */
+  scope: 'admin' | 'personal';
+  calls: ProxyCalls;
+  notify: (type: 'success' | 'error', message: string) => void;
+}
 
 interface Draft {
   name: string;
   host: string;
   port: string;
+  shared: boolean;
+  pem: string;
 }
 
-/** HTTP proxies TCP and HTTPS checks may go through, always optional. */
-export function ProxiesPage({ admin, notify }: Props) {
-  const { t, formatDate } = useI18n();
+const emptyDraft = (scope: Props['scope']): Draft => ({ name: '', host: '', port: '3128', shared: scope === 'admin', pem: '' });
+
+/** HTTP proxies checks may go through, always optional per check. */
+export function ProxiesPage({ scope, calls, notify }: Props) {
+  const { t } = useI18n();
   const [view, setView] = useState<ProxiesView | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [selected, setSelected] = useState<Proxy[]>([]);
-  // index -1: a new proxy; otherwise the position being edited.
-  const [editing, setEditing] = useState<{ index: number; draft: Draft } | null>(null);
+  // id undefined: a new proxy.
+  const [editing, setEditing] = useState<{ id?: string; draft: Draft } | null>(null);
   const [removing, setRemoving] = useState<Proxy | null>(null);
   const [saveError, setSaveError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const k = scope === 'admin' ? 'proxies' : 'myProxies';
 
   const load = useCallback(async () => {
     try {
-      setView(await admin.proxies());
+      setView(await calls.list());
       setSelected([]);
     } catch (e) {
       setLoadError(e);
     }
-  }, [admin]);
+  }, [calls]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const save = async (proxies: Proxy[], message: string) => {
+  if (loadError) return <ErrorAlert error={loadError} />;
+  const current = view?.proxies ?? [];
+  const readOnly = view !== null && !view.editable;
+  const full = view !== null && current.length >= view.max;
+  const fieldError = (field: string) => {
+    if (!(saveError instanceof ApiError)) return undefined;
+    const d = saveError.details.find((x) => x.field === field || x.field.endsWith(`.${field}`));
+    return d ? fieldErrorText(t, d) : undefined;
+  };
+  const generalError =
+    saveError !== null && !['name', 'host', 'port', 'certificates'].some((f) => fieldError(f)) ? errorText(t, saveError) : undefined;
+
+  const submit = async () => {
+    if (!editing) return;
+    const { id, draft } = editing;
+    // Each certificate block is sent as is; the server splits bundles.
+    const certificates = draft.pem.trim() ? [draft.pem] : [];
+    const input: ProxyInput = { name: draft.name.trim(), host: draft.host.trim(), port: Number(draft.port), shared: scope === 'admin' && draft.shared, certificates };
     setBusy(true);
     setSaveError(null);
     try {
-      setView(await admin.saveProxies(proxies));
-      setSelected([]);
+      if (id) await calls.update(id, input);
+      else await calls.create(input);
       setEditing(null);
-      setRemoving(null);
-      notify('success', message);
+      notify('success', t(`${k}.saved`));
+      await load();
     } catch (e) {
       setSaveError(e);
     } finally {
@@ -70,40 +101,35 @@ export function ProxiesPage({ admin, notify }: Props) {
     }
   };
 
-  if (loadError) return <ErrorAlert error={loadError} />;
-  const current = view?.proxies ?? [];
-  const readOnly = view !== null && !view.editable;
-  // Server errors name the field as proxies[i].name|host|port.
-  const fieldError = (field: keyof Draft) => {
-    if (!(saveError instanceof ApiError)) return undefined;
-    const d = saveError.details.find((x) => x.field.endsWith(`.${field}`));
-    return d ? fieldErrorText(t, d) : undefined;
+  const remove = async () => {
+    if (!removing) return;
+    setBusy(true);
+    setSaveError(null);
+    try {
+      await calls.remove(removing.id);
+      setRemoving(null);
+      notify('success', t('proxies.deleted'));
+      await load();
+    } catch (e) {
+      setSaveError(e);
+    } finally {
+      setBusy(false);
+    }
   };
-  const generalError = saveError !== null && !fieldError('name') && !fieldError('host') && !fieldError('port') ? errorText(t, saveError) : undefined;
 
-  const submit = () => {
-    if (!editing) return;
-    const { index, draft } = editing;
-    const proxy: Proxy = { name: draft.name.trim(), host: draft.host.trim(), port: Number(draft.port) };
-    const list = index < 0 ? [...current, proxy] : current.map((p, i) => (i === index ? proxy : p));
-    void save(list, t('proxies.saved'));
+  const edit = (p: Proxy) => {
+    setSaveError(null);
+    setEditing({
+      id: p.id,
+      draft: { name: p.name, host: p.host, port: String(p.port), shared: p.shared, pem: (p.certificates ?? []).map((c) => c.pem.trim()).join('\n') },
+    });
   };
 
   return (
     <ContentLayout
       header={
-        <Header
-          variant="h1"
-          description={t('proxies.description')}
-          info={
-            view && (
-              <Box variant="small" color="text-body-secondary">
-                {t('policy.updated', { date: formatDate(view.updatedAt), user: view.updatedBy === SEED_ACTOR ? t('policy.seedActor') : view.updatedBy })}
-              </Box>
-            )
-          }
-        >
-          {t('proxies.title')}
+        <Header variant="h1" description={t(`${k}.description`)}>
+          {t(`${k}.title`)}
         </Header>
       }
     >
@@ -117,28 +143,20 @@ export function ProxiesPage({ admin, notify }: Props) {
           items={current}
           loading={view === null}
           loadingText={t('common.loading')}
-          trackBy="name"
+          trackBy="id"
           variant="container"
           selectionType={readOnly ? undefined : 'single'}
           selectedItems={selected}
           onSelectionChange={({ detail }) => setSelected(detail.selectedItems)}
-          ariaLabels={{ itemSelectionLabel: (_, p) => p.name, selectionGroupLabel: t('proxies.title') }}
+          ariaLabels={{ itemSelectionLabel: (_, p) => p.name, selectionGroupLabel: t(`${k}.title`) }}
           header={
             <Header
-              counter={view ? `(${current.length})` : undefined}
-              description={t('proxies.listDesc')}
+              counter={view ? `(${current.length}/${view.max})` : undefined}
+              description={t(`${k}.listDesc`)}
               actions={
                 !readOnly && (
                   <SpaceBetween direction="horizontal" size="xs">
-                    <Button
-                      disabled={selected.length !== 1}
-                      onClick={() => {
-                        const p = selected[0];
-                        if (!p) return;
-                        setSaveError(null);
-                        setEditing({ index: current.indexOf(p), draft: { name: p.name, host: p.host, port: String(p.port) } });
-                      }}
-                    >
+                    <Button disabled={selected.length !== 1} onClick={() => selected[0] && edit(selected[0])}>
                       {t('proxies.edit')}
                     </Button>
                     <Button disabled={selected.length !== 1} onClick={() => setRemoving(selected[0] ?? null)}>
@@ -146,9 +164,10 @@ export function ProxiesPage({ admin, notify }: Props) {
                     </Button>
                     <Button
                       variant="primary"
+                      disabled={full}
                       onClick={() => {
                         setSaveError(null);
-                        setEditing({ index: -1, draft: { name: '', host: '', port: '3128' } });
+                        setEditing({ draft: emptyDraft(scope) });
                       }}
                     >
                       {t('proxies.add')}
@@ -164,30 +183,39 @@ export function ProxiesPage({ admin, notify }: Props) {
             <Box textAlign="center" color="inherit">
               <b>{t('proxies.emptyTitle')}</b>
               <Box variant="p" color="inherit">
-                {t('proxies.empty')}
+                {t(`${k}.empty`)}
               </Box>
             </Box>
           }
           columnDefinitions={[
             { id: 'name', header: t('proxies.col.name'), cell: (p) => p.name },
             { id: 'address', header: t('proxies.col.address'), cell: (p) => <Box variant="code">{`${p.host}:${p.port}`}</Box> },
+            ...(scope === 'admin'
+              ? [{ id: 'shared', header: t('proxies.col.shared'), cell: (p: Proxy) => t(p.shared ? 'proxies.sharedAll' : 'proxies.sharedAdmins') }]
+              : []),
+            {
+              id: 'cas',
+              header: t('proxies.col.certificates'),
+              cell: (p) => (p.certificateCount > 0 ? (p.certificates ?? []).map((c) => c.subject).join('; ') || String(p.certificateCount) : '—'),
+            },
           ]}
         />
-        <Alert type="info">{t('proxies.note')}</Alert>
+        <Alert type="info">{t(`${k}.note`)}</Alert>
       </SpaceBetween>
 
       {editing && (
         <Modal
           visible
+          size="large"
           onDismiss={() => setEditing(null)}
-          header={editing.index < 0 ? t('proxies.addTitle') : t('proxies.editTitle')}
+          header={editing.id ? t('proxies.editTitle') : t('proxies.addTitle')}
           footer={
             <Box float="right">
               <SpaceBetween direction="horizontal" size="xs">
                 <Button variant="link" onClick={() => setEditing(null)}>
                   {t('common.cancel')}
                 </Button>
-                <Button variant="primary" loading={busy} disabled={!editing.draft.name.trim() || !editing.draft.host.trim()} onClick={submit}>
+                <Button variant="primary" loading={busy} disabled={!editing.draft.name.trim() || !editing.draft.host.trim()} onClick={() => void submit()}>
                   {t('common.save')}
                 </Button>
               </SpaceBetween>
@@ -222,6 +250,26 @@ export function ProxiesPage({ admin, notify }: Props) {
                 />
               </FormField>
             </ColumnLayout>
+            {scope === 'admin' && (
+              <FormField description={t('proxies.sharedDesc')}>
+                <Checkbox
+                  checked={editing.draft.shared}
+                  onChange={({ detail }) => setEditing({ ...editing, draft: { ...editing.draft, shared: detail.checked } })}
+                >
+                  {t('proxies.sharedLabel')}
+                </Checkbox>
+              </FormField>
+            )}
+            <FormField label={t('proxies.pem')} description={t('proxies.pemDesc')} errorText={fieldError('certificates')}>
+              <Textarea
+                value={editing.draft.pem}
+                rows={8}
+                spellcheck={false}
+                placeholder={'-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----'}
+                onChange={({ detail }) => setEditing({ ...editing, draft: { ...editing.draft, pem: detail.value } })}
+                ariaLabel={t('proxies.pem')}
+              />
+            </FormField>
           </SpaceBetween>
         </Modal>
       )}
@@ -237,16 +285,7 @@ export function ProxiesPage({ admin, notify }: Props) {
                 <Button variant="link" onClick={() => setRemoving(null)}>
                   {t('common.cancel')}
                 </Button>
-                <Button
-                  variant="primary"
-                  loading={busy}
-                  onClick={() =>
-                    void save(
-                      current.filter((p) => p.name !== removing.name),
-                      t('proxies.deleted'),
-                    )
-                  }
-                >
+                <Button variant="primary" loading={busy} onClick={() => void remove()}>
                   {t('proxies.delete')}
                 </Button>
               </SpaceBetween>
@@ -255,7 +294,7 @@ export function ProxiesPage({ admin, notify }: Props) {
         >
           <SpaceBetween size="s">
             {saveError !== null && <Alert type="error">{errorText(t, saveError)}</Alert>}
-            <Box variant="p">{t('proxies.deleteBody', { name: removing.name })}</Box>
+            <Box variant="p">{t(`${k}.deleteBody`, { name: removing.name })}</Box>
           </SpaceBetween>
         </Modal>
       )}

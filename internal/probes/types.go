@@ -182,13 +182,23 @@ type CheckResult struct {
 	Proxy       *ProxyResult      `json:"proxy,omitempty"`
 }
 
-// ProxyResult is the evidence of a check tunnelled through a proxy: the
-// probe reached the proxy (Reached) and asked it for a CONNECT tunnel to the
-// destination, which the proxy answered with Status. The proxy, not the
-// probe, resolves the destination and connects to it.
+// How a check goes through a proxy: a CONNECT tunnel (TCP and HTTPS) or a
+// plain HTTP request the proxy forwards.
+const (
+	ProxyModeConnect = "connect"
+	ProxyModeForward = "forward"
+)
+
+// ProxyResult is the evidence of a check through a proxy: the probe reached
+// the proxy (Reached) and asked it for a CONNECT tunnel (Status is its reply)
+// or sent it the HTTP request to forward (Status is set only when the proxy
+// answered an error itself). The proxy, not the probe, resolves the
+// destination and connects to it.
 type ProxyResult struct {
 	Name        string   `json:"name"`
 	Address     string   `json:"address"`
+	Personal    bool     `json:"personal,omitempty"`
+	Mode        string   `json:"mode,omitempty"`
 	ResolvedIPs []string `json:"resolvedIps,omitempty"`
 	UsedIP      string   `json:"usedIp,omitempty"`
 	Reached     bool     `json:"reached"`
@@ -196,6 +206,7 @@ type ProxyResult struct {
 	Status      int      `json:"status,omitempty"`
 	StatusText  string   `json:"statusText,omitempty"`
 	TunnelMS    int64    `json:"tunnelMs,omitempty"`
+	Via         string   `json:"via,omitempty"`
 }
 
 // DNSResult holds DNS specific evidence.

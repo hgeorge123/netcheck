@@ -120,19 +120,40 @@ export interface Limits {
   settleSeconds: number;
 }
 
-/** HTTP proxy TCP and HTTPS checks may go through (CONNECT tunnel). */
+/**
+ * HTTP proxy TCP, HTTP and HTTPS checks may go through. Administrators'
+ * proxies are shared with everyone or kept for administrators; personal
+ * proxies are only visible to their owner.
+ */
 export interface Proxy {
+  id: string;
   name: string;
   host: string;
   port: number;
+  personal: boolean;
+  shared: boolean;
+  certificateCount: number;
+  /** Only when listed for whoever manages the proxy. */
+  certificates?: TrustedCertificate[];
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface ProxyInput {
+  name: string;
+  host: string;
+  port: number;
+  /** Administrators' proxies only: every user may choose it. */
+  shared: boolean;
+  /** PEM authorities trusted only for checks through this proxy. */
+  certificates: string[];
 }
 
 export interface ProxiesView {
   proxies: Proxy[];
+  max: number;
   managedBy: 'ui' | 'helm';
   editable: boolean;
-  updatedAt: string;
-  updatedBy: string;
 }
 
 export interface Catalog {
@@ -269,10 +290,17 @@ export interface CheckResultDetail {
   proxy?: ProxyResult;
 }
 
-/** Evidence of a check tunnelled through a proxy. */
+/**
+ * Evidence of a check through a proxy. For anyone but the author of the test,
+ * a personal proxy keeps only `personal`, `mode`, `reached` and the reply.
+ */
 export interface ProxyResult {
-  name: string;
-  address: string;
+  name?: string;
+  address?: string;
+  personal?: boolean;
+  /** connect: CONNECT tunnel (TCP, HTTPS); forward: HTTP request forwarded by the proxy. */
+  mode?: 'connect' | 'forward';
+  via?: string;
   resolvedIps?: string[];
   usedIp?: string;
   reached: boolean;

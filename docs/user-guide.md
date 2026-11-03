@@ -139,11 +139,16 @@ Select one or more cards (or **Select all**). They run one after another in a si
   exactly why (expired, another name, untrusted authority, self-signed). With this option the request goes on, so you
   can check the application behind it; the result is a **warning** that still lists every certificate problem, like
   `curl --insecure`.
-- **TCP / HTTPS → Connection** (only when your administrators configured proxies): **Direct** (default) tests the
-  path from the Pod; **Through proxy …** asks that proxy for a tunnel to the destination, like
-  `curl --proxy` or `nc -X connect`. Use it when your applications reach the destination through the proxy. A success
+- **TCP / HTTP / HTTPS → Connection** (when you or your administrators have proxies): **Direct** (default) tests the
+  path from the Pod; **Through proxy …** sends the check through that proxy: a tunnel for TCP and HTTPS, like
+  `curl --proxy` or `nc -X connect`, and a forwarded request for HTTP, like `curl -x`. The list shows **My proxies**
+  first and then the **Shared** ones. Use it when your applications reach the destination through the proxy. A success
   proves the path through the proxy, not the direct one; the proxy resolves the name, so the result shows the proxy's
   IP and its answer instead of the destination IP.
+- **My proxies** (user menu): your own proxies, which only you can see and use. Add the name, host and port, and, if
+  the proxy inspects TLS, its certificate authority (PEM), which is trusted only for your HTTPS checks through that
+  proxy. If an administrator opens one of your tests, they only see that it went through a personal proxy, not which
+  one.
 - **DNS:** address family (IPv4 and IPv6, IPv4 only or IPv6 only).
 - **Ping:** number of echo requests (1–10, one per second).
 - **Traceroute:** maximum hops (1–30, at most one second per hop).

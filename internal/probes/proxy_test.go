@@ -41,19 +41,35 @@ func TestBuildSpecWithProxy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spec.Checks[0].Proxy == nil || *spec.Checks[0].Proxy != proxies[0] || spec.Checks[1].Proxy == nil || spec.Checks[2].Proxy != nil {
+	if spec.Checks[0].Proxy == nil || !spec.Checks[0].Proxy.equal(proxies[0]) || spec.Checks[1].Proxy == nil || spec.Checks[2].Proxy != nil {
 		t.Fatalf("checks = %+v", spec.Checks)
 	}
 	if err := spec.Validate(); err != nil {
 		t.Fatalf("validate: %v", err)
 	}
 
+	// HTTP may go through a proxy too; stored proxies are named by ID, and
+	// carry their own authorities and the personal mark into the spec.
+	stored := Proxy{ID: "p1", Name: "mine", Host: "10.0.0.7", Port: 8080, Personal: true, TrustedCAs: []string{testCert(t, "Proxy CA", true)}}
+	httpSpec, err := BuildSpec("abcdef0123456789", RunRequest{Target: "api.payments.svc.cluster.local",
+		Checks: []CheckRequest{{Method: MethodHTTP, Proxy: "p1"}}}, testPolicy(), testLimits, stored)
+	if err != nil || httpSpec.Checks[0].Proxy == nil || !httpSpec.Checks[0].Proxy.Personal || len(httpSpec.Checks[0].Proxy.TrustedCAs) != 1 {
+		t.Fatalf("stored proxy: %+v %v", httpSpec.Checks, err)
+	}
+	if err := httpSpec.Validate(); err != nil {
+		t.Fatalf("validate with proxy authorities: %v", err)
+	}
+	if _, err := BuildSpec("abcdef0123456789", RunRequest{Target: "api.payments.svc.cluster.local",
+		Checks: []CheckRequest{{Method: MethodHTTP, Proxy: "mine"}}}, testPolicy(), testLimits, stored); !codes(err)["proxy_unknown"] {
+		t.Errorf("a stored proxy is named by ID, not by name: %v", err)
+	}
+
 	for name, tc := range map[string]struct {
 		check CheckRequest
 		code  string
 	}{
-		"HTTP":      {CheckRequest{Method: MethodHTTP, Proxy: "corp"}, "proxy_not_applicable"},
 		"DNS":       {CheckRequest{Method: MethodDNS, Proxy: "corp"}, "proxy_not_applicable"},
+		"UDP":       {CheckRequest{Method: MethodUDP, Port: 53, Proxy: "corp"}, "proxy_not_applicable"},
 		"not found": {CheckRequest{Method: MethodTCP, Port: 443, Proxy: "nope"}, "proxy_unknown"},
 	} {
 		_, err := BuildSpec("abcdef0123456789", RunRequest{Target: "api.payments.svc.cluster.local", Checks: []CheckRequest{tc.check}}, testPolicy(), testLimits, proxies...)
@@ -81,5 +97,33 @@ func TestBuildSpecWithProxy(t *testing.T) {
 	bad.Checks[0].Proxy = &Proxy{Name: "corp", Host: "UPPER.example", Port: 8080}
 	if bad.Validate() == nil {
 		t.Error("a proxy that is not normalized must be refused")
+	}
+	bad.Checks[0].Proxy = &Proxy{Name: "corp", Host: "10.0.0.9", Port: 8080, TrustedCAs: []string{testCert(t, "api.example.com", false)}}
+	if bad.Validate() == nil {
+		t.Error("a proxy with a server certificate as authority must be refused")
+	}
+}
+
+func TestNormalizeProxyAuthorities(t *testing.T) {
+	ca := testCert(t, "Proxy CA", true)
+	p, err := NormalizeProxy(Proxy{Name: "corp", Host: "10.0.0.9", Port: 3128, TrustedCAs: []string{ca + ca, ""}})
+	if err != nil || len(p.TrustedCAs) != 1 {
+		t.Fatalf("bundle with a duplicate = %+v %v", p, err)
+	}
+	if p, err := NormalizeProxy(Proxy{Name: "corp", Host: "10.0.0.9", Port: 3128, TrustedCAs: []string{}}); err != nil || p.TrustedCAs != nil {
+		t.Errorf("no authorities = %+v %v", p, err)
+	}
+	for name, tc := range map[string]struct {
+		cas  []string
+		code string
+	}{
+		"private key": {[]string{"-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n"}, "not_a_certificate"},
+		"too many":    {manyCAs(t, MaxProxyCAs+1), "too_many_certificates"},
+	} {
+		_, err := NormalizeProxy(Proxy{Name: "corp", Host: "10.0.0.9", Port: 3128, TrustedCAs: tc.cas})
+		var fe FieldError
+		if !errors.As(err, &fe) || fe.Field != "certificates" || fe.Code != tc.code {
+			t.Errorf("%s: %+v", name, err)
+		}
 	}
 }

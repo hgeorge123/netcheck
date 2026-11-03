@@ -89,16 +89,28 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
     { value: 'ip4', label: t('newTest.family.ip4') },
     { value: 'ip6', label: t('newTest.family.ip6') },
   ];
-  // Optional proxy for TCP and HTTPS; hidden when none is configured.
+  // Optional proxy for TCP, HTTP and HTTPS, chosen by ID: the user's own
+  // proxies first, then the shared ones. Hidden when there is none.
   const proxies = catalog.proxies ?? [];
-  const proxyOptions: SelectProps.Option[] = [
-    { value: '', label: t('newTest.proxy.direct'), description: t('newTest.proxy.directDesc') },
-    ...proxies.map((p) => ({ value: p.name, label: t('newTest.proxy.through', { name: p.name }), description: `${p.host}:${p.port}` })),
+  const proxyOption = (p: (typeof proxies)[number]): SelectProps.Option => ({
+    value: p.id,
+    label: t('newTest.proxy.through', { name: p.name }),
+    description: `${p.host}:${p.port}`,
+    tags: p.certificateCount > 0 ? [t('newTest.proxy.withCa')] : undefined,
+  });
+  const mineOptions = proxies.filter((p) => p.personal).map(proxyOption);
+  const sharedOptions = proxies.filter((p) => !p.personal).map(proxyOption);
+  const direct: SelectProps.Option = { value: '', label: t('newTest.proxy.direct'), description: t('newTest.proxy.directDesc') };
+  const proxyOptions: SelectProps.Options = [
+    direct,
+    ...(mineOptions.length > 0 ? [{ label: t('newTest.proxy.mine'), options: mineOptions }] : []),
+    ...(sharedOptions.length > 0 ? [{ label: t('newTest.proxy.shared'), options: sharedOptions }] : []),
   ];
-  const proxyField = (field: 'tcpProxy' | 'httpsProxy') => (
+  const allProxyOptions = [direct, ...mineOptions, ...sharedOptions];
+  const proxyField = (field: 'tcpProxy' | 'httpProxy' | 'httpsProxy') => (
     <FormField label={t('newTest.proxy')} description={t('newTest.proxyDesc')} errorText={err(field)}>
       <Select
-        selectedOption={proxyOptions.find((o) => o.value === form[field]) ?? proxyOptions[0] ?? null}
+        selectedOption={allProxyOptions.find((o) => o.value === form[field]) ?? direct}
         onChange={({ detail }) => set(field, detail.selectedOption.value ?? '')}
         options={proxyOptions}
         ariaLabel={t('newTest.proxy')}
@@ -209,6 +221,7 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
         <FormField label={t('newTest.path')} errorText={err('httpPath')}>
           <Input value={form.httpPath} onChange={({ detail }) => set('httpPath', detail.value)} placeholder="/healthz" />
         </FormField>
+        {proxies.length > 0 && proxyField('httpProxy')}
       </ColumnLayout>
     ),
     https: (

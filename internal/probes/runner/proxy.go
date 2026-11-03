@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hgeorge123/netcheck/internal/diagnostics"
@@ -21,7 +23,7 @@ import (
 // against the policy like any target. Errors before the CONNECT mean the
 // proxy could not be reached.
 func (r *Runner) dialProxy(ctx context.Context, policy *probes.CompiledPolicy, p probes.Proxy, cr *probes.CheckResult, st *checkState) (net.Conn, error) {
-	pr := &probes.ProxyResult{Name: p.Name, Address: p.Address()}
+	pr := &probes.ProxyResult{Name: p.Name, Address: p.Address(), Personal: p.Personal, Mode: probes.ProxyModeConnect}
 	cr.Proxy = pr
 	unreachable := func(err error) error {
 		if !isDenied(err) {
@@ -113,4 +115,31 @@ func proxyStatusCategory(code int) string {
 		return diagnostics.CategoryProxyUpstreamFail
 	}
 	return diagnostics.CategoryProxyProtocolError
+}
+
+// proxyAnswered reports an HTTP answer the proxy produced itself instead of
+// forwarding the destination's: authentication required (407), or an error
+// page the proxy marks (Squid's X-Squid-Error, RFC 9209 Proxy-Status).
+func proxyAnswered(resp *http.Response) bool {
+	if resp.StatusCode == http.StatusProxyAuthRequired {
+		return true
+	}
+	if resp.StatusCode < 400 {
+		return false
+	}
+	return resp.Header.Get("X-Squid-Error") != "" || strings.Contains(resp.Header.Get("Proxy-Status"), "error=")
+}
+
+// mergeCAs joins two lists of authorities without duplicates.
+func mergeCAs(a, b []string) []string {
+	if len(b) == 0 {
+		return a
+	}
+	out := append([]string(nil), a...)
+	for _, p := range b {
+		if !slices.Contains(out, p) {
+			out = append(out, p)
+		}
+	}
+	return out
 }

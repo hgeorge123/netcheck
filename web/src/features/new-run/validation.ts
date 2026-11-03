@@ -41,8 +41,9 @@ export interface RunForm {
   httpsMethod: HTTPMethod;
   httpsPath: string;
   httpsIgnoreTls: boolean;
-  /** Name of the proxy for TCP / HTTPS; '' is the direct path (default). */
+  /** Proxy (ID) for TCP / HTTP / HTTPS; '' is the direct path (default). */
   tcpProxy: string;
+  httpProxy: string;
   httpsProxy: string;
   dnsFamily: 'ip' | 'ip4' | 'ip6';
   pingCount: string;
@@ -68,6 +69,7 @@ export const emptyForm = (namespace = ''): RunForm => ({
   httpsPath: '/',
   httpsIgnoreTls: false,
   tcpProxy: '',
+  httpProxy: '',
   httpsProxy: '',
   dnsFamily: 'ip',
   pingCount: String(DEFAULT_PING_COUNT),
@@ -87,6 +89,7 @@ export type FormField =
   | 'httpPath'
   | 'httpsPath'
   | 'tcpProxy'
+  | 'httpProxy'
   | 'httpsProxy'
   | 'pingCount'
   | 'maxHops';
@@ -200,7 +203,12 @@ export function buildRequest(f: RunForm): RunRequest {
         return { method, port: def === undefined ? Number(f.udpPort) : port(f.udpPort, def), udp: { protocol: f.udpProtocol } };
       }
       case 'http':
-        return { method, port: port(f.httpPort, DEFAULT_PORTS.http), http: { method: f.httpMethod, path: f.httpPath || '/' } };
+        return {
+          method,
+          port: port(f.httpPort, DEFAULT_PORTS.http),
+          http: { method: f.httpMethod, path: f.httpPath || '/' },
+          ...(f.httpProxy ? { proxy: f.httpProxy } : {}),
+        };
       case 'https':
         return {
           method,
@@ -237,6 +245,7 @@ export function formFromRun(run: Pick<RunDetail, 'request'>): RunForm {
     f.methods.push(c.method);
     if (c.method === 'tcp' && c.port) f.tcpPort = String(c.port);
     if (c.method === 'tcp') f.tcpProxy = c.proxy ?? '';
+    if (c.method === 'http') f.httpProxy = c.proxy ?? '';
     if (c.method === 'https') f.httpsProxy = c.proxy ?? '';
     if (c.method === 'udp') {
       f.udpProtocol = c.udp?.protocol ?? 'generic';
@@ -276,7 +285,7 @@ export function mapServerErrors(details: FieldError[], req: RunRequest, text: (f
       const sub = m[2];
       if ((sub === 'port' || sub === 'udp.protocol') && (method === 'tcp' || method === 'udp' || method === 'http' || method === 'https')) field = `${method}Port`;
       else if (sub === 'http.path' && (method === 'http' || method === 'https')) field = `${method}Path`;
-      else if (sub === 'proxy' && (method === 'tcp' || method === 'https')) field = `${method}Proxy`;
+      else if (sub === 'proxy' && (method === 'tcp' || method === 'http' || method === 'https')) field = `${method}Proxy`;
       else if (sub === 'ping.count') field = 'pingCount';
       else if (sub === 'traceroute.maxHops') field = 'maxHops';
     }

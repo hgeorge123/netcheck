@@ -15,6 +15,7 @@ export type Route =
   | { page: 'retention' }
   | { page: 'trusted-cas' }
   | { page: 'proxies' }
+  | { page: 'my-proxies' }
   | { page: 'access-rules' }
   | { page: 'tokens' }
   | { page: 'admin-tokens' }
@@ -56,6 +57,8 @@ export function parseHash(hash: string): Route {
       return { page: 'proxies' };
     case '/admin/access-rules':
       return { page: 'access-rules' };
+    case '/account/proxies':
+      return { page: 'my-proxies' };
     case '/account/tokens':
       return { page: 'tokens' };
     case '/admin/tokens':
@@ -93,6 +96,12 @@ export function hrefFor(r: Route): string {
       return '#/admin/retention';
     case 'access-rules':
       return '#/admin/access-rules';
+    case 'trusted-cas':
+      return '#/admin/trusted-cas';
+    case 'proxies':
+      return '#/admin/proxies';
+    case 'my-proxies':
+      return '#/account/proxies';
     case 'tokens':
       return '#/account/tokens';
     case 'admin-tokens':
@@ -104,7 +113,7 @@ export function hrefFor(r: Route): string {
   }
 }
 
-export const isAdminRoute = (r: Route): boolean => ['users', 'user-new', 'user-edit', 'sessions', 'system', 'policy', 'retention', 'namespaces', 'access-rules', 'admin-tokens'].includes(r.page);
+export const isAdminRoute = (r: Route): boolean => ['users', 'user-new', 'user-edit', 'sessions', 'system', 'policy', 'retention', 'namespaces', 'access-rules', 'admin-tokens', 'trusted-cas', 'proxies'].includes(r.page);
 
 export function useHashRoute(): [Route, (r: Route) => void] {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));

@@ -73,3 +73,10 @@ account, once an administrator has created an access rule for that group or user
 `LAB_SSO=ldap bash test/integration/lab.sh deploy` uses Dex's LDAP connector instead, against a lab OpenLDAP over LDAPS
 ([manifests/ldap.yaml](manifests/ldap.yaml); the CA is generated in `.data/lab-ldap` and passed as `rootCAData`). Users
 `ana` / `ana-lab-password` (group `netcheck-admins`) and `bob` / `bob-lab-password` (group `payments`).
+
+## Plain Ingress (Traefik) instead of the Gateway
+
+`bash test/integration/lab.sh traefik` installs Traefik as an Ingress controller and a TLS Secret for
+`netcheck.lab.test`; the next `lab.sh deploy` exposes NetCheck with `ingress.provider: generic`
+([values-kind-traefik.yaml](values-kind-traefik.yaml)) instead of an HTTPRoute, `/dex` included with `LAB_SSO`. Reach it
+with `kubectl --context kind-netcheck-lab -n traefik-lab port-forward svc/traefik 8443:443`.

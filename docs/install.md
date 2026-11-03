@@ -160,9 +160,10 @@ Sign-in passwords travel to NetCheck, so it must be served over **HTTPS**. Choos
 
 | Option | Values | When |
 |---|---|---|
-| **A. Gateway API `HTTPRoute`** (default) | `httpRoute.enabled: true` | You have a Gateway (NGINX Gateway Fabric, Envoy Gateway, Istio, Cilium…) with an HTTPS listener |
+| **A. Gateway API `HTTPRoute`** (default) | `httpRoute.enabled: true` | You have a Gateway (NGINX Gateway Fabric, Envoy Gateway, Istio, Traefik, Cilium, Kong, Azure Application Gateway for Containers…) with an HTTPS listener |
 | **B. AWS ALB `Ingress`** | `httpRoute.enabled: false`, `ingress.enabled: true` | Amazon EKS with the AWS Load Balancer Controller: see [install-eks.md](install-eks.md) |
-| **C. No exposure** | `httpRoute.enabled: false` | Evaluation only: reach it with `kubectl port-forward` |
+| **C. Any other `Ingress`** | `httpRoute.enabled: false`, `ingress.enabled: true`, `ingress.provider: generic` | ingress-nginx, Traefik, HAProxy, the AKS application routing add-on…, with a TLS Secret (see below) |
+| **D. No exposure** | `httpRoute.enabled: false` | Evaluation only: reach it with `kubectl port-forward` |
 
 For **option A**, collect the data of your Gateway:
 
@@ -181,6 +182,26 @@ kubectl -n "$GW_NS" get gateway "$GW_NAME" -o jsonpath='{.spec.listeners[?(@.pro
 - The listener certificate must cover the NetCheck host name (for example `netcheck.example.com`).
 - You also need the **CIDR the Gateway data plane Pods use** (usually the cluster Pod CIDR). It goes in
   `auth.trustedProxyCidrs`, so NetCheck can see the real client IP for sign-in throttling.
+
+For **option C**, give the IngressClass of your controller and a TLS Secret for the host in the NetCheck namespace
+(yours, or the one cert-manager creates when you add its annotation, e.g. `cert-manager.io/cluster-issuer`, to
+`ingress.annotations`):
+
+```yaml
+httpRoute:
+  enabled: false
+ingress:
+  enabled: true
+  provider: generic
+  className: nginx            # or traefik, haproxy, webapprouting.kubernetes.azure.com...
+  hosts: [netcheck.example.com]
+  generic:
+    tlsSecretName: netcheck-tls
+  annotations: {}             # controller-specific annotations, if any
+```
+
+`auth.trustedProxyCidrs` is then the CIDR of the controller Pods (usually the Pod CIDR). With single sign-on through
+the bundled Dex, the same Ingress also serves `/dex`.
 
 ## 7. Write your values file
 

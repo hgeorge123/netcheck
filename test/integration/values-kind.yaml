@@ -9,7 +9,7 @@ auth:
 namespaceScope:
   mode: all
   # Platform namespaces where nobody should run probes, like on EKS.
-  exclude: [calico-system, local-path-storage, nc-target, nginx-gateway, gateway-lab, lab-ldap]
+  exclude: [calico-system, local-path-storage, nc-target, nginx-gateway, gateway-lab, lab-ldap, traefik-lab]
 # destinations: chart default (any host, IP and port; metadata and the API
 # server stay denied by protectPlatformDestinations).
 probe:

@@ -134,7 +134,7 @@ that come up most often:
 | NetworkPolicies | None in source namespaces or in the NetCheck namespace (optional: `networkPolicy.enabled`) |
 | CNI | Must enforce NetworkPolicy (Calico, Cilium, Amazon VPC CNI with `enableNetworkPolicy`, …), otherwise results are meaningless |
 | Storage and zones | Block volumes live in one zone, so the Pod always returns to it. On EKS pin the zone with `persistence.createStorageClass.zones` and keep nodes there |
-| Exposure | Gateway API `HTTPRoute` (`httpRoute`) **or** `Ingress` (`ingress`), never both |
+| Exposure | Gateway API `HTTPRoute` (`httpRoute`, any implementation) **or** an `Ingress` (`ingress`: the AWS ALB or, with `provider: generic`, any other controller), never both |
 | Allowed destinations | Any name, IP and port by default; change it in **Administration → Destination policy** without redeploying (Part II §11). Cloud metadata and the API server are always denied |
 | Cloud IAM roles | None for NetCheck or the probes |
 | Single sign-on | Optional: any OIDC provider, or GitHub, GitLab, LDAP or SAML through the bundled Dex. See [sso.md](sso.md) |

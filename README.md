@@ -39,7 +39,8 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
 - **Secure by default:** probes run a shell-less Go binary pinned by digest, as non-root with no capabilities, no
   token and no cloud credentials. Native `ValidatingAdmissionPolicies` restrict what the controller can create even if
   its token leaks. Cloud metadata and the API server are never reachable from a test.
-- **Simple to run:** one Pod, SQLite on a persistent volume, one Helm chart. English and Spanish interface.
+- **Simple to run:** one Pod, SQLite on a persistent volume, one Helm chart, exposed with any Gateway API
+  implementation or Ingress controller (AWS ALB, ingress-nginx, Traefik, Istio…). English and Spanish interface.
 
 ## How it works
 
@@ -79,6 +80,7 @@ The full step-by-step guides:
 
 - [Install on any Kubernetes cluster](docs/install.md)
 - [Install on Amazon EKS](docs/install-eks.md) (VPC CNI, EBS, ALB or Gateway API)
+- [Install on Azure AKS](docs/install-aks.md) (network policy engine, Azure Disk, Gateway API or Ingress)
 
 Want to try it on your laptop first? The [kind laboratory](docs/install.md#appendix-try-it-locally-with-kind) creates
 a local cluster with Calico and sample namespaces in a few minutes.
@@ -89,6 +91,7 @@ a local cluster with Calico and sample namespaces in a few minutes.
 |---|---|
 | [Installation](docs/install.md) | Step-by-step installation on any Kubernetes cluster |
 | [Installation on Amazon EKS](docs/install-eks.md) | EKS specifics: VPC CNI network policy, EBS and zones, ALB or Gateway API |
+| [Installation on Azure AKS](docs/install-aks.md) | AKS specifics: network policy engine, Azure Disk and ZRS, Gateway API or Ingress |
 | [User guide](docs/user-guide.md) | Running tests and reading the results |
 | [Administrator guide](docs/admin-guide.md) | Users, namespaces, destination policy, retention, upgrades, backups, troubleshooting |
 | [Security model](docs/security.md) | Probe sandbox, RBAC, admission policies, destination protections, authentication |

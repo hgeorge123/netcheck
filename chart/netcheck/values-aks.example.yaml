@@ -1,0 +1,55 @@
+# Example values for Azure Kubernetes Service (AKS). Step by step in
+# docs/install-aks.md. Replace every <...>.
+environment: production
+clusterId: <aks-cluster-name>
+
+auth:
+  # Addresses NetCheck receives the requests from: the subnet of Application
+  # Gateway for Containers, or the Pod CIDR of the Ingress controller / gateway
+  # Pods (Azure CNI Overlay: 10.244.0.0/16 by default).
+  trustedProxyCidrs:
+    - <cidr>
+
+namespaceScope:
+  mode: all
+  # AKS system namespaces besides kube-system (always excluded) and your
+  # ingress or gateway namespace.
+  exclude: [gatekeeper-system, app-routing-system, aks-istio-system, aks-istio-ingress, <ingress-namespace>]
+
+destinations:
+  # Azure platform address (wireserver, Azure DNS, health probes): never a
+  # useful test destination. Cloud metadata (169.254.169.254) is always denied.
+  denyCidrs:
+    - 168.63.129.16/32
+
+persistence:
+  # Azure Disk through the CSI driver that AKS installs. A ZRS class (see
+  # docs/install-aks.md) lets the volume follow the Pod to any zone.
+  storageClassName: managed-csi
+  createStorageClass:
+    enabled: false
+
+# The EKS checks do not apply to AKS.
+preflight:
+  vpcCniNetworkPolicy: false
+  ebsCsiDriver: false
+
+# Option A (recommended): Gateway API, e.g. Application Gateway for Containers
+# or the Istio add-on.
+httpRoute:
+  enabled: true
+  hostnames: [netcheck.example.com]
+  parentRefs:
+    - name: <gateway-name>
+      namespace: <gateway-namespace>
+      sectionName: <https-listener-name>
+
+# Option B: an Ingress, e.g. the application routing add-on (managed NGINX).
+# Set httpRoute.enabled: false and uncomment:
+# ingress:
+#   enabled: true
+#   provider: generic
+#   className: webapprouting.kubernetes.azure.com
+#   hosts: [netcheck.example.com]
+#   generic:
+#     tlsSecretName: netcheck-tls

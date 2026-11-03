@@ -135,6 +135,19 @@ must_fail "ALB without trusted proxies" "auth.trustedProxyCidrs is required with
 must_fail "ALB netpol without LB subnets" "networkPolicy.loadBalancerCidrs is required" "${EKS[@]}" "${ALB[@]}" --set networkPolicy.enabled=true --set 'networkPolicy.apiServer.cidrs[0]=10.0.0.0/20'
 
 # The rendered config must be accepted by the strict Go loader.
+# Any other Ingress controller (provider generic), here Traefik with a TLS Secret.
+GEN=(--set httpRoute.enabled=false --set ingress.enabled=true --set ingress.provider=generic --set ingress.className=traefik
+  --set "ingress.hosts={netcheck.example.com}" --set ingress.generic.tlsSecretName=netcheck-tls)
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GEN[@]}" > "${TMP}/generic.yaml"
+expect "generic Ingress uses its IngressClass" "${TMP}/generic.yaml" "ingressClassName: traefik"
+expect "generic Ingress terminates TLS with the Secret" "${TMP}/generic.yaml" "secretName: netcheck-tls"
+expect_not "generic Ingress has no ALB annotations" "${TMP}/generic.yaml" "alb.ingress.kubernetes.io/scheme"
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GEN[@]}" --set networkPolicy.enabled=true   --set "networkPolicy.apiServer.cidrs[0]=10.0.0.0/20" --set "networkPolicy.ingressNamespaces[0]=traefik" > "${TMP}/generic-np.yaml"
+expect "opt-in NetworkPolicy admits only the Ingress controller namespace" "${TMP}/generic-np.yaml" "kubernetes.io/metadata.name: traefik"
+must_fail "generic Ingress without TLS" "ingress.generic.tlsSecretName is required" "${EKS[@]}" "${GEN[@]}" --set ingress.generic.tlsSecretName=
+must_fail "generic Ingress NetworkPolicy without controller namespaces" "networkPolicy.ingressNamespaces is required" "${EKS[@]}" "${GEN[@]}"   --set networkPolicy.enabled=true --set "networkPolicy.apiServer.cidrs[0]=10.0.0.0/20"
+must_fail "unknown Ingress provider" "ingress.provider must be alb" "${EKS[@]}" "${GEN[@]}" --set ingress.provider=istio
+
 # Single sign-on through the bundled Dex, exposed with the ALB Ingress.
 DEX=(--set auth.oidc.enabled=true --set dex.enabled=true --set "dex.connectors[0].type=github" --set "dex.connectors[0].id=github"
   --set "dex.connectors[0].name=GitHub" --set dex.envSecret=netcheck-github)
@@ -152,11 +165,20 @@ must_fail "Dex without OIDC" "dex.enabled requires auth.oidc.enabled" "${EKS[@]}
 must_fail "Dex without connectors" "dex.connectors must list at least one connector" "${EKS[@]}" "${ALB[@]}" --set auth.oidc.enabled=true --set dex.enabled=true
 must_fail "Dex with the NetworkPolicy" "does not cover the bundled dex" "${EKS[@]}" "${ALB[@]}" "${DEX[@]}" --set networkPolicy.enabled=true --set "networkPolicy.apiServer.cidrs[0]=10.0.0.0/20" --set "networkPolicy.loadBalancerCidrs[0]=10.0.64.0/20"
 
-for values in eks list kind sso; do
+# The AKS example (placeholders filled in) renders without AWS objects.
+sed -e "s/<aks-cluster-name>/aks-test/" -e "s|- <cidr>|- 10.244.0.0/16|" -e "s/, <ingress-namespace>]/, ingress-test]/"   -e "s/<gateway-name>/gw/" -e "s/<gateway-namespace>/gateway-system/" -e "s/<https-listener-name>/https/"   "${CHART}/values-aks.example.yaml" > "${TMP}/aks-values.yaml"
+AKS=(-f "${TMP}/aks-values.yaml" --set "image.digest=sha256:$(printf 1%.0s {1..64})" --set "probeImage.digest=sha256:$(printf 2%.0s {1..64})" "${GW[@]}")
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${AKS[@]}" > "${TMP}/aks.yaml"
+expect "AKS uses the Azure Disk class" "${TMP}/aks.yaml" "storageClassName: managed-csi"
+expect_not "AKS creates no AWS StorageClass" "${TMP}/aks.yaml" "ebs.csi.aws.com"
+expect "AKS denies the Azure platform address" "${TMP}/aks.yaml" "168.63.129.16/32"
+
+for values in eks list kind sso aks; do
   case "${values}" in
     eks) extra=("${EKS[@]}" "${GW[@]}") ;;
     list) extra=("${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=list --set 'namespaceScope.namespaces={payments}' --set 'namespaceScope.exclude=null') ;;
     sso) extra=("${EKS[@]}" "${ALB[@]}" "${DEX[@]}") ;;
+    aks) extra=("${AKS[@]}") ;;
     kind) extra=(-f "${ROOT}/test/integration/values-kind.yaml" --set image.repository=localhost:5001/netcheck --set image.tag=lab
           --set probeImage.repository=localhost:5001/netcheck-probe --set "probeImage.digest=sha256:$(printf '0%.0s' {1..64})") ;;
   esac

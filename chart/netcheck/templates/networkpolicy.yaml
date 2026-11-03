@@ -32,7 +32,18 @@ spec:
       ports:
         - {port: 8080, protocol: TCP}
     {{- end }}
-    {{- if .Values.ingress.enabled }}
+    {{- if and .Values.ingress.enabled (eq .Values.ingress.provider "generic") }}
+    # Only the Ingress controller Pods may reach the UI/API.
+    - from:
+        {{- range .Values.networkPolicy.ingressNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+      ports:
+        - {port: 8080, protocol: TCP}
+    {{- end }}
+    {{- if and .Values.ingress.enabled (eq .Values.ingress.provider "alb") }}
     # Only the ALB subnets may reach the UI/API (target-type ip).
     - from:
         {{- range .Values.networkPolicy.loadBalancerCidrs }}

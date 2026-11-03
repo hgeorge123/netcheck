@@ -1,0 +1,14 @@
+# Overlay for `lab.sh deploy` after `lab.sh traefik`: exposes NetCheck with a
+# plain Ingress of another controller (ingress.provider generic), here Traefik,
+# with TLS from a Secret, as on AKS or any cluster without Gateway API.
+auth:
+  trustedProxyCidrs: [192.168.0.0/16]
+httpRoute:
+  enabled: false
+ingress:
+  enabled: true
+  provider: generic
+  className: traefik
+  hosts: [netcheck.lab.test]
+  generic:
+    tlsSecretName: netcheck-lab-tls

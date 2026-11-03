@@ -69,6 +69,7 @@
         "README.md",
         "docs/install.md",
         "docs/install-eks.md",
+        "docs/install-aks.md",
         "docs/admin-guide.md",
         "docs/cli.md",
         "docs/dockerhub/netcheck.md",

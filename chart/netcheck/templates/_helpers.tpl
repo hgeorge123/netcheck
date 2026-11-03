@@ -148,10 +148,23 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- fail "destinationsManagedBy must be ui (edited in the web) or helm (these values are authoritative)" -}}
 {{- end -}}
 {{- if and $v.httpRoute.enabled $v.ingress.enabled -}}
-{{- fail "httpRoute.enabled and ingress.enabled are mutually exclusive: choose NGINX Gateway Fabric (httpRoute) or the AWS Load Balancer Controller (ingress). To use the ALB set httpRoute.enabled=false" -}}
+{{- fail "httpRoute.enabled and ingress.enabled are mutually exclusive: choose a Gateway API route (httpRoute) or an Ingress (ingress). To use an Ingress set httpRoute.enabled=false" -}}
 {{- end -}}
 {{- if $v.ingress.enabled -}}
 {{- if not $v.ingress.hosts -}}{{- fail "ingress.hosts is required when ingress.enabled (e.g. [netcheck.example.com])" -}}{{- end -}}
+{{- if not (has $v.ingress.provider (list "alb" "generic")) -}}{{- fail "ingress.provider must be alb (AWS Load Balancer Controller) or generic (any other Ingress controller)" -}}{{- end -}}
+{{- if not $v.ingress.className -}}{{- fail "ingress.className is required: the IngressClass of your controller" -}}{{- end -}}
+{{- if not $v.auth.trustedProxyCidrs -}}
+{{- fail "auth.trustedProxyCidrs is required with ingress (CIDRs of the load balancer or of the Ingress controller Pods); without it all users share one login rate limit" -}}
+{{- end -}}
+{{- if eq $v.ingress.provider "generic" -}}
+{{- if not $v.ingress.generic.tlsSecretName -}}
+{{- fail "ingress.generic.tlsSecretName is required with provider generic: HTTPS is mandatory (login passwords travel through the Ingress); cert-manager can create the Secret" -}}
+{{- end -}}
+{{- if and $v.networkPolicy.enabled (not $v.networkPolicy.ingressNamespaces) -}}
+{{- fail "networkPolicy.ingressNamespaces is required when networkPolicy.enabled and ingress.provider is generic (namespaces of the Ingress controller Pods)" -}}
+{{- end -}}
+{{- else -}}
 {{- if not (has $v.ingress.alb.scheme (list "internal" "internet-facing")) -}}{{- fail "ingress.alb.scheme must be internal or internet-facing" -}}{{- end -}}
 {{- if not $v.ingress.alb.certificateArns -}}
 {{- fail "ingress.alb.certificateArns is required when ingress.enabled: the ALB must terminate HTTPS with an ACM certificate (login passwords travel through it)" -}}
@@ -159,11 +172,9 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- range $v.ingress.alb.certificateArns -}}
 {{- if not (hasPrefix "arn:aws" .) -}}{{- fail (printf "ingress.alb.certificateArns: %q is not an ACM certificate ARN" .) -}}{{- end -}}
 {{- end -}}
-{{- if not $v.auth.trustedProxyCidrs -}}
-{{- fail "auth.trustedProxyCidrs is required with ingress (CIDR of the ALB subnets, usually the VPC CIDR); without it all users share one login rate limit" -}}
-{{- end -}}
 {{- if and $v.networkPolicy.enabled (not $v.networkPolicy.loadBalancerCidrs) -}}
 {{- fail "networkPolicy.loadBalancerCidrs is required when networkPolicy.enabled and ingress.enabled (CIDRs of the ALB subnets)" -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- if $v.httpRoute.enabled -}}
@@ -224,9 +235,9 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- if and $v.preflight.ingressClass $v.ingress.enabled -}}
 {{- $ic := lookup "networking.k8s.io/v1" "IngressClass" "" $v.ingress.className -}}
 {{- if not $ic -}}
-{{- fail (printf "preflight: IngressClass %s not found. Install the AWS Load Balancer Controller (with its IAM role) first" $v.ingress.className) -}}
+{{- fail (printf "preflight: IngressClass %s not found. Install your Ingress controller (for provider alb, the AWS Load Balancer Controller with its IAM role) first" $v.ingress.className) -}}
 {{- end -}}
-{{- if ne $ic.spec.controller "ingress.k8s.aws/alb" -}}
+{{- if and (eq $v.ingress.provider "alb") (ne $ic.spec.controller "ingress.k8s.aws/alb") -}}
 {{- fail (printf "preflight: IngressClass %s belongs to %s, not to the AWS Load Balancer Controller (ingress.k8s.aws/alb)" $v.ingress.className $ic.spec.controller) -}}
 {{- end -}}
 {{- end -}}

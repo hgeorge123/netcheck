@@ -7,6 +7,7 @@
 #   lab.sh deploy   build/push images, install the chart by digest
 #                   (LAB_SSO=1: with single sign-on through the bundled Dex;
 #                    LAB_SSO=ldap: through Dex and a lab OpenLDAP)
+#   lab.sh traefik  Traefik as a plain Ingress controller (instead of gateway)
 #   lab.sh down     delete the kind cluster and the registry container
 set -euo pipefail
 
@@ -22,6 +23,8 @@ KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.37.0@sha256:a1ed56cfb0e7b935
 CALICO_VERSION="${CALICO_VERSION:-v3.33.0}"
 # NGINX Gateway Fabric release older than two weeks at verification time.
 NGF_VERSION="${NGF_VERSION:-v2.7.2}"
+# Traefik Helm chart older than two weeks at verification time (Traefik v3.7.14).
+TRAEFIK_CHART_VERSION="${TRAEFIK_CHART_VERSION:-42.0.0}"
 TAG="${TAG:-lab}"
 
 kc() { kubectl --context "${CONTEXT}" "$@"; }
@@ -122,9 +125,12 @@ deploy() {
   app_ref="$(digest_of "${app}")"
   probe_ref="$(digest_of "${probe}")"
 
-  # Expose through the lab Gateway when `lab.sh gateway` was run.
+  # Expose through Traefik (plain Ingress) after `lab.sh traefik`, or through
+  # the lab Gateway after `lab.sh gateway`.
   local overlay=()
-  if kc -n gateway-lab get gateway lab-gateway >/dev/null 2>&1; then
+  if kc -n traefik-lab get deployment traefik >/dev/null 2>&1; then
+    overlay=(-f "${ROOT}/test/integration/values-kind-traefik.yaml")
+  elif kc -n gateway-lab get gateway lab-gateway >/dev/null 2>&1; then
     overlay=(-f "${ROOT}/test/integration/values-kind-gateway.yaml")
   fi
   kc create namespace netcheck --dry-run=client -o yaml | kc apply -f -
@@ -198,6 +204,23 @@ EOF
   echo "        then https://netcheck.lab.test:8443 (map netcheck.lab.test to 127.0.0.1)"
 }
 
+# Traefik as a plain Ingress controller (instead of the Gateway): tests
+# ingress.provider generic with a TLS Secret for netcheck.lab.test.
+traefik() {
+  helm --kube-context "${CONTEXT}" upgrade --install traefik oci://ghcr.io/traefik/helm/traefik     --version "${TRAEFIK_CHART_VERSION}" --namespace traefik-lab --create-namespace     --set service.type=ClusterIP --set ingressClass.name=traefik --set gateway.enabled=false --wait --timeout 5m
+  local tmp ftmp
+  tmp="$(mktemp -d)"
+  ftmp="${tmp}"
+  command -v cygpath >/dev/null && ftmp="$(cygpath -m "${tmp}")"
+  MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=netcheck.lab.test"     -addext "subjectAltName=DNS:netcheck.lab.test" -keyout "${ftmp}/tls.key" -out "${ftmp}/tls.crt" 2>/dev/null
+  kc create namespace netcheck --dry-run=client -o yaml | kc apply -f -
+  kc -n netcheck create secret tls netcheck-lab-tls --cert="${tmp}/tls.crt" --key="${tmp}/tls.key" --dry-run=client -o yaml | kc apply -f -
+  rm -rf "${tmp}"
+  echo "Traefik ready. Next: $0 deploy (adds the Ingress)."
+  echo "Access: kubectl --context ${CONTEXT} -n traefik-lab port-forward svc/traefik 8443:443"
+  echo "        then https://netcheck.lab.test:8443 (map netcheck.lab.test to 127.0.0.1)"
+}
+
 down() {
   kind delete cluster --name "${CLUSTER}" || true
   docker rm -f "${REGISTRY_NAME}" 2>/dev/null || true
@@ -206,7 +229,8 @@ down() {
 case "${1:-}" in
   up) up ;;
   gateway) gateway ;;
+  traefik) traefik ;;
   deploy) deploy ;;
   down) down ;;
-  *) echo "usage: $0 up|gateway|deploy|down" >&2; exit 2 ;;
+  *) echo "usage: $0 up|gateway|traefik|deploy|down" >&2; exit 2 ;;
 esac

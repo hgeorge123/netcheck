@@ -234,13 +234,24 @@ httpRoute:
   annotations: {}
 
 ingress:
-  # -- Expose NetCheck with an Ingress for the AWS Load Balancer Controller
-  # (one ALB, TLS with ACM). Requires httpRoute.enabled=false.
+  # -- Expose NetCheck with an Ingress instead of a Gateway API route.
+  # Requires httpRoute.enabled=false.
   enabled: false
-  # -- IngressClass of the AWS Load Balancer Controller.
+  # -- alb: AWS Load Balancer Controller (one ALB, TLS with ACM, settings in
+  # ingress.alb). generic: any Ingress controller (ingress-nginx, Traefik,
+  # HAProxy, the AKS application routing add-on...), TLS from a Secret.
+  provider: alb
+  # -- IngressClass: alb for the AWS Load Balancer Controller, or the class of
+  # your controller (e.g. nginx, traefik, webapprouting.kubernetes.azure.com).
   className: alb
   # -- REQUIRED when enabled, e.g. [netcheck.example.com].
   hosts: []
+  generic:
+    # -- REQUIRED with provider generic: TLS Secret for ingress.hosts in the
+    # NetCheck namespace (yours, or the one cert-manager creates when you add
+    # its annotation to ingress.annotations). HTTPS is mandatory: passwords
+    # travel through the Ingress.
+    tlsSecretName: ""
   alb:
     # -- internal (recommended: reachable only from the VPC/VPN) or internet-facing.
     scheme: internal
@@ -310,6 +321,9 @@ networkPolicy:
   # -- With ingress.enabled: CIDRs of the subnets where the ALB lives (the ALB
   # reaches the Pod IPs directly, target-type ip).
   loadBalancerCidrs: []
+  # -- With ingress.provider generic: namespaces of the Ingress controller Pods
+  # allowed to reach NetCheck (e.g. [ingress-nginx] or [traefik]).
+  ingressNamespaces: []
   # -- Node CIDRs for kubelet health probes, if your CNI enforces host traffic.
   kubeletCidrs: []
   apiServer:
@@ -336,6 +350,6 @@ preflight:
   ebsCsiDriver: true
   # -- The Gateway referenced by httpRoute.parentRefs must exist.
   gateway: true
-  # -- With ingress.enabled, ingress.className must exist and belong to the
-  # AWS Load Balancer Controller.
+  # -- With ingress.enabled, ingress.className must exist (and, with provider
+  # alb, belong to the AWS Load Balancer Controller).
   ingressClass: true

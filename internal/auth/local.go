@@ -160,8 +160,16 @@ func details(v map[string]any) string {
 	return string(b)
 }
 
-// Authenticate implements Authenticator from the session cookie.
+// Authenticate implements Authenticator from an API token (Authorization:
+// Bearer) or the session cookie.
 func (l *LocalAuth) Authenticate(r *http.Request) (Identity, error) {
+	if h := r.Header.Get("Authorization"); h != "" {
+		raw, ok := strings.CutPrefix(h, "Bearer ")
+		if !ok {
+			return Identity{}, ErrUnauthenticated
+		}
+		return l.AuthenticateToken(r.Context(), strings.TrimSpace(raw))
+	}
 	c, err := r.Cookie(CookieName)
 	if err != nil || c.Value == "" || len(c.Value) > 128 {
 		return Identity{}, ErrUnauthenticated

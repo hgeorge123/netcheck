@@ -387,8 +387,47 @@ jobs:
           short-description: NetCheck probe, a shell-less Go binary for DNS, TCP, HTTP(S), ping and traceroute
           readme-filepath: docs/dockerhub/netcheck-probe.md
 
+  # netcheck-cli for pipelines: static binaries built from the tag, with
+  # checksums and build provenance, attached to the GitHub release.
+  cli:
+    needs: [release-please, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload the release assets
+      id-token: write # build provenance
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build netcheck-cli
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          mkdir dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            os="${target%/*}" arch="${target#*/}" ext=""
+            [ "${os}" = windows ] && ext=".exe"
+            CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -trimpath -ldflags "-s -w -X main.version=${VERSION}"               -o "dist/netcheck-cli_${VERSION}_${os}_${arch}${ext}" ./cmd/netcheck-cli
+          done
+          (cd dist && sha256sum netcheck-cli_* > "netcheck-cli_${VERSION}_checksums.txt")
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: dist/netcheck-cli_*
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: gh release upload "${TAG}" dist/* --clobber
+
   notes:
-    needs: [release-please, publish, chart]
+    needs: [release-please, publish, chart, cli]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -430,6 +469,11 @@ jobs:
             for r in ${PROBE_REPOS}; do echo "| \`${r}:${VERSION}\` | \`${PROBE_DIGEST}\` |"; done
             echo
             echo "Images and chart are signed with Sigstore (keyless) and the images carry SBOM and build provenance."
+            echo
+            echo "## netcheck-cli"
+            echo
+            echo "Binaries for Linux, macOS and Windows are attached below, with `netcheck-cli_${VERSION}_checksums.txt` and build provenance"
+            echo "(`gh attestation verify netcheck-cli_${VERSION}_linux_amd64 --owner ${GH_REPO%%/*}`). See the [CLI guide](https://github.com/${GH_REPO}/blob/${TAG}/docs/cli.md)."
             echo "See [verifying releases](https://github.com/${GH_REPO}/blob/${TAG}/docs/security.md#10-verifying-releases)."
           } >> notes.md
           gh release edit "$TAG" --notes-file notes.md

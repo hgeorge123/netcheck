@@ -197,6 +197,11 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 		} else if n > 0 {
 			log.Info("expired sessions purged", "count", n)
 		}
+		if n, err := st.PurgeAPITokens(ctx, time.Now()); err != nil {
+			log.Error("api token purge failed", "error", err)
+		} else if n > 0 {
+			log.Info("expired api tokens purged", "count", n)
+		}
 	})
 	// Retention: the Helm values seed it; administrators change it in the web
 	// and the database copy wins. Purging hourly applies changes quickly.

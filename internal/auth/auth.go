@@ -32,6 +32,8 @@ type Identity struct {
 	Source string `json:"source"`
 	// SessionHash identifies the current session (never serialised).
 	SessionHash string `json:"-"`
+	// TokenID is set when the caller authenticated with an API token.
+	TokenID string `json:"-"`
 }
 
 // IsAdmin reports whether the identity has the admin role.

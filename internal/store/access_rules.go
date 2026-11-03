@@ -126,7 +126,7 @@ func (s *Store) DeleteAccessRule(ctx context.Context, id string, ev AuditEvent) 
 
 // SyncSSOUser stores the permissions computed from the access rules, the
 // profile and groups of an SSO account. Without access (no matching rule)
-// its sessions are deleted.
+// its sessions and API tokens are deleted.
 func (s *Store) SyncSSOUser(ctx context.Context, u User, access bool, now time.Time) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE users SET display_name = ?, role = ?, all_namespaces = ?, allow_netcheck_namespace = ?,
@@ -138,8 +138,10 @@ func (s *Store) SyncSSOUser(ctx context.Context, u User, access bool, now time.T
 			return err
 		}
 		if !access {
-			if _, err := tx.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ?`, u.ID); err != nil {
-				return err
+			for _, q := range []string{`DELETE FROM sessions WHERE user_id = ?`, `DELETE FROM api_tokens WHERE user_id = ?`} {
+				if _, err := tx.ExecContext(ctx, q, u.ID); err != nil {
+					return err
+				}
 			}
 		}
 		return nil

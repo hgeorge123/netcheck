@@ -77,6 +77,8 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     createAccessRule: vi.fn().mockResolvedValue(undefined),
     updateAccessRule: vi.fn().mockResolvedValue(undefined),
     deleteAccessRule: vi.fn().mockResolvedValue(undefined),
+    tokens: vi.fn().mockResolvedValue({ items: [] }),
+    revokeToken: vi.fn().mockResolvedValue(undefined),
     ...over,
   };
 }

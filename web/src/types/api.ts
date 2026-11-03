@@ -43,6 +43,17 @@ export interface Providers {
   oidc: { enabled: boolean; name?: string };
 }
 
+export interface ApiToken {
+  id: string;
+  name: string;
+  /** First characters, to recognise it; the secret is shown only once. */
+  prefix: string;
+  owner: string;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt?: string;
+}
+
 export type RuleSubject = 'group' | 'user' | 'authenticated';
 
 export interface AccessRuleInput {

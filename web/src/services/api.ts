@@ -2,6 +2,7 @@ import type {
   AccessRule,
   AccessRuleInput,
   AdminNamespaces,
+  ApiToken,
   ApiErrorBody,
   Catalog,
   DestinationPolicy,
@@ -97,6 +98,11 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) => post<undefined>('/api/v1/auth/password', { currentPassword, newPassword }),
   me: () => request<Me>('/api/v1/me'),
   providers: () => request<Providers>('/api/v1/auth/providers'),
+  tokens: {
+    list: () => request<{ items: ApiToken[] }>('/api/v1/me/tokens'),
+    create: (name: string, expiresInDays: number) => post<{ token: string; item: ApiToken }>('/api/v1/me/tokens', { name, expiresInDays }),
+    revoke: (tokenId: string) => del(`/api/v1/me/tokens/${id(tokenId)}`),
+  },
   setLanguage: (language: Language) => put<{ language: Language }>('/api/v1/me/preferences', { language }),
   namespaces: () => request<{ items: NamespaceGrant[] }>('/api/v1/namespaces'),
   catalog: () => request<Catalog>('/api/v1/probes/catalog'),
@@ -136,6 +142,8 @@ export const api = {
     createAccessRule: (r: AccessRuleInput) => post<AccessRule>('/api/v1/admin/access-rules', r),
     updateAccessRule: (ruleId: string, r: AccessRuleInput) => put<AccessRule>(`/api/v1/admin/access-rules/${id(ruleId)}`, r),
     deleteAccessRule: (ruleId: string) => del(`/api/v1/admin/access-rules/${id(ruleId)}`),
+    tokens: () => request<{ items: ApiToken[] }>('/api/v1/admin/tokens'),
+    revokeToken: (tokenId: string) => del(`/api/v1/admin/tokens/${id(tokenId)}`),
   },
 };
 

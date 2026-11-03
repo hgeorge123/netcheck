@@ -26,6 +26,7 @@ import { UsersPage } from '../features/admin/UsersPage';
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { HistoryPage } from '../features/history/HistoryPage';
+import { TokensPage } from '../features/tokens/TokensPage';
 import { NewRunPage } from '../features/new-run/NewRunPage';
 import { formFromRun } from '../features/new-run/validation';
 import { RunDetailPage } from '../features/run-detail/RunDetailPage';
@@ -97,6 +98,12 @@ function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
       break;
     case 'retention':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.retention'), href: '#/admin/retention' });
+      break;
+    case 'tokens':
+      items.push({ text: t('tokens.title'), href: '#/account/tokens' });
+      break;
+    case 'admin-tokens':
+      items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('tokens.title'), href: '#/admin/tokens' });
       break;
     case 'access-rules':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.accessRules'), href: '#/admin/access-rules' });
@@ -304,6 +311,10 @@ export function App() {
     content = <PolicyPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'retention') {
     content = <RetentionPage admin={api.admin} notify={notify} />;
+  } else if (route.page === 'tokens') {
+    content = <TokensPage scope="mine" list={api.tokens.list} create={api.tokens.create} revoke={api.tokens.revoke} notify={notify} />;
+  } else if (route.page === 'admin-tokens') {
+    content = <TokensPage scope="all" list={api.admin.tokens} revoke={api.admin.revokeToken} notify={notify} />;
   } else if (route.page === 'access-rules') {
     content = <AccessRulesPage admin={api.admin} notify={notify} />;
   } else if (catalog) {
@@ -341,6 +352,7 @@ export function App() {
           { type: 'link', text: t('nav.policy'), href: '#/admin/policy' },
           { type: 'link', text: t('nav.retention'), href: '#/admin/retention' },
           { type: 'link', text: t('nav.sessions'), href: '#/admin/sessions' },
+          { type: 'link', text: t('tokens.title'), href: '#/admin/tokens' },
           { type: 'link', text: t('nav.system'), href: '#/admin/system' },
         ],
       },
@@ -378,12 +390,14 @@ export function App() {
                   setPrefsOpen(true);
                 }
                 if (detail.id === 'password') navigate({ page: 'password' });
+                if (detail.id === 'tokens') navigate({ page: 'tokens' });
                 if (detail.id === 'logout') void logout();
               },
               items: [
                 { id: 'prefs', text: t('nav.userMenu.preferences') },
                 // SSO accounts have no NetCheck password.
                 ...(me.source === 'oidc' ? [] : [{ id: 'password', text: t('nav.userMenu.password'), disabled: me.mustChangePassword }]),
+                { id: 'tokens', text: t('tokens.title'), disabled: me.mustChangePassword },
                 { id: 'logout', text: t('nav.userMenu.signOut') },
               ],
             },

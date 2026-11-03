@@ -86,6 +86,11 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("POST /api/v1/admin/users/{id}/unlock", requireAdmin(http.HandlerFunc(s.adminUnlock)))
 	api.Handle("GET /api/v1/admin/namespaces", requireAdmin(http.HandlerFunc(s.adminNamespaces)))
 	api.HandleFunc("PUT /api/v1/me/preferences", s.setPreferences)
+	api.HandleFunc("GET /api/v1/me/tokens", s.myTokens)
+	api.HandleFunc("POST /api/v1/me/tokens", s.createToken)
+	api.HandleFunc("DELETE /api/v1/me/tokens/{id}", s.revokeMyToken)
+	api.Handle("GET /api/v1/admin/tokens", requireAdmin(http.HandlerFunc(s.adminTokens)))
+	api.Handle("DELETE /api/v1/admin/tokens/{id}", requireAdmin(http.HandlerFunc(s.adminRevokeToken)))
 	api.HandleFunc("GET /api/v1/stats", s.stats)
 	api.Handle("GET /api/v1/admin/sessions", requireAdmin(http.HandlerFunc(s.adminSessions)))
 	api.Handle("DELETE /api/v1/admin/sessions/{id}", requireAdmin(http.HandlerFunc(s.adminRevokeSession)))
@@ -130,6 +135,10 @@ func (s *Server) authenticated(next http.Handler) http.Handler {
 		id, err := s.Authn.Authenticate(r)
 		if err != nil {
 			writeError(w, r, http.StatusUnauthorized, "unauthenticated", "invalid or expired session", nil)
+			return
+		}
+		if id.TokenID != "" && !tokenAllowed(r) {
+			writeError(w, r, http.StatusForbidden, "token_scope", auth.ErrTokenScope.Error(), nil)
 			return
 		}
 		// A temporary password only allows reading the profile, choosing the UI

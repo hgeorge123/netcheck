@@ -34,7 +34,7 @@ the RBAC, the admission policies and the storage it needs.
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.0.2 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.0.3 \
   --namespace netcheck -f values.yaml
 ```
 <!-- x-release-please-end -->
@@ -58,7 +58,7 @@ Every release is built by GitHub Actions, carries an SBOM and build provenance, 
 
 <!-- x-release-please-start-version -->
 ```bash
-cosign verify hgeorge123/netcheck:1.0.2 \
+cosign verify hgeorge123/netcheck:1.0.3 \
   --certificate-identity https://github.com/hgeorge123/netcheck/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```

@@ -3,6 +3,7 @@ import Badge from '@cloudscape-design/components/badge';
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
 import Cards from '@cloudscape-design/components/cards';
+import Checkbox from '@cloudscape-design/components/checkbox';
 import ColumnLayout from '@cloudscape-design/components/column-layout';
 import Container from '@cloudscape-design/components/container';
 import ContentLayout from '@cloudscape-design/components/content-layout';
@@ -206,6 +207,11 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
         </FormField>
         <FormField label={t('newTest.path')} errorText={err('httpsPath')}>
           <Input value={form.httpsPath} onChange={({ detail }) => set('httpsPath', detail.value)} placeholder="/healthz" />
+        </FormField>
+        <FormField description={t('newTest.ignoreTlsDesc')}>
+          <Checkbox checked={form.httpsIgnoreTls} onChange={({ detail }) => set('httpsIgnoreTls', detail.checked)}>
+            {t('newTest.ignoreTls')}
+          </Checkbox>
         </FormField>
       </ColumnLayout>
     ),

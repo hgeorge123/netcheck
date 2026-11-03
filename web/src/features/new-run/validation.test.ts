@@ -183,3 +183,14 @@ describe('UDP checks', () => {
     expect(mapServerErrors([{ field: 'checks[0].port', code: 'destination_denied', message: 'x' }], req, (d) => d.message)).toEqual({ udpPort: { text: 'x' } });
   });
 });
+
+describe('ignore certificate errors', () => {
+  const https: RunForm = { ...emptyForm(), namespace: 'payments', target: 'api.example.com', methods: ['https'] };
+  it('is only sent when chosen, and survives "Run again"', () => {
+    expect(buildRequest(https).checks[0]?.http?.ignoreTlsErrors).toBeUndefined();
+    const req = buildRequest({ ...https, httpsIgnoreTls: true });
+    expect(req.checks[0]?.http).toEqual({ method: 'GET', path: '/', ignoreTlsErrors: true });
+    const again = formFromRun({ request: req } as Parameters<typeof formFromRun>[0]);
+    expect(again.httpsIgnoreTls).toBe(true);
+  });
+});

@@ -197,6 +197,10 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 				if cr.HTTP.Path != "" {
 					opts.Path = cr.HTTP.Path
 				}
+				opts.IgnoreTLSErrors = cr.HTTP.IgnoreTLSErrors
+			}
+			if opts.IgnoreTLSErrors && cr.Method != MethodHTTPS {
+				errs = append(errs, fieldErr(field+".http.ignoreTlsErrors", "ignore_tls_https_only", "certificate errors can only be ignored for HTTPS"))
 			}
 			if opts.Method != "GET" && opts.Method != "HEAD" {
 				errs = append(errs, fieldErr(field+".http.method", "invalid_http_method", "only GET or HEAD are allowed"))
@@ -346,7 +350,8 @@ func (s Spec) Validate() error {
 		}
 		switch c.Method {
 		case MethodHTTP, MethodHTTPS:
-			if c.HTTP == nil || (c.HTTP.Method != "GET" && c.HTTP.Method != "HEAD") || ValidatePath(c.HTTP.Path) != nil {
+			if c.HTTP == nil || (c.HTTP.Method != "GET" && c.HTTP.Method != "HEAD") || ValidatePath(c.HTTP.Path) != nil ||
+				(c.HTTP.IgnoreTLSErrors && c.Method != MethodHTTPS) {
 				return fmt.Errorf("check %s: invalid http options", c.ID)
 			}
 		case MethodDNS:

@@ -275,6 +275,9 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 	if opts.Method == "HEAD" {
 		cr.Equivalent = append(cr.Equivalent, "--head")
 	}
+	if opts.IgnoreTLSErrors {
+		cr.Equivalent = append(cr.Equivalent, "--insecure")
+	}
 	if !t.IsIP {
 		cr.Equivalent = append(cr.Equivalent, "--resolve", fmt.Sprintf("%s:%d:%s", t.Host, c.Port, ip))
 	}
@@ -286,7 +289,24 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 			// Always dial the validated, pinned address (DNS rebinding defense).
 			return r.Dialer.DialContext(ctx, "tcp", pinned)
 		},
-		TLSClientConfig:        &tls.Config{RootCAs: r.RootCAs, MinVersion: tls.VersionTLS12},
+		// The certificate is checked by inspectCertificate, which reports
+		// every problem; the handshake fails on them unless they are ignored.
+		TLSClientConfig: &tls.Config{RootCAs: r.RootCAs, MinVersion: tls.VersionTLS12, InsecureSkipVerify: true,
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				rep := inspectCertificate(cs.PeerCertificates, t.Host, r.RootCAs, time.Now())
+				h := cr.HTTP
+				h.TLSNames, h.TLSIssuer = rep.names, rep.issuer
+				if len(rep.problems) == 0 {
+					return nil
+				}
+				h.TLSProblems, h.TLSProblemDetail = rep.problems, rep.detail
+				if opts.IgnoreTLSErrors {
+					h.TLSIgnored = true
+					st.printf("certificate problems ignored as requested: %s", rep.detail)
+					return nil
+				}
+				return &tls.CertificateVerificationError{UnverifiedCertificates: cs.PeerCertificates, Err: errors.New(rep.detail)}
+			}},
 		DisableKeepAlives:      true,
 		MaxResponseHeaderBytes: maxHeaderBytes,
 	}

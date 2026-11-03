@@ -129,7 +129,8 @@ export interface CheckRequest {
   method: Method;
   port?: number;
   dns?: { family: 'ip' | 'ip4' | 'ip6' };
-  http?: { method?: 'GET' | 'HEAD'; path?: string };
+  /** ignoreTlsErrors (HTTPS only): complete the request despite certificate problems, still reported. */
+  http?: { method?: 'GET' | 'HEAD'; path?: string; ignoreTlsErrors?: boolean };
   udp?: { protocol: UDPProtocol };
   ping?: { count: number };
   traceroute?: { maxHops: number };
@@ -162,7 +163,11 @@ export interface Diagnosis {
   detail: string;
   conclusive: boolean;
   httpStatus?: number;
+  /** An HTTPS answer obtained although the certificate is not valid. */
+  tlsIgnored?: boolean;
 }
+
+export type TLSProblem = 'expired' | 'not_yet_valid' | 'hostname_mismatch' | 'unknown_authority' | 'self_signed' | 'invalid';
 
 export interface HTTPResult {
   url: string;
@@ -173,6 +178,12 @@ export interface HTTPResult {
   tlsVersion?: string;
   tlsPeerCn?: string;
   tlsNotAfter?: string;
+  /** Certificate problems found (also when ignored), with an explanation. */
+  tlsProblems?: TLSProblem[];
+  tlsProblemDetail?: string;
+  tlsIgnored?: boolean;
+  tlsNames?: string[];
+  tlsIssuer?: string;
   connectMs?: number;
   tlsMs?: number;
   firstByteMs?: number;

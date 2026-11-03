@@ -17,7 +17,7 @@ import { FidelityAlert } from '../../components/FidelityAlert';
 import { CheckStatusBadge, diagnosisText, isTerminal, methodKey, RunStatusBadge } from '../../components/status';
 import { useI18n, type Translate } from '../../i18n';
 import { ApiError } from '../../services/api';
-import type { ExecutionView, PingResult, RunDetail, TracerouteResult } from '../../types/api';
+import type { ExecutionView, HTTPResult, PingResult, RunDetail, TracerouteResult } from '../../types/api';
 import { blockedChecks, firewallRequest, hasEgressPolicies, suggestNetworkPolicy } from './blockedHelp';
 import { buildFirewallReport } from './firewallReport';
 import { PathView } from './PathView';
@@ -87,6 +87,21 @@ function TraceTable({ tr, t }: { tr: TracerouteResult; t: Translate }) {
   );
 }
 
+/** Every certificate problem the probe found, whether the request stopped or they were ignored. */
+function CertificateAlert({ http, t }: { http: HTTPResult; t: Translate }) {
+  return (
+    <Alert type={http.tlsIgnored ? 'warning' : 'error'} header={t(http.tlsIgnored ? 'run.tlsIgnoredTitle' : 'run.tlsFailedTitle')}>
+      <ul style={{ margin: 0 }}>
+        {(http.tlsProblems ?? []).map((p) => (
+          <li key={p}>{t(`run.tlsProblem.${p}`)}</li>
+        ))}
+      </ul>
+      {http.tlsProblemDetail && <Box variant="small">{http.tlsProblemDetail}</Box>}
+      <Box variant="p">{t(http.tlsIgnored ? 'run.tlsIgnoredBody' : 'run.tlsFailedBody')}</Box>
+    </Alert>
+  );
+}
+
 function CheckDetail({ c }: { c: ExecutionView }) {
   const { t, formatDate } = useI18n();
   const r = c.result;
@@ -104,6 +119,8 @@ function CheckDetail({ c }: { c: ExecutionView }) {
   if (r?.http?.tlsVersion) {
     pairs.push({ label: t('run.tls'), value: t('run.tlsValue', { version: r.http.tlsVersion, cn: r.http.tlsPeerCn ?? '—', date: formatDate(r.http.tlsNotAfter) }) });
   }
+  if (r?.http?.tlsNames?.length) pairs.push({ label: t('run.tlsNames'), value: r.http.tlsNames.join(', ') });
+  if (r?.http?.tlsIssuer) pairs.push({ label: t('run.tlsIssuer'), value: r.http.tlsIssuer });
   if (r?.udp) {
     const u = r.udp;
     pairs.push({ label: t('run.udp.protocol'), value: t(`newTest.udp.${u.protocol}`) });
@@ -133,6 +150,7 @@ function CheckDetail({ c }: { c: ExecutionView }) {
                     {!c.diagnosis.conclusive && c.status !== 'succeeded' && ` ${t('run.notConclusive')}`}
                   </Alert>
                 )}
+                {r?.http?.tlsProblems?.length ? <CertificateAlert http={r.http} t={t} /> : null}
                 {r?.ping && <PingTable p={r.ping} t={t} />}
                 {r?.traceroute && <TraceTable tr={r.traceroute} t={t} />}
                 {c.method !== 'ping' && c.method !== 'traceroute' && <KeyValuePairs columns={4} items={pairs} />}

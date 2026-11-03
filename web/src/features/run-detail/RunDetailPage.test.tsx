@@ -90,6 +90,46 @@ const icmp: RunDetail = {
   ],
 };
 
+describe('RunDetailPage certificate problems', () => {
+  const tlsRun = (ignored: boolean): RunDetail => ({
+    ...done,
+    status: ignored ? 'succeeded' : 'failed',
+    checks: [
+      {
+        checkId: '1-https',
+        method: 'https',
+        status: ignored ? 'succeeded' : 'failed',
+        category: ignored ? 'http_response' : 'tls_cert_failure',
+        output: '',
+        equivalentArgv: [],
+        resolvedIps: ['10.20.30.40'],
+        usedIp: '10.20.30.40',
+        diagnosis: { category: ignored ? 'http_response' : 'tls_cert_failure', severity: ignored ? 'warning' : 'error', summary: '', detail: '', conclusive: false, httpStatus: ignored ? 200 : undefined, tlsIgnored: ignored },
+        result: {
+          port: 443,
+          http: { url: 'https://api.example.com/', method: 'GET', statusCode: ignored ? 200 : undefined, tlsProblems: ['expired', 'hostname_mismatch'],
+            tlsProblemDetail: 'the certificate expired on 2026-01-01T00:00:00Z; the certificate does not cover api.example.com: it is for www.example.com',
+            tlsIgnored: ignored, tlsNames: ['www.example.com'], tlsIssuer: 'Corp Root' },
+        },
+      },
+    ],
+  });
+
+  it('explains why the request stopped', async () => {
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(tlsRun(false))} />);
+    expect(await screen.findByText('The certificate is not valid')).toBeInTheDocument();
+    expect(screen.getByText('The certificate has expired.')).toBeInTheDocument();
+    expect(screen.getByText('The certificate does not cover the destination name.')).toBeInTheDocument();
+    expect(screen.getByText(/it is for www.example.com/)).toBeInTheDocument();
+  });
+
+  it('warns when the errors were ignored', async () => {
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(tlsRun(true))} />);
+    expect(await screen.findByText('Certificate errors ignored')).toBeInTheDocument();
+    expect(screen.getByText('Corp Root')).toBeInTheDocument();
+  });
+});
+
 describe('RunDetailPage what is missing', () => {
   it('says no NetworkPolicy is needed when none applies to the probe', async () => {
     renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(done)} />);

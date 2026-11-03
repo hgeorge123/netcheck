@@ -125,6 +125,10 @@ type runView struct {
 		UsedIP     string `json:"usedIp"`
 		Result     *struct {
 			Port int `json:"port"`
+			HTTP *struct {
+				TLSProblemDetail string `json:"tlsProblemDetail"`
+				TLSIgnored       bool   `json:"tlsIgnored"`
+			} `json:"http"`
 		} `json:"result"`
 		Diagnosis *struct {
 			Summary string `json:"summary"`
@@ -206,6 +210,13 @@ func printRun(out io.Writer, r runView) {
 			summary = c.Diagnosis.Summary
 		}
 		fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\n", name, c.Status, c.UsedIP, dur, summary)
+		if c.Result != nil && c.Result.HTTP != nil && c.Result.HTTP.TLSProblemDetail != "" {
+			label := "certificate"
+			if c.Result.HTTP.TLSIgnored {
+				label = "certificate (ignored)"
+			}
+			fmt.Fprintf(w, "  \t%s:\t\t\t%s\n", label, c.Result.HTTP.TLSProblemDetail)
+		}
 	}
 	_ = w.Flush()
 	result := map[string]string{"succeeded": "all checks passed", "failed": "connectivity failures",

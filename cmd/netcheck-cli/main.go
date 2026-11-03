@@ -17,6 +17,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/hgeorge123/netcheck/internal/probes"
 )
 
 var version = "dev"
@@ -46,6 +48,9 @@ Checks (-c, repeatable):
 
 Example:
   netcheck-cli run -n payments -t db.corp.example -c dns -c tcp:5432 -c https:8443/health
+
+Flags of run: --timeout SECONDS, --wait DURATION (default 5m), --json, --ignore-tls-errors (HTTPS goes
+on despite certificate problems, which are still reported).
 
 Exit codes: 0 passed, 1 connectivity failures, 2 test not run or wait timed out, 3 usage or API error.
 `
@@ -116,6 +121,7 @@ func runCommand(ctx context.Context, args []string, getenv func(string) string, 
 	timeout := fs.Int("timeout", 0, "seconds per check (default: the server default)")
 	wait := fs.Duration("wait", 5*time.Minute, "maximum time to wait for the result")
 	asJSON := fs.Bool("json", false, "print the full result as JSON")
+	ignoreTLS := fs.Bool("ignore-tls-errors", false, "HTTPS checks go on despite certificate problems (still reported)")
 	if err := fs.Parse(args); err != nil {
 		return usageErr("%v", err)
 	}
@@ -127,6 +133,12 @@ func runCommand(ctx context.Context, args []string, getenv func(string) string, 
 		c, err := parseCheck(s)
 		if err != nil {
 			return usageErr("%v", err)
+		}
+		if *ignoreTLS && c.Method == probes.MethodHTTPS {
+			if c.HTTP == nil {
+				c.HTTP = &probes.HTTPOptions{Method: "GET", Path: "/"}
+			}
+			c.HTTP.IgnoreTLSErrors = true
 		}
 		req.Checks = append(req.Checks, c)
 	}

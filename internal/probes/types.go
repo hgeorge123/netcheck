@@ -53,7 +53,20 @@ type DNSOptions struct {
 type HTTPOptions struct {
 	Method string `json:"method"` // GET or HEAD
 	Path   string `json:"path"`
+	// IgnoreTLSErrors (HTTPS only) completes the request even when the
+	// certificate is not valid; the problems are still reported.
+	IgnoreTLSErrors bool `json:"ignoreTlsErrors,omitempty"`
 }
+
+// Certificate problems reported in HTTPResult.TLSProblems.
+const (
+	TLSExpired          = "expired"
+	TLSNotYetValid      = "not_yet_valid"
+	TLSHostnameMismatch = "hostname_mismatch"
+	TLSUnknownAuthority = "unknown_authority"
+	TLSSelfSigned       = "self_signed"
+	TLSInvalid          = "invalid"
+)
 
 // PingOptions configures the ICMP echo check.
 type PingOptions struct {
@@ -184,6 +197,14 @@ type HTTPResult struct {
 	FirstByteMS   int64  `json:"firstByteMs,omitempty"`
 	BodyBytes     int64  `json:"bodyBytes,omitempty"`
 	BodyTruncated bool   `json:"bodyTruncated,omitempty"`
+	// Certificate check of HTTPS: the problems found (TLS* codes) with an
+	// explanation, whether the request went on because IgnoreTLSErrors was
+	// set, and the names and issuer of the server certificate.
+	TLSProblems      []string `json:"tlsProblems,omitempty"`
+	TLSProblemDetail string   `json:"tlsProblemDetail,omitempty"`
+	TLSIgnored       bool     `json:"tlsIgnored,omitempty"`
+	TLSNames         []string `json:"tlsNames,omitempty"`
+	TLSIssuer        string   `json:"tlsIssuer,omitempty"`
 }
 
 // UDPResult holds UDP specific evidence.

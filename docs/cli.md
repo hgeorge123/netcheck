@@ -74,6 +74,7 @@ NetworkPolicy or a request for the firewall team).
 | `--timeout` | Seconds per check (default: the server default, 5) |
 | `--wait` | Maximum time to wait for the result (default `5m`) |
 | `--json` | Print the full result as JSON instead of the table |
+| `--ignore-tls-errors` | HTTPS checks go on despite certificate problems (expired, another name, untrusted authority); the problems are still printed, like `curl --insecure` |
 
 Checks:
 

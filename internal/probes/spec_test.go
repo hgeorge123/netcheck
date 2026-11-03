@@ -3,6 +3,8 @@ package probes
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -207,5 +209,20 @@ func TestBuildSpecUDPPortsAndProtocols(t *testing.T) {
 	var denied *DeniedError
 	if !errors.As(err, &denied) {
 		t.Errorf("UDP port outside the policy: %v", err)
+	}
+}
+
+func TestIgnoreTLSErrorsOnlyForHTTPS(t *testing.T) {
+	policy := DestinationPolicy{AllowCIDRs: []string{"10.0.0.0/8"}, AllowPorts: []PortRange{{From: 1, To: 65535}}}.WithBuiltinDenies()
+	build := func(m Method) (Spec, error) {
+		c := CheckRequest{Method: m, HTTP: &HTTPOptions{IgnoreTLSErrors: true}}
+		return BuildSpec("abcdef0123456789", RunRequest{Namespace: "payments", Target: "10.1.2.3", Checks: []CheckRequest{c}}, policy, testLimits)
+	}
+	spec, err := build(MethodHTTPS)
+	if err != nil || !spec.Checks[0].HTTP.IgnoreTLSErrors || spec.Validate() != nil {
+		t.Fatalf("https: %+v %v", spec.Checks, err)
+	}
+	if _, err := build(MethodHTTP); err == nil || !strings.Contains(fmt.Sprintf("%+v", err), "HTTPS") {
+		t.Errorf("http: %v", err)
 	}
 }

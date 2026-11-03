@@ -412,6 +412,9 @@ func (e *Executor) collect(ctx context.Context, run store.Run, spec probes.Spec,
 			httpStatus = cr.HTTP.StatusCode
 		}
 		diag := diagnostics.Diagnose(string(cr.Method), cr.Category, httpStatus)
+		if cr.HTTP != nil && cr.HTTP.TLSIgnored {
+			diag = diagnostics.WithIgnoredCertificate(diag, cr.HTTP.TLSProblemDetail)
+		}
 		out := cr.Output
 		cr.Output = "" // stored separately so retention can purge it
 		started, finished := cr.StartedAt, cr.FinishedAt

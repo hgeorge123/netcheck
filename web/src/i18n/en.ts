@@ -840,6 +840,22 @@ export const en = {
   'field.token_expiry_invalid': 'A token expires after 1 to 365 days.',
   'field.token_limit': 'You already have 20 tokens: revoke one first.',
   'error.token_scope': 'API tokens can only run and read tests.',
+  // Certificate problems
+  'newTest.ignoreTls': 'Ignore certificate errors',
+  'newTest.ignoreTlsDesc': 'Expired, issued for another name or signed by an authority the probe does not trust: the request still goes on and the result lists every problem as a warning. Like curl --insecure.',
+  'run.tlsNames': 'Certificate for',
+  'run.tlsIssuer': 'Certificate issuer',
+  'run.tlsFailedTitle': 'The certificate is not valid',
+  'run.tlsFailedBody': 'The TCP connection works; the request stopped at the certificate, so this is not a network block. Fix the certificate, or run the test again with "Ignore certificate errors" to check the application behind it.',
+  'run.tlsIgnoredTitle': 'Certificate errors ignored',
+  'run.tlsIgnoredBody': 'The request went on because "Ignore certificate errors" was chosen. Applications and browsers that verify certificates will still reject this server until the certificate is fixed.',
+  'run.tlsProblem.expired': 'The certificate has expired.',
+  'run.tlsProblem.not_yet_valid': 'The certificate is not valid yet.',
+  'run.tlsProblem.hostname_mismatch': 'The certificate does not cover the destination name.',
+  'run.tlsProblem.unknown_authority': 'The certificate is signed by an authority the probe does not trust.',
+  'run.tlsProblem.self_signed': 'The certificate is self-signed.',
+  'run.tlsProblem.invalid': 'The certificate chain is not valid.',
+  'field.ignore_tls_https_only': 'Certificate errors can only be ignored for HTTPS.',
 } as const;
 
 export type MessageKey = keyof typeof en;

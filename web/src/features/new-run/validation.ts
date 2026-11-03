@@ -40,6 +40,7 @@ export interface RunForm {
   httpPath: string;
   httpsMethod: HTTPMethod;
   httpsPath: string;
+  httpsIgnoreTls: boolean;
   dnsFamily: 'ip' | 'ip4' | 'ip6';
   pingCount: string;
   maxHops: string;
@@ -62,6 +63,7 @@ export const emptyForm = (namespace = ''): RunForm => ({
   httpPath: '/',
   httpsMethod: 'GET',
   httpsPath: '/',
+  httpsIgnoreTls: false,
   dnsFamily: 'ip',
   pingCount: String(DEFAULT_PING_COUNT),
   maxHops: String(DEFAULT_MAX_HOPS),
@@ -193,7 +195,11 @@ export function buildRequest(f: RunForm): RunRequest {
       case 'http':
         return { method, port: port(f.httpPort, DEFAULT_PORTS.http), http: { method: f.httpMethod, path: f.httpPath || '/' } };
       case 'https':
-        return { method, port: port(f.httpsPort, DEFAULT_PORTS.https), http: { method: f.httpsMethod, path: f.httpsPath || '/' } };
+        return {
+          method,
+          port: port(f.httpsPort, DEFAULT_PORTS.https),
+          http: { method: f.httpsMethod, path: f.httpsPath || '/', ...(f.httpsIgnoreTls ? { ignoreTlsErrors: true } : {}) },
+        };
       case 'ping':
         return { method, ping: { count: Number(f.pingCount) } };
       case 'traceroute':
@@ -235,6 +241,7 @@ export function formFromRun(run: Pick<RunDetail, 'request'>): RunForm {
       if (c.port) f.httpsPort = String(c.port);
       f.httpsMethod = c.http?.method ?? 'GET';
       f.httpsPath = c.http?.path ?? '/';
+      f.httpsIgnoreTls = c.http?.ignoreTlsErrors ?? false;
     }
     if (c.method === 'dns' && c.dns) f.dnsFamily = c.dns.family;
     if (c.method === 'ping' && c.ping) f.pingCount = String(c.ping.count);

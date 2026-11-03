@@ -1,6 +1,9 @@
 package diagnostics
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Severity values map to UI status indicators.
 const (
@@ -21,6 +24,8 @@ type Diagnosis struct {
 	Detail     string `json:"detail"`
 	Conclusive bool   `json:"conclusive"`
 	HTTPStatus int    `json:"httpStatus,omitempty"`
+	// TLSIgnored: an HTTPS answer obtained although the certificate is not valid.
+	TLSIgnored bool `json:"tlsIgnored,omitempty"`
 }
 
 type text struct{ summary, detail string }
@@ -92,6 +97,18 @@ func Diagnose(method, category string, httpStatus int) Diagnosis {
 		d.Severity = SeverityWarning
 	}
 	d.Conclusive = category == CategoryDestinationDenied || category == CategoryAdmissionRejected
+	return d
+}
+
+// WithIgnoredCertificate marks an HTTPS answer obtained although its
+// certificate is not valid (the check asked to ignore it): never a clean
+// success, and the problems lead the explanation.
+func WithIgnoredCertificate(d Diagnosis, problems string) Diagnosis {
+	if d.Severity == SeveritySuccess || d.Severity == SeverityInfo {
+		d.Severity = SeverityWarning
+	}
+	d.TLSIgnored = true
+	d.Detail = strings.TrimSpace("Certificate errors were ignored as requested: " + problems + ". " + d.Detail)
 	return d
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"syscall"
 	"testing"
 )
@@ -98,5 +99,15 @@ func TestDiagnoseICMP(t *testing.T) {
 	}
 	if d := Diagnose("http", CategoryHTTPResponse, 404); d.HTTPStatus != 404 {
 		t.Errorf("http status not carried: %+v", d)
+	}
+}
+
+func TestIgnoredCertificateIsNeverACleanSuccess(t *testing.T) {
+	d := WithIgnoredCertificate(Diagnose("https", CategoryHTTPResponse, 200), "the certificate expired on 2026-01-01T00:00:00Z")
+	if d.Severity != SeverityWarning || !d.TLSIgnored || !strings.Contains(d.Detail, "Certificate errors were ignored as requested: the certificate expired") {
+		t.Fatalf("diagnosis = %+v", d)
+	}
+	if d := WithIgnoredCertificate(Diagnose("https", CategoryHTTPResponse, 503), "x"); d.Severity != SeverityWarning {
+		t.Errorf("a 503 keeps its warning: %+v", d)
 	}
 }

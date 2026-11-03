@@ -121,3 +121,29 @@ func TestRunConfigurationErrors(t *testing.T) {
 		t.Error("an unknown check was accepted")
 	}
 }
+
+func TestIgnoreTLSErrorsFlag(t *testing.T) {
+	var got runRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			_ = json.NewDecoder(r.Body).Decode(&got)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"abcdef0123456789"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"succeeded","checks":[{"method":"https","status":"succeeded","result":{"port":443,
+			"http":{"tlsIgnored":true,"tlsProblemDetail":"the certificate expired on 2026-01-01T00:00:00Z"}},"diagnosis":{"summary":"HTTP answered 200"}}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	var out bytes.Buffer
+	e := env(map[string]string{"NETCHECK_URL": strings.Replace(srv.URL, "127.0.0.1", "localhost", 1), "NETCHECK_TOKEN": "nck_test"})
+	if err := run(context.Background(), []string{"run", "-n", "payments", "-t", "api", "-c", "https", "-c", "tcp:443", "--ignore-tls-errors"}, e, &out); err != nil {
+		t.Fatal(err)
+	}
+	if got.Checks[0].HTTP == nil || !got.Checks[0].HTTP.IgnoreTLSErrors || got.Checks[1].HTTP != nil {
+		t.Errorf("request = %+v", got.Checks)
+	}
+	if !strings.Contains(out.String(), "certificate (ignored):") || !strings.Contains(out.String(), "expired on 2026-01-01") {
+		t.Errorf("output:\n%s", out.String())
+	}
+}

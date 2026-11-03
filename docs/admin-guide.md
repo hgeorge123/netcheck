@@ -507,7 +507,7 @@ proxies:
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.0 \
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 \
   -n netcheck -f values.yaml --wait --timeout 10m
 ```
 <!-- x-release-please-end -->
@@ -553,12 +553,12 @@ If nobody can sign in as administrator (forgotten password, locked or disabled a
 <!-- x-release-please-start-version -->
 ```bash
 # 1. Enable recovery: the initial admin goes back to the password in the Secret
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.0 -n netcheck -f values.yaml \
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 -n netcheck -f values.yaml \
   --set auth.bootstrapAdmin.recoverOnStart=true --wait
 kubectl -n netcheck get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo
 # 2. Sign in as admin and change the password (mandatory)
 # 3. Disable recovery straight away
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.0 -n netcheck -f values.yaml --wait
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 -n netcheck -f values.yaml --wait
 ```
 <!-- x-release-please-end -->
 

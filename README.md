@@ -20,7 +20,8 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
 ## Features
 
 - **Checks:** DNS, TCP, UDP (generic, DNS server or NTP server), HTTP, HTTPS, ping and traceroute. ICMP and UDP work
-  without privileges (no `NET_RAW`, no root).
+  without privileges (no `NET_RAW`, no root). HTTPS names every certificate problem (expired, another name, untrusted
+  authority, self-signed) and can ignore them on request.
 - **Firewall ticket mode:** enter a destination and a port and get one block of `date`, `hostname`, `ping`,
   `traceroute`, `telnet` and `curl -v` output, ready to paste, plus the real Pod and node IPs the firewall will see.
 - **Readable diagnosis:** every result says what it means *and what it does not mean* (a timeout is not proof of a
@@ -41,6 +42,8 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
   its token leaks. Cloud metadata and the API server are never reachable from a test.
 - **Simple to run:** one Pod, SQLite on a persistent volume, one Helm chart, exposed with any Gateway API
   implementation or Ingress controller (AWS ALB, ingress-nginx, Traefik, Istio…). English and Spanish interface.
+
+The complete list, with a link to how to use each feature, is in [docs/features.md](docs/features.md).
 
 ## How it works
 
@@ -89,6 +92,7 @@ a local cluster with Calico and sample namespaces in a few minutes.
 
 | Guide | For |
 |---|---|
+| [Features](docs/features.md) | Everything NetCheck does, with a link to how to use each feature |
 | [Installation](docs/install.md) | Step-by-step installation on any Kubernetes cluster |
 | [Installation on Amazon EKS](docs/install-eks.md) | EKS specifics: VPC CNI network policy, EBS and zones, ALB or Gateway API |
 | [Installation on Azure AKS](docs/install-aks.md) | AKS specifics: network policy engine, Azure Disk and ZRS, Gateway API or Ingress |

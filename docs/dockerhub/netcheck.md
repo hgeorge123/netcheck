@@ -17,10 +17,15 @@ Each test runs in a short-lived probe Pod that uses the
 
 - DNS, TCP, UDP (generic, DNS or NTP), HTTP, HTTPS, ping and traceroute checks; ICMP without privileges.
 - Firewall ticket mode: one block of `date`, `hostname`, `ping`, `traceroute`, `telnet` and `curl -v` output.
-- Readable diagnosis, equivalent command and NetworkPolicy fidelity notice for every result.
-- Local users with `admin` and `user` roles, per-user namespaces and audit log.
+- Readable diagnosis, equivalent command and NetworkPolicy fidelity notice for every result, plus what is missing:
+  nothing, a suggested NetworkPolicy or a request for the firewall team.
+- Local users with `admin` and `user` roles, per-user namespaces and audit log; single sign-on with OpenID Connect or,
+  through the bundled Dex, GitHub, LDAP and SAML.
+- API tokens and `netcheck-cli` to check connectivity from pipelines.
 - Destination policy, namespace exclusions and data retention managed from the web.
 - English and Spanish interface.
+
+The complete list is in [docs/features.md](https://github.com/hgeorge123/netcheck/blob/main/docs/features.md).
 
 ## Install with Helm
 

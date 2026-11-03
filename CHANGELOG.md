@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/hgeorge123/netcheck/compare/v1.0.2...v1.0.3) (2026-11-03)
+
+
+### Bug Fixes
+
+* **auth:** warn when the bootstrap Secret no longer matches the initial admin ([85c5bf8](https://github.com/hgeorge123/netcheck/commit/85c5bf89cadfcf9e20f990e0e02a753971246011))
+
 ## [1.0.2](https://github.com/hgeorge123/netcheck/compare/v1.0.1...v1.0.2) (2026-11-03)
 
 

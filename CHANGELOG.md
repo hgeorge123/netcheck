@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/hgeorge123/netcheck/compare/v1.0.3...v1.1.0) (2026-11-03)
+
+
+### Features
+
+* optional HTTP proxy for TCP and HTTPS checks ([2075a36](https://github.com/hgeorge123/netcheck/commit/2075a363143306714e07dfaae48d7a320d3d7b21))
+* trust corporate certificate authorities in HTTPS checks ([a3091b6](https://github.com/hgeorge123/netcheck/commit/a3091b6b126e2955dfb905fe0f7704e1b3826d0f))
+
 ## [1.0.3](https://github.com/hgeorge123/netcheck/compare/v1.0.2...v1.0.3) (2026-11-03)
 
 

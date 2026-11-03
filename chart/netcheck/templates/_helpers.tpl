@@ -74,6 +74,23 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{/* Fails rendering on unsafe, incomplete or unsupported combinations. */}}
 {{- define "netcheck.validate" -}}
 {{- $v := .Values -}}
+{{- $sso := $v.auth.oidc -}}
+{{- if $sso.enabled -}}
+{{- if not $sso.clientId -}}{{- fail "auth.oidc.clientId is required" -}}{{- end -}}
+{{- if and (not $sso.issuerUrl) (not $v.dex.enabled) -}}{{- fail "auth.oidc.issuerUrl is required (or enable the bundled dex)" -}}{{- end -}}
+{{- if and (or (not $sso.issuerUrl) (not $sso.redirectUrl)) (not (include "netcheck.publicHost" .)) -}}
+{{- fail "auth.oidc needs a host in ingress.hosts or httpRoute.hostnames, or explicit issuerUrl and redirectUrl" -}}
+{{- end -}}
+{{- if and (not $v.dex.enabled) (not $sso.existingSecret) (not $sso.clientSecret) -}}
+{{- fail "auth.oidc needs the client secret of the provider: set auth.oidc.existingSecret (recommended) or auth.oidc.clientSecret" -}}
+{{- end -}}
+{{- end -}}
+{{- if $v.dex.enabled -}}
+{{- if not $sso.enabled -}}{{- fail "dex.enabled requires auth.oidc.enabled" -}}{{- end -}}
+{{- if not $v.dex.connectors -}}{{- fail "dex.connectors must list at least one connector (e.g. github)" -}}{{- end -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" ($v.dex.image.digest | default "")) -}}{{- fail "dex.image.digest must be a sha256 digest" -}}{{- end -}}
+{{- if $v.networkPolicy.enabled -}}{{- fail "networkPolicy.enabled does not cover the bundled dex yet: use dex.enabled without it, or an external provider" -}}{{- end -}}
+{{- end -}}
 {{- if not (has $v.environment (list "development" "production")) -}}
 {{- fail "environment must be development or production" -}}
 {{- end -}}
@@ -221,4 +238,39 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+{{- end -}}
+
+{{/* Public host of NetCheck: the first Ingress host or HTTPRoute hostname. */}}
+{{- define "netcheck.publicHost" -}}
+{{- if .Values.ingress.enabled -}}{{ first .Values.ingress.hosts | default "" }}{{- else if .Values.httpRoute.enabled -}}{{ first .Values.httpRoute.hostnames | default "" }}{{- end -}}
+{{- end -}}
+
+{{- define "netcheck.oidcIssuer" -}}
+{{- .Values.auth.oidc.issuerUrl | default (printf "https://%s/dex" (include "netcheck.publicHost" .)) -}}
+{{- end -}}
+
+{{- define "netcheck.oidcRedirectUrl" -}}
+{{- .Values.auth.oidc.redirectUrl | default (printf "https://%s/api/v1/auth/oidc/callback" (include "netcheck.publicHost" .)) -}}
+{{- end -}}
+
+{{- define "netcheck.oidcSecretName" -}}
+{{- .Values.auth.oidc.existingSecret | default (printf "%s-oidc" (include "netcheck.fullname" .)) -}}
+{{- end -}}
+
+{{- define "netcheck.dexName" -}}
+{{- printf "%s-dex" (include "netcheck.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/* Dex has its own selector: it must never match the NetCheck Service. */}}
+{{- define "netcheck.dexSelectorLabels" -}}
+app.kubernetes.io/name: netcheck-dex
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "netcheck.dexLabels" -}}
+{{ include "netcheck.dexSelectorLabels" . }}
+app.kubernetes.io/part-of: netcheck
+app.kubernetes.io/component: dex
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}

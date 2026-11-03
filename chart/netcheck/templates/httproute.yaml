@@ -24,6 +24,15 @@ spec:
   hostnames:
     {{- toYaml .Values.httpRoute.hostnames | nindent 4 }}
   rules:
+    {{- if .Values.dex.enabled }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /dex
+      backendRefs:
+        - name: {{ include "netcheck.dexName" . }}
+          port: 5556
+    {{- end }}
     - matches:
         - path:
             type: PathPrefix

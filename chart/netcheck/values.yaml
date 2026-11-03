@@ -79,6 +79,33 @@ auth:
     # -- Break-glass: on start, reset this admin to the Secret password
     # (enabled, unlocked, must change it). Set back to false right after.
     recoverOnStart: false
+  # Single sign-on with OpenID Connect, next to the local accounts. People
+  # who sign in with it get their role and namespaces from the access rules
+  # (Administration > Access rules), defined before they sign in. For GitHub,
+  # LDAP or SAML, enable the bundled Dex (dex.enabled) like Argo CD does.
+  oidc:
+    enabled: false
+    # -- Label of the sign-in button ("Sign in with <providerName>").
+    providerName: SSO
+    # -- Issuer of the provider, e.g. https://login.microsoftonline.com/<tenant>/v2.0.
+    # Empty with dex.enabled: https://<first host>/dex.
+    issuerUrl: ""
+    clientId: netcheck
+    # -- Secret with the client secret (key secretKey). Empty: the chart
+    # creates one from clientSecret, or a random value for the bundled Dex,
+    # on the first install only (upgrades keep it).
+    existingSecret: ""
+    secretKey: client-secret
+    # -- Client secret given by the provider. Prefer existingSecret.
+    clientSecret: ""
+    # -- Empty: https://<first host>/api/v1/auth/oidc/callback. Register it
+    # as the redirect URI of the client at the provider.
+    redirectUrl: ""
+    scopes: [openid, profile, email, groups]
+    # -- Claim used as the NetCheck username: email, preferred_username, sub or name.
+    usernameClaim: email
+    # -- Claim with the groups used by the access rules.
+    groupsClaim: groups
 
 namespaceScope:
   # -- all: every namespace (including future ones) except system/excluded;
@@ -238,6 +265,36 @@ ingress:
     tags: {}
   # -- Extra Ingress annotations (override the generated ones).
   annotations: {}
+
+# Dex (https://dexidp.io), bundled like in Argo CD: it signs people in with
+# GitHub, GitLab, LDAP, SAML... and hands NetCheck a standard OIDC identity with
+# their groups (for GitHub, "org:team"). Requires auth.oidc.enabled and a host
+# in ingress.hosts or httpRoute.hostnames: Dex is served at https://<host>/dex.
+dex:
+  enabled: false
+  image:
+    repository: ghcr.io/dexidp/dex
+    tag: v2.46.0
+    digest: "sha256:933fcd3f523338c847b88ef84a7145fb2fcb7b9917f08418612afeaaa2001777"
+  # -- Dex connectors. Secret values as $VARIABLE, taken from envSecret.
+  # GitHub example (OAuth App callback: https://<host>/dex/callback):
+  #   - type: github
+  #     id: github
+  #     name: GitHub
+  #     config:
+  #       clientID: $GITHUB_CLIENT_ID
+  #       clientSecret: $GITHUB_CLIENT_SECRET
+  #       redirectURI: https://netcheck.example.com/dex/callback
+  #       orgs:
+  #         - name: my-org        # only members of my-org can sign in
+  #       teamNameField: slug     # groups like "my-org:my-team"
+  connectors: []
+  # -- Existing Secret whose keys become environment variables of Dex
+  # (e.g. GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET).
+  envSecret: ""
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
 
 networkPolicy:
   # -- Disabled by default: the chart creates NO NetworkPolicy in the NetCheck

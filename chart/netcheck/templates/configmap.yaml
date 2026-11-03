@@ -28,6 +28,23 @@ data:
       bootstrapAdmin:
         username: {{ .Values.auth.bootstrapAdmin.username | quote }}
         forcePasswordChange: {{ .Values.auth.bootstrapAdmin.forcePasswordChange }}
+      {{- with .Values.auth.oidc }}
+      oidc:
+        enabled: {{ .enabled }}
+        {{- if .enabled }}
+        providerName: {{ .providerName | quote }}
+        issuerUrl: {{ include "netcheck.oidcIssuer" $ | quote }}
+        {{- if $.Values.dex.enabled }}
+        # NetCheck reaches the bundled Dex inside the cluster for tokens and keys.
+        internalUrl: {{ printf "http://%s.%s.svc:5556/dex" (include "netcheck.dexName" $) (include "netcheck.namespace" $) | quote }}
+        {{- end }}
+        clientId: {{ .clientId | quote }}
+        redirectUrl: {{ include "netcheck.oidcRedirectUrl" $ | quote }}
+        scopes: {{ toJson .scopes }}
+        usernameClaim: {{ .usernameClaim | quote }}
+        groupsClaim: {{ .groupsClaim | quote }}
+        {{- end }}
+      {{- end }}
     namespaceScope:
       {{- toYaml .Values.namespaceScope | nindent 6 }}
     destinations:

@@ -70,6 +70,13 @@ spec:
                 secretKeyRef:
                   name: {{ include "netcheck.bootstrapSecretName" . }}
                   key: {{ .Values.auth.bootstrapAdmin.secretKey }}
+            {{- if .Values.auth.oidc.enabled }}
+            - name: NETCHECK_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "netcheck.oidcSecretName" . }}
+                  key: {{ .Values.auth.oidc.secretKey }}
+            {{- end }}
             {{- if .Values.auth.bootstrapAdmin.recoverOnStart }}
             # Break-glass admin recovery (see the admin manual). Turn it off
             # again right after logging in.

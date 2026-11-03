@@ -1,0 +1,121 @@
+{{- if .Values.dex.enabled }}
+{{- $name := include "netcheck.dexName" . }}
+{{- $namespace := include "netcheck.namespace" . }}
+# Dex configuration. NetCheck is its only client; the client secret and the
+# connector credentials come from environment variables, never from here.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "netcheck.dexLabels" . | nindent 4 }}
+type: Opaque
+stringData:
+  config.yaml: |
+    issuer: {{ include "netcheck.oidcIssuer" . }}
+    # Nothing to keep across restarts: NetCheck sessions do not depend on Dex.
+    storage:
+      type: memory
+    web:
+      http: 0.0.0.0:5556
+    telemetry:
+      http: 0.0.0.0:5558
+    oauth2:
+      responseTypes: [code]
+      skipApprovalScreen: true
+    enablePasswordDB: false
+    staticClients:
+      - id: {{ .Values.auth.oidc.clientId }}
+        name: NetCheck
+        secretEnv: NETCHECK_CLIENT_SECRET
+        redirectURIs:
+          - {{ include "netcheck.oidcRedirectUrl" . }}
+    connectors:
+      {{- toYaml .Values.dex.connectors | nindent 6 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "netcheck.dexLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "netcheck.dexSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "netcheck.dexLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ toJson (dict "dex" .Values.dex "oidc" .Values.auth.oidc "host" (include "netcheck.publicHost" .)) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile: {type: RuntimeDefault}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: dex
+          image: "{{ .Values.dex.image.repository }}{{ with .Values.dex.image.tag }}:{{ . }}{{ end }}@{{ .Values.dex.image.digest }}"
+          args: [dex, serve, /etc/dex/config.yaml]
+          env:
+            - name: NETCHECK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "netcheck.oidcSecretName" . }}
+                  key: {{ .Values.auth.oidc.secretKey }}
+          {{- with .Values.dex.envSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
+          ports:
+            - {name: http, containerPort: 5556}
+            - {name: telemetry, containerPort: 5558}
+          readinessProbe:
+            httpGet:
+              path: /dex/.well-known/openid-configuration
+              port: http
+          resources:
+            {{- toYaml .Values.dex.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /etc/dex, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ $name }}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "netcheck.dexLabels" . | nindent 4 }}
+  annotations:
+    # ALB target group health check for the /dex path.
+    alb.ingress.kubernetes.io/healthcheck-path: /dex/.well-known/openid-configuration
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "netcheck.dexSelectorLabels" . | nindent 4 }}
+  ports:
+    - {name: http, port: 5556, targetPort: http}
+{{- end }}

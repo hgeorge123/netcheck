@@ -135,10 +135,28 @@ must_fail "ALB without trusted proxies" "auth.trustedProxyCidrs is required with
 must_fail "ALB netpol without LB subnets" "networkPolicy.loadBalancerCidrs is required" "${EKS[@]}" "${ALB[@]}" --set networkPolicy.enabled=true --set 'networkPolicy.apiServer.cidrs[0]=10.0.0.0/20'
 
 # The rendered config must be accepted by the strict Go loader.
-for values in eks list kind; do
+# Single sign-on through the bundled Dex, exposed with the ALB Ingress.
+DEX=(--set auth.oidc.enabled=true --set dex.enabled=true --set "dex.connectors[0].type=github" --set "dex.connectors[0].id=github"
+  --set "dex.connectors[0].name=GitHub" --set dex.envSecret=netcheck-github)
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${ALB[@]}" "${DEX[@]}" > "${TMP}/dex.yaml"
+expect "Dex served under /dex on the same ALB" "${TMP}/dex.yaml" "^          - path: /dex$"
+expect "Dex issuer on the public host" "${TMP}/dex.yaml" "issuer: https://netcheck.example.com/dex"
+expect "Dex redirects only to the NetCheck callback" "${TMP}/dex.yaml" "- https://netcheck.example.com/api/v1/auth/oidc/callback"
+expect "Dex image pinned by digest" "${TMP}/dex.yaml" "image: \"ghcr.io/dexidp/dex:v2.46.0@sha256:"
+expect "Dex has no service account token" "${TMP}/dex.yaml" "automountServiceAccountToken: false"
+expect "NetCheck reaches Dex inside the cluster" "${TMP}/dex.yaml" "internalUrl: \"http://netcheck-dex.netcheck.svc:5556/dex\""
+expect "OIDC client secret generated for Dex" "${TMP}/dex.yaml" "name: netcheck-oidc"
+expect "Dex Pods have their own selector" "${TMP}/dex.yaml" "^    app.kubernetes.io/name: netcheck-dex$"
+must_fail "OIDC without the provider secret" "needs the client secret of the provider" "${EKS[@]}" "${ALB[@]}" --set auth.oidc.enabled=true --set auth.oidc.issuerUrl=https://login.example.com
+must_fail "Dex without OIDC" "dex.enabled requires auth.oidc.enabled" "${EKS[@]}" "${ALB[@]}" --set dex.enabled=true --set "dex.connectors[0].type=github"
+must_fail "Dex without connectors" "dex.connectors must list at least one connector" "${EKS[@]}" "${ALB[@]}" --set auth.oidc.enabled=true --set dex.enabled=true
+must_fail "Dex with the NetworkPolicy" "does not cover the bundled dex" "${EKS[@]}" "${ALB[@]}" "${DEX[@]}" --set networkPolicy.enabled=true --set "networkPolicy.apiServer.cidrs[0]=10.0.0.0/20" --set "networkPolicy.loadBalancerCidrs[0]=10.0.64.0/20"
+
+for values in eks list kind sso; do
   case "${values}" in
     eks) extra=("${EKS[@]}" "${GW[@]}") ;;
     list) extra=("${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=list --set 'namespaceScope.namespaces={payments}' --set 'namespaceScope.exclude=null') ;;
+    sso) extra=("${EKS[@]}" "${ALB[@]}" "${DEX[@]}") ;;
     kind) extra=(-f "${ROOT}/test/integration/values-kind.yaml" --set image.repository=localhost:5001/netcheck --set image.tag=lab
           --set probeImage.repository=localhost:5001/netcheck-probe --set "probeImage.digest=sha256:$(printf '0%.0s' {1..64})") ;;
   esac

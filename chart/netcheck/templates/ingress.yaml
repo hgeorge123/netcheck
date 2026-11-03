@@ -41,6 +41,15 @@ spec:
     - host: {{ . | quote }}
       http:
         paths:
+          {{- if $.Values.dex.enabled }}
+          - path: /dex
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "netcheck.dexName" $ }}
+                port:
+                  number: 5556
+          {{- end }}
           - path: /
             pathType: Prefix
             backend:

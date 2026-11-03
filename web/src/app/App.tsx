@@ -15,6 +15,7 @@ import TopNavigation from '@cloudscape-design/components/top-navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorAlert, errorText } from '../components/errors';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { AccessRulesPage } from '../features/admin/AccessRulesPage';
 import { NamespacesPage } from '../features/admin/NamespacesPage';
 import { PolicyPage } from '../features/admin/PolicyPage';
 import { RetentionPage } from '../features/admin/RetentionPage';
@@ -55,6 +56,15 @@ type Session = { state: 'loading' } | { state: 'anonymous'; notice?: string } | 
 
 let flashId = 0;
 
+const SSO_RESULTS = ['no_access', 'username_taken', 'failed', 'unavailable'] as const;
+
+/** Outcome of a failed single sign-on, passed back by the server in the URL (#/?sso=...). */
+function ssoResult(): (typeof SSO_RESULTS)[number] | undefined {
+  const query = window.location.hash.split('?', 2)[1] ?? '';
+  const code = new URLSearchParams(query).get('sso');
+  return SSO_RESULTS.find((c) => c === code);
+}
+
 function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
   const items = [{ text: 'NetCheck', href: '#/' }];
   switch (route.page) {
@@ -87,6 +97,9 @@ function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
       break;
     case 'retention':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.retention'), href: '#/admin/retention' });
+      break;
+    case 'access-rules':
+      items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.accessRules'), href: '#/admin/access-rules' });
       break;
     default:
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.users'), href: '#/admin/users' });
@@ -178,7 +191,14 @@ export function App() {
     );
   }
   if (session.state === 'anonymous') {
-    const notice = session.notice === 'expired' ? t('error.unauthenticated') : session.notice === 'signedOut' ? t('login.signedOut') : session.notice;
+    const sso = ssoResult();
+    const notice = sso
+      ? t(`login.ssoError.${sso}`)
+      : session.notice === 'expired'
+        ? t('error.unauthenticated')
+        : session.notice === 'signedOut'
+          ? t('login.signedOut')
+          : session.notice;
     return (
       <LoginPage
         login={api.login}
@@ -188,6 +208,7 @@ export function App() {
           setLanguage(l);
         }}
         notice={notice}
+        providers={api.providers}
       />
     );
   }
@@ -283,6 +304,8 @@ export function App() {
     content = <PolicyPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'retention') {
     content = <RetentionPage admin={api.admin} notify={notify} />;
+  } else if (route.page === 'access-rules') {
+    content = <AccessRulesPage admin={api.admin} notify={notify} />;
   } else if (catalog) {
     const from = route.page === 'new' ? route.from : undefined;
     content = (
@@ -313,6 +336,7 @@ export function App() {
         text: t('nav.administration'),
         items: [
           { type: 'link', text: t('nav.users'), href: '#/admin/users' },
+          { type: 'link', text: t('nav.accessRules'), href: '#/admin/access-rules' },
           { type: 'link', text: t('nav.namespaces'), href: '#/admin/namespaces' },
           { type: 'link', text: t('nav.policy'), href: '#/admin/policy' },
           { type: 'link', text: t('nav.retention'), href: '#/admin/retention' },
@@ -358,7 +382,8 @@ export function App() {
               },
               items: [
                 { id: 'prefs', text: t('nav.userMenu.preferences') },
-                { id: 'password', text: t('nav.userMenu.password'), disabled: me.mustChangePassword },
+                // SSO accounts have no NetCheck password.
+                ...(me.source === 'oidc' ? [] : [{ id: 'password', text: t('nav.userMenu.password'), disabled: me.mustChangePassword }]),
                 { id: 'logout', text: t('nav.userMenu.signOut') },
               ],
             },

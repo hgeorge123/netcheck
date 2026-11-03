@@ -7,9 +7,10 @@ import Header from '@cloudscape-design/components/header';
 import Input from '@cloudscape-design/components/input';
 import Select from '@cloudscape-design/components/select';
 import SpaceBetween from '@cloudscape-design/components/space-between';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { errorText } from '../../components/errors';
 import { LANGUAGES, useI18n, type Language } from '../../i18n';
+import type { Providers } from '../../types/api';
 
 interface Props {
   login: (username: string, password: string) => Promise<unknown>;
@@ -17,15 +18,28 @@ interface Props {
   /** Called when the visitor picks a language before signing in. */
   onLanguageChange?: (l: Language) => void;
   notice?: string;
+  /** Sign-in methods offered besides the local form (single sign-on). */
+  providers?: () => Promise<Providers>;
 }
 
-export function LoginPage({ login, onLoggedIn, onLanguageChange, notice }: Props) {
+export function LoginPage({ login, onLoggedIn, onLanguageChange, notice, providers }: Props) {
   const { t, lang } = useI18n();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const langOptions = LANGUAGES.map((l) => ({ value: l, label: t(`lang.${l}`) }));
+  const [sso, setSso] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    providers?.()
+      .then((p) => !cancelled && p.oidc.enabled && setSso(p.oidc.name || 'SSO'))
+      .catch(() => undefined); // the local form keeps working
+    return () => {
+      cancelled = true;
+    };
+  }, [providers]);
 
   const submit = async () => {
     if (!username.trim() || !password) {
@@ -83,8 +97,19 @@ export function LoginPage({ login, onLoggedIn, onLanguageChange, notice }: Props
               <Button variant="primary" formAction="submit" loading={busy} fullWidth>
                 {t('login.submit')}
               </Button>
+              {sso && (
+                <>
+                  <Box textAlign="center" color="text-body-secondary">
+                    {t('login.or')}
+                  </Box>
+                  {/* A full-page navigation: the provider page cannot be loaded with fetch. */}
+                  <Button href="/api/v1/auth/oidc/start" iconName="external" fullWidth>
+                    {t('login.sso', { name: sso })}
+                  </Button>
+                </>
+              )}
               <Box variant="small" color="text-body-secondary">
-                {t('login.forgot')}
+                {t(sso ? 'login.forgotSso' : 'login.forgot')}
               </Box>
             </SpaceBetween>
           </Container>

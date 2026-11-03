@@ -139,7 +139,7 @@ export function UsersPage({ admin, currentUserId, onCreate, onEdit, notify }: Pr
                   onItemClick={({ detail }) => onAction(detail.id)}
                   items={[
                     { id: 'edit', text: t('users.action.edit') },
-                    { id: 'reset', text: t('users.action.reset') },
+                    { id: 'reset', text: t('users.action.reset'), disabled: sel?.source === 'oidc' },
                     { id: 'unlock', text: t('users.action.unlock'), disabled: !sel?.locked },
                     { id: 'delete', text: t('users.action.delete'), disabled: sel?.id === currentUserId },
                   ]}
@@ -207,6 +207,11 @@ export function UsersPage({ admin, currentUserId, onCreate, onEdit, notify }: Pr
                 {u.allowNetcheckNamespace && <Badge color="red">NetCheck</Badge>}
               </SpaceBetween>
             ),
+          },
+          {
+            id: 'source',
+            header: t('users.col.source'),
+            cell: (u) => (u.source === 'oidc' ? <Badge color="severity-low">{t('users.source.oidc')}</Badge> : t('users.source.local')),
           },
           { id: 'status', header: t('users.col.status'), cell: (u) => <UserStatus u={u} /> },
           { id: 'login', header: t('users.col.lastLogin'), sortingField: 'lastLoginAt', cell: (u) => (u.lastLoginAt ? formatDate(u.lastLoginAt) : t('common.never')) },

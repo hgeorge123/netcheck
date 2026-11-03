@@ -13,6 +13,7 @@ export type Route =
   | { page: 'system' }
   | { page: 'policy' }
   | { page: 'retention' }
+  | { page: 'access-rules' }
   | { page: 'namespaces' };
 
 const runIdPattern = /^[a-z0-9]{8,40}$/;
@@ -45,6 +46,8 @@ export function parseHash(hash: string): Route {
       return { page: 'policy' };
     case '/admin/retention':
       return { page: 'retention' };
+    case '/admin/access-rules':
+      return { page: 'access-rules' };
     case '/admin/namespaces':
       return { page: 'namespaces' };
     default:
@@ -76,6 +79,8 @@ export function hrefFor(r: Route): string {
       return '#/admin/policy';
     case 'retention':
       return '#/admin/retention';
+    case 'access-rules':
+      return '#/admin/access-rules';
     case 'namespaces':
       return '#/admin/namespaces';
     default:
@@ -83,7 +88,7 @@ export function hrefFor(r: Route): string {
   }
 }
 
-export const isAdminRoute = (r: Route): boolean => ['users', 'user-new', 'user-edit', 'sessions', 'system', 'policy', 'retention', 'namespaces'].includes(r.page);
+export const isAdminRoute = (r: Route): boolean => ['users', 'user-new', 'user-edit', 'sessions', 'system', 'policy', 'retention', 'namespaces', 'access-rules'].includes(r.page);
 
 export function useHashRoute(): [Route, (r: Route) => void] {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));

@@ -33,6 +33,31 @@ export interface Me {
   language: Language | '';
   allowNetcheckNamespace: boolean;
   version: string;
+  /** 'oidc': single sign-on account, without a NetCheck password. */
+  source: AccountSource;
+}
+
+export type AccountSource = 'local' | 'oidc';
+
+export interface Providers {
+  oidc: { enabled: boolean; name?: string };
+}
+
+export type RuleSubject = 'group' | 'user' | 'authenticated';
+
+export interface AccessRuleInput {
+  subjectType: RuleSubject;
+  subject: string;
+  role: Role;
+  allNamespaces: boolean;
+  allowNetcheckNamespace: boolean;
+  namespaces: string[];
+}
+
+export interface AccessRule extends AccessRuleInput {
+  id: string;
+  updatedAt: string;
+  updatedBy: string;
 }
 
 export interface UserView {
@@ -51,6 +76,9 @@ export interface UserView {
   passwordChangedAt: string;
   language: string;
   allowNetcheckNamespace: boolean;
+  source: AccountSource;
+  /** Groups of the last SSO sign-in. */
+  groups: string[];
 }
 
 export interface UserInput {

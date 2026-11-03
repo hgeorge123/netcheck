@@ -20,6 +20,13 @@ export function fieldErrorText(t: Translate, fe: FieldError): string {
   return fe.code === 'destination_denied' && fe.message ? `${text} ${t('field.deniedReason', { reason: fe.message })}` : text;
 }
 
+/** Translated server field errors keyed by field name, for FormField errorText. */
+export function fieldErrors(t: Translate, err: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (err instanceof ApiError) for (const d of err.details) out[d.field] ??= fieldErrorText(t, d);
+  return out;
+}
+
 /** Error alert with the field details and the request id for support. */
 export function ErrorAlert({ error, header }: { error: unknown; header?: string }) {
   const { t } = useI18n();

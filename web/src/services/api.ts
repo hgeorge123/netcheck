@@ -1,4 +1,6 @@
 import type {
+  AccessRule,
+  AccessRuleInput,
   AdminNamespaces,
   ApiErrorBody,
   Catalog,
@@ -10,6 +12,7 @@ import type {
   NamespaceGrant,
   PolicyCheck,
   PolicyView,
+  Providers,
   RetentionView,
   RunDetail,
   RunRequest,
@@ -93,6 +96,7 @@ export const api = {
   logout: () => post<undefined>('/api/v1/auth/logout'),
   changePassword: (currentPassword: string, newPassword: string) => post<undefined>('/api/v1/auth/password', { currentPassword, newPassword }),
   me: () => request<Me>('/api/v1/me'),
+  providers: () => request<Providers>('/api/v1/auth/providers'),
   setLanguage: (language: Language) => put<{ language: Language }>('/api/v1/me/preferences', { language }),
   namespaces: () => request<{ items: NamespaceGrant[] }>('/api/v1/namespaces'),
   catalog: () => request<Catalog>('/api/v1/probes/catalog'),
@@ -128,6 +132,10 @@ export const api = {
     checkDestination: (target: string, port?: number) => post<PolicyCheck>('/api/v1/admin/policy/check', port ? { target, port } : { target }),
     retention: () => request<RetentionView>('/api/v1/admin/retention'),
     saveRetention: (r: { outputDays: number; metadataDays: number }) => put<RetentionView>('/api/v1/admin/retention', r),
+    accessRules: () => request<{ items: AccessRule[]; ssoEnabled: boolean }>('/api/v1/admin/access-rules'),
+    createAccessRule: (r: AccessRuleInput) => post<AccessRule>('/api/v1/admin/access-rules', r),
+    updateAccessRule: (ruleId: string, r: AccessRuleInput) => put<AccessRule>(`/api/v1/admin/access-rules/${id(ruleId)}`, r),
+    deleteAccessRule: (ruleId: string) => del(`/api/v1/admin/access-rules/${id(ruleId)}`),
   },
 };
 

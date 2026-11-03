@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api } from '../../services/api';
 import { renderI18n } from '../../test/render';
 import type { DestinationPolicy, PolicyView, UserView } from '../../types/api';
+import { AccessRulesPage } from './AccessRulesPage';
 import { NamespacesPage } from './NamespacesPage';
 import { ALLOW_ALL, PolicyPage } from './PolicyPage';
 import { RetentionPage } from './RetentionPage';
@@ -13,7 +14,7 @@ import { shortDigest, SystemPage } from './SystemPage';
 import { UserFormPage } from './UserFormPage';
 import { UsersPage } from './UsersPage';
 
-const common = { createdAt: '2026-10-21T10:00:00Z', passwordChangedAt: '2026-10-21T10:00:00Z', language: '', allowNetcheckNamespace: false };
+const common = { createdAt: '2026-10-21T10:00:00Z', passwordChangedAt: '2026-10-21T10:00:00Z', language: '', allowNetcheckNamespace: false, source: 'local' as const, groups: [] as string[] };
 const users: UserView[] = [
   { ...common, id: 'u000000000000000000000001', username: 'admin', displayName: 'Administrator', role: 'admin', allNamespaces: true, namespaces: [], disabled: false, locked: false, mustChangePassword: false },
   { ...common, id: 'u000000000000000000000002', username: 'bob', displayName: 'Bob', role: 'user', allNamespaces: false, namespaces: ['payments'], disabled: false, locked: true, mustChangePassword: false, allowNetcheckNamespace: true },
@@ -72,6 +73,10 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     checkDestination: vi.fn().mockResolvedValue({ allowed: false, reason: '169.254.169.254 is in denied range 169.254.0.0/16', isIp: true }),
     retention: vi.fn().mockResolvedValue({ outputDays: 15, metadataDays: 45, updatedAt: common.createdAt, updatedBy: 'helm (initial values)' }),
     saveRetention: vi.fn().mockImplementation((r: { outputDays: number; metadataDays: number }) => Promise.resolve({ ...r, updatedAt: common.createdAt, updatedBy: 'admin' })),
+    accessRules: vi.fn().mockResolvedValue({ items: [], ssoEnabled: true }),
+    createAccessRule: vi.fn().mockResolvedValue(undefined),
+    updateAccessRule: vi.fn().mockResolvedValue(undefined),
+    deleteAccessRule: vi.fn().mockResolvedValue(undefined),
     ...over,
   };
 }
@@ -381,5 +386,51 @@ describe('NamespacesPage', () => {
     await userEvent.click(screen.getAllByRole('button', { name: 'Exclude' }).at(-1)!);
     expect(await screen.findByText('Lowercase letters, digits and "-", at most 63 characters.')).toBeInTheDocument();
     expect(admin.excludeNamespace).not.toHaveBeenCalled();
+  });
+});
+
+describe('AccessRulesPage', () => {
+  it('creates a rule for a group with selected namespaces', async () => {
+    const admin = mockAdmin({ accessRules: vi.fn().mockResolvedValue({ items: [], ssoEnabled: true }) });
+    const notify = vi.fn();
+    renderI18n(<AccessRulesPage admin={admin} notify={notify} />);
+    expect(await screen.findByText('No rules yet')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Create rule' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Group' }), 'acme:payments');
+    const w = createWrapper(document.body);
+    const ms = w.findMultiselect()!;
+    ms.openDropdown();
+    ms.selectOptionByValue('payments');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(admin.createAccessRule).toHaveBeenCalledWith({
+        subjectType: 'group',
+        subject: 'acme:payments',
+        role: 'user',
+        allNamespaces: false,
+        allowNetcheckNamespace: false,
+        namespaces: ['payments'],
+      }),
+    );
+    expect(notify).toHaveBeenCalledWith('success', expect.stringContaining('Access rule saved'));
+  });
+
+  it('lists rules and warns when SSO is not enabled', async () => {
+    const rule = { id: 'r1', subjectType: 'authenticated' as const, subject: '', role: 'user' as const, allNamespaces: true, allowNetcheckNamespace: false, namespaces: [], updatedAt: common.createdAt, updatedBy: 'admin' };
+    renderI18n(<AccessRulesPage admin={mockAdmin({ accessRules: vi.fn().mockResolvedValue({ items: [rule], ssoEnabled: false }) })} notify={vi.fn()} />);
+    expect(await screen.findByText('Single sign-on is not enabled')).toBeInTheDocument();
+    expect(screen.getByText('Any authenticated user')).toBeInTheDocument();
+    expect(screen.getByText('All namespaces')).toBeInTheDocument();
+  });
+});
+
+describe('UserFormPage for an SSO account', () => {
+  it('explains that role and namespaces come from the access rules', async () => {
+    const sso: UserView = { ...users[1]!, id: 'u000000000000000000000009', source: 'oidc', groups: ['acme:payments'] };
+    const admin = mockAdmin({ getUser: vi.fn().mockResolvedValue(sso) });
+    renderI18n(<UserFormPage admin={admin} userId={sso.id} currentUserId="x" onDone={vi.fn()} onCancel={vi.fn()} />);
+    expect(await screen.findByText('Single sign-on account')).toBeInTheDocument();
+    expect(screen.getByText(/Groups of the last sign-in: acme:payments/)).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /Administrator/ })).not.toBeInTheDocument();
   });
 });

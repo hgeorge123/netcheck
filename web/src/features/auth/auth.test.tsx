@@ -94,3 +94,20 @@ it('generates strong temporary passwords', () => {
   expect(a).toMatch(/^[a-zA-Z2-9]+$/);
   expect(generatePassword()).not.toBe(a);
 });
+
+describe('LoginPage single sign-on', () => {
+  it('offers the SSO button next to the local form when it is enabled', async () => {
+    const providers = vi.fn().mockResolvedValue({ oidc: { enabled: true, name: 'GitHub' } });
+    renderI18n(<LoginPage login={vi.fn()} onLoggedIn={vi.fn()} providers={providers} />);
+    const sso = await screen.findByRole('link', { name: 'Sign in with GitHub' });
+    expect(sso).toHaveAttribute('href', '/api/v1/auth/oidc/start');
+    expect(screen.getByLabelText('Username')).toBeInTheDocument(); // local accounts keep working
+  });
+
+  it('shows only the local form when SSO is disabled or unreachable', async () => {
+    const providers = vi.fn().mockRejectedValue(new Error('offline'));
+    renderI18n(<LoginPage login={vi.fn()} onLoggedIn={vi.fn()} providers={providers} />);
+    await waitFor(() => expect(providers).toHaveBeenCalled());
+    expect(screen.queryByRole('link', { name: /Sign in with/ })).not.toBeInTheDocument();
+  });
+});

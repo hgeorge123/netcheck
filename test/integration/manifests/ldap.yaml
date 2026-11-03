@@ -1,0 +1,104 @@
+# Lab only: an OpenLDAP directory to test single sign-on through Dex's LDAP
+# connector (LAB_SSO=ldap bash test/integration/lab.sh deploy). LDAPS with a
+# certificate of a lab CA created by lab.sh (Secret ldap-tls).
+#   ana / ana-lab-password   group netcheck-admins
+#   bob / bob-lab-password   group payments
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-ldap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ldap-seed
+  namespace: lab-ldap
+data:
+  50-lab.ldif: |
+    dn: ou=people,dc=lab,dc=test
+    objectClass: organizationalUnit
+    ou: people
+
+    dn: ou=groups,dc=lab,dc=test
+    objectClass: organizationalUnit
+    ou: groups
+
+    dn: uid=ana,ou=people,dc=lab,dc=test
+    objectClass: inetOrgPerson
+    uid: ana
+    cn: Ana Admin
+    sn: Admin
+    mail: ana@lab.test
+    userPassword: ana-lab-password
+
+    dn: uid=bob,ou=people,dc=lab,dc=test
+    objectClass: inetOrgPerson
+    uid: bob
+    cn: Bob Payments
+    sn: Payments
+    mail: bob@lab.test
+    userPassword: bob-lab-password
+
+    dn: cn=netcheck-admins,ou=groups,dc=lab,dc=test
+    objectClass: groupOfNames
+    cn: netcheck-admins
+    member: uid=ana,ou=people,dc=lab,dc=test
+
+    dn: cn=payments,ou=groups,dc=lab,dc=test
+    objectClass: groupOfNames
+    cn: payments
+    member: uid=bob,ou=people,dc=lab,dc=test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ldap
+  namespace: lab-ldap
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: ldap}
+  template:
+    metadata:
+      labels: {app: ldap}
+    spec:
+      # The Service "ldap" would inject LDAP_PORT=tcp://..., which the image reads as its own port.
+      enableServiceLinks: false
+      containers:
+        - name: openldap
+          image: osixia/openldap:1.5.0@sha256:18742e9c449c9c1afe129d3f2f3ee15fb34cc43e5f940a20f3399728f41d7c28
+          # Copy the mounted (read-only) seed and certificates before starting.
+          args: [--copy-service]
+          env:
+            - {name: LDAP_ORGANISATION, value: NetCheck lab}
+            - {name: LDAP_DOMAIN, value: lab.test}
+            - {name: LDAP_ADMIN_PASSWORD, value: lab-admin-password}
+            - {name: LDAP_TLS, value: "true"}
+            - {name: LDAP_TLS_CRT_FILENAME, value: tls.crt}
+            - {name: LDAP_TLS_KEY_FILENAME, value: tls.key}
+            - {name: LDAP_TLS_CA_CRT_FILENAME, value: ca.crt}
+            - {name: LDAP_TLS_VERIFY_CLIENT, value: never}
+          ports:
+            - {name: ldap, containerPort: 389}
+            - {name: ldaps, containerPort: 636}
+          readinessProbe:
+            tcpSocket: {port: 636}
+          volumeMounts:
+            # One file (subPath): a ConfigMap directory also holds a hidden ..data copy.
+            - {name: seed, mountPath: /container/service/slapd/assets/config/bootstrap/ldif/custom/50-lab.ldif, subPath: 50-lab.ldif}
+            - {name: tls, mountPath: /container/service/slapd/assets/certs}
+      volumes:
+        - name: seed
+          configMap: {name: ldap-seed}
+        - name: tls
+          secret: {secretName: ldap-tls}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ldap
+  namespace: lab-ldap
+spec:
+  selector: {app: ldap}
+  ports:
+    - {name: ldaps, port: 636, targetPort: ldaps}

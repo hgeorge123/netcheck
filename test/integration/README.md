@@ -69,3 +69,7 @@ With the lab Gateway (`lab.sh gateway`), `LAB_SSO=1 bash test/integration/lab.sh
 with its mock connector ([values-kind-sso.yaml](values-kind-sso.yaml)). **Sign in with Dex (lab)** at
 `https://netcheck.lab.test:8443` signs you in as `kilgore@kilgore.trout` (group `authors`) without any external
 account, once an administrator has created an access rule for that group or user.
+
+`LAB_SSO=ldap bash test/integration/lab.sh deploy` uses Dex's LDAP connector instead, against a lab OpenLDAP over LDAPS
+([manifests/ldap.yaml](manifests/ldap.yaml); the CA is generated in `.data/lab-ldap` and passed as `rootCAData`). Users
+`ana` / `ana-lab-password` (group `netcheck-admins`) and `bob` / `bob-lab-password` (group `payments`).

@@ -12,7 +12,7 @@ your way in if the identity provider is down.
 ## Contents
 
 1. [How it works](#1-how-it-works)
-2. [GitHub through the bundled Dex](#2-github-through-the-bundled-dex)
+2. [GitHub, LDAP and others through the bundled Dex](#2-github-ldap-and-others-through-the-bundled-dex)
 3. [An OIDC provider (Entra ID, Okta, Keycloak, Google…)](#3-an-oidc-provider-entra-id-okta-keycloak-google)
 4. [Access rules: who gets what](#4-access-rules-who-gets-what)
 5. [Day-to-day](#5-day-to-day)
@@ -39,10 +39,12 @@ Permissions come only from the access rules, which you write **before** anyone s
 sign-in and whenever you change a rule, so adding someone to a group of the provider is enough to give them access
 the next time they sign in.
 
-## 2. GitHub through the bundled Dex
+## 2. GitHub, LDAP and others through the bundled Dex
 
 You need a host name for NetCheck (the one of your Ingress or HTTPRoute). The examples use
-`netcheck.example.com` and the GitHub organization `my-org`.
+`netcheck.example.com`. Sections 2.1 to 2.4 set up GitHub (organization `my-org`); 2.5 is LDAP or Active Directory, and
+2.6 the other Dex connectors. The values of 2.3 (what the chart does with Dex) and the first rules of 2.4 apply to all
+of them.
 
 ### 2.1 Create a GitHub OAuth App
 
@@ -120,11 +122,96 @@ Before anyone can sign in with GitHub there must be at least one access rule:
 
 Section 4 explains the rules in detail.
 
-### 2.5 GitLab, LDAP, SAML and others
+### 2.5 LDAP or Active Directory
+
+The bundled Dex has an LDAP connector, the same one Argo CD uses. People click **Sign in with LDAP**, type their
+directory username and password in a Dex page, and come back to NetCheck with the groups they belong to. NetCheck never
+sees the password.
+
+**Bind account.** Dex searches the directory with a read-only service account. Store its password in a Secret:
+
+```bash
+kubectl -n netcheck create secret generic netcheck-ldap --from-literal=LDAP_BIND_PW='<bind password>'
+```
+
+**Certificate authority.** For LDAPS (port 636, recommended) Dex must trust the certificate of the directory. The
+chart does not mount extra files into Dex, so the CA goes inline, base64-encoded:
+
+```bash
+base64 -w0 corporate-ca.pem    # paste the output as rootCAData
+```
+
+**Values** (OpenLDAP-style directory):
+
+```yaml
+auth:
+  oidc:
+    enabled: true
+    providerName: LDAP                    # button: "Sign in with LDAP"
+    usernameClaim: preferred_username     # the uid; "email" uses the mail attribute
+dex:
+  enabled: true
+  envSecret: netcheck-ldap
+  connectors:
+    - type: ldap
+      id: ldap
+      name: LDAP
+      config:
+        host: ldap.example.com:636
+        rootCAData: <base64 of the CA>
+        bindDN: cn=svc-netcheck,ou=services,dc=example,dc=com
+        bindPW: $LDAP_BIND_PW
+        usernamePrompt: Corporate username
+        userSearch:
+          baseDN: ou=people,dc=example,dc=com
+          filter: "(objectClass=inetOrgPerson)"
+          username: uid
+          idAttr: uid
+          emailAttr: mail
+          nameAttr: cn
+          preferredUsernameAttr: uid
+        groupSearch:
+          baseDN: ou=groups,dc=example,dc=com
+          filter: "(objectClass=groupOfNames)"
+          userMatchers:
+            - userAttr: DN
+              groupAttr: member
+          nameAttr: cn                    # the group name your access rules use
+```
+
+For **Active Directory**, change the searches:
+
+| Setting | Active Directory value |
+|---|---|
+| `bindDN` | The service account, e.g. `CN=svc-netcheck,OU=Service Accounts,DC=corp,DC=example` or `svc-netcheck@corp.example` |
+| `userSearch.filter` | `(objectClass=person)` |
+| `userSearch.username`, `idAttr`, `preferredUsernameAttr` | `sAMAccountName` (use `userPrincipalName` for `idAttr` if you prefer) |
+| `groupSearch.filter` | `(objectClass=group)` |
+| `groupSearch.userMatchers` | `userAttr: DN`, `groupAttr: member` |
+
+Dex only sees **direct** group membership: a user in a group nested inside `netcheck-users` does not match a rule for
+`netcheck-users`. Write rules for the groups people are direct members of.
+
+**Coming from Argo CD.** Copy the `ldap` connector of the `dex.config` in `argocd-cm` into `dex.connectors` and make
+two changes: the bind password becomes `$LDAP_BIND_PW` (Argo CD uses `$dex.ldap.bindPW` from `argocd-secret`), and a
+CA file given with `rootCA:` (a path) becomes `rootCAData:` (the base64 content). Avoid `insecureSkipVerify: true`.
+
+**Network.** The Dex Pod runs in the NetCheck namespace and must reach the directory (389 or 636). If the directory
+only accepts some source addresses, allow the Pod or node addresses of the cluster.
+
+Then sign in as the local `admin` and create access rules with the group names (`cn`) of your directory (section 4).
+If someone cannot sign in, the Dex log says why (`kubectl -n netcheck logs deploy/netcheck-dex`): unknown user, wrong
+password or a failed search; once Dex accepts the person, the NetCheck audit event `auth.login` lists the username and
+groups NetCheck received.
+
+This setup is tested in the local laboratory against OpenLDAP over LDAPS
+(`LAB_SSO=ldap bash test/integration/lab.sh deploy`, see [test/integration/README.md](../test/integration/README.md)).
+
+### 2.6 GitLab, SAML and others
 
 Any [Dex connector](https://dexidp.io/docs/connectors/) works the same way: list it in `dex.connectors`, put its
 secrets in the `dex.envSecret` Secret and refer to them as `$VARIABLE`. The groups that Dex sends depend on the
-connector (GitLab groups, LDAP groups, SAML attributes) and are what your access rules match.
+connector (GitLab groups, SAML attributes) and are what your access rules match.
 
 ## 3. An OIDC provider (Entra ID, Okta, Keycloak, Google…)
 

@@ -5,7 +5,8 @@
 #
 #   lab.sh up       create registry + kind cluster + Calico + fixtures
 #   lab.sh deploy   build/push images, install the chart by digest
-#                   (LAB_SSO=1: with single sign-on through the bundled Dex)
+#                   (LAB_SSO=1: with single sign-on through the bundled Dex;
+#                    LAB_SSO=ldap: through Dex and a lab OpenLDAP)
 #   lab.sh down     delete the kind cluster and the registry container
 set -euo pipefail
 
@@ -51,6 +52,65 @@ digest_of() {
   docker inspect --format='{{index .RepoDigests 0}}' "$1"
 }
 
+# Lab OpenLDAP with LDAPS (certificate of a throwaway CA) and the Dex values
+# that use it, CA included as rootCAData as in a real cluster. Prints the
+# path of the generated values file.
+ldap_lab() {
+  local dir="${ROOT}/.data/lab-ldap" fdir
+  mkdir -p "${dir}"
+  fdir="${dir}"
+  command -v cygpath >/dev/null && fdir="$(cygpath -m "${dir}")"
+  if [ ! -f "${dir}/tls.crt" ]; then
+    echo "subjectAltName=DNS:ldap.lab-ldap.svc,DNS:ldap.lab-ldap.svc.cluster.local" > "${dir}/tls.ext"
+    MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=NetCheck lab LDAP CA" \
+      -addext "basicConstraints=critical,CA:TRUE" -keyout "${fdir}/ca.key" -out "${fdir}/ca.crt" 2>/dev/null
+    MSYS_NO_PATHCONV=1 openssl req -newkey rsa:2048 -nodes -subj "/CN=ldap.lab-ldap.svc" \
+      -keyout "${fdir}/tls.key" -out "${fdir}/tls.csr" 2>/dev/null
+    MSYS_NO_PATHCONV=1 openssl x509 -req -in "${fdir}/tls.csr" -CA "${fdir}/ca.crt" -CAkey "${fdir}/ca.key" -CAcreateserial \
+      -days 30 -extfile "${fdir}/tls.ext" -out "${fdir}/tls.crt" 2>/dev/null
+  fi
+  kc apply -f "${ROOT}/test/integration/manifests/ldap.yaml" >&2
+  kc -n lab-ldap create secret generic ldap-tls --from-file=tls.crt="${dir}/tls.crt" --from-file=tls.key="${dir}/tls.key" \
+    --from-file=ca.crt="${dir}/ca.crt" --dry-run=client -o yaml | kc apply -f - >&2
+  kc -n lab-ldap rollout status deployment/ldap --timeout=180s >&2
+  kc -n netcheck create secret generic netcheck-ldap --from-literal=LDAP_BIND_PW=lab-admin-password \
+    --dry-run=client -o yaml | kc apply -f - >&2
+  cat > "${dir}/values.yaml" <<EOF
+auth:
+  oidc:
+    providerName: LDAP (lab)
+    usernameClaim: preferred_username
+dex:
+  envSecret: netcheck-ldap
+  connectors:
+    - type: ldap
+      id: ldap
+      name: LDAP
+      config:
+        host: ldap.lab-ldap.svc:636
+        rootCAData: $(base64 -w0 "${dir}/ca.crt")
+        bindDN: cn=admin,dc=lab,dc=test
+        bindPW: \$LDAP_BIND_PW
+        usernamePrompt: Lab username
+        userSearch:
+          baseDN: ou=people,dc=lab,dc=test
+          filter: "(objectClass=inetOrgPerson)"
+          username: uid
+          idAttr: uid
+          emailAttr: mail
+          nameAttr: cn
+          preferredUsernameAttr: uid
+        groupSearch:
+          baseDN: ou=groups,dc=lab,dc=test
+          filter: "(objectClass=groupOfNames)"
+          userMatchers:
+            - userAttr: DN
+              groupAttr: member
+          nameAttr: cn
+EOF
+  echo "${dir}/values.yaml"
+}
+
 deploy() {
   local app="localhost:${REGISTRY_PORT}/netcheck:${TAG}" probe="localhost:${REGISTRY_PORT}/netcheck-probe:${TAG}"
   local version
@@ -67,12 +127,18 @@ deploy() {
   if kc -n gateway-lab get gateway lab-gateway >/dev/null 2>&1; then
     overlay=(-f "${ROOT}/test/integration/values-kind-gateway.yaml")
   fi
-  # LAB_SSO=1: single sign-on with the bundled Dex (mock connector), behind the Gateway.
-  if [ "${LAB_SSO:-}" = 1 ]; then
-    overlay+=(-f "${ROOT}/test/integration/values-kind-sso.yaml")
-  fi
-
   kc create namespace netcheck --dry-run=client -o yaml | kc apply -f -
+  # LAB_SSO=1: single sign-on with the bundled Dex (mock connector), behind the
+  # Gateway. LAB_SSO=ldap: the same Dex with its LDAP connector against a lab
+  # OpenLDAP over LDAPS.
+  case "${LAB_SSO:-}" in
+    1) overlay+=(-f "${ROOT}/test/integration/values-kind-sso.yaml") ;;
+    ldap)
+      # An assignment, so set -e stops here if the directory does not start.
+      local ldap_values
+      ldap_values="$(ldap_lab)"
+      overlay+=(-f "${ROOT}/test/integration/values-kind-sso.yaml" -f "${ldap_values}") ;;
+  esac
   kc label namespace netcheck pod-security.kubernetes.io/enforce=restricted --overwrite
   helm --kube-context "${CONTEXT}" upgrade --install netcheck "${ROOT}/chart/netcheck" \
     --namespace netcheck \

@@ -12,7 +12,7 @@ Every [NetCheck release](https://github.com/hgeorge123/netcheck/releases) attach
 (amd64 and arm64), a checksums file and build provenance:
 
 ```bash
-VERSION=0.7.0 # x-release-please-version
+VERSION=1.0.0 # x-release-please-version
 curl -fsSLO "https://github.com/hgeorge123/netcheck/releases/download/v${VERSION}/netcheck-cli_${VERSION}_linux_amd64"
 curl -fsSLO "https://github.com/hgeorge123/netcheck/releases/download/v${VERSION}/netcheck-cli_${VERSION}_checksums.txt"
 sha256sum --check --ignore-missing "netcheck-cli_${VERSION}_checksums.txt"

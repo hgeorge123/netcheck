@@ -18,7 +18,9 @@ import { CheckStatusBadge, diagnosisText, isTerminal, methodKey, RunStatusBadge 
 import { useI18n, type Translate } from '../../i18n';
 import { ApiError } from '../../services/api';
 import type { ExecutionView, PingResult, RunDetail, TracerouteResult } from '../../types/api';
+import { blockedChecks, firewallRequest, hasEgressPolicies, suggestNetworkPolicy } from './blockedHelp';
 import { buildFirewallReport } from './firewallReport';
+import { PathView } from './PathView';
 
 interface Props {
   id: string;
@@ -228,6 +230,73 @@ function FirewallReportPanel({ run }: { run: RunDetail }) {
   );
 }
 
+/**
+ * What is missing for the traffic to flow, stated in every case: nothing,
+ * a NetworkPolicy (when the namespace policies select the probe) or a change
+ * outside the cluster, with a request for the firewall team.
+ */
+function MissingPanel({ run }: { run: RunDetail }) {
+  const { t, formatDate } = useI18n();
+  const header = <Header variant="h2" description={t('missing.desc')}>{t('missing.title')}</Header>;
+  if (blockedChecks(run).length === 0) {
+    return (
+      <Container header={header}>
+        <Alert type="success" header={t('missing.nothingTitle')}>
+          {t('missing.nothing')}
+        </Alert>
+      </Container>
+    );
+  }
+  const policies = hasEgressPolicies(run);
+  const request = firewallRequest(run, t, formatDate);
+  const block = (text: string, copy: string, testId: string) => (
+    <SpaceBetween size="s">
+      <Box variant="code">
+        <pre data-testid={testId} style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+          {text}
+        </pre>
+      </Box>
+      <CopyToClipboard variant="button" textToCopy={text} copyButtonText={copy} copySuccessText={t('common.copied')} copyErrorText={t('common.copyFailed')} />
+    </SpaceBetween>
+  );
+  const requestTab = {
+    id: 'request',
+    label: t('missing.tab.request'),
+    content: (
+      <SpaceBetween size="s">
+        {!policies && (
+          <Alert type="info" header={t('missing.policyNotNeeded')}>
+            {t('missing.noPolicyIntro', { namespace: run.namespace })}
+          </Alert>
+        )}
+        {block(request, t('missing.copyRequest'), 'missing-request')}
+      </SpaceBetween>
+    ),
+  };
+  const tabs = policies
+    ? [
+        {
+          id: 'policy',
+          label: t('missing.tab.policy'),
+          content: (
+            <SpaceBetween size="s">
+              <Alert type="warning" header={t('missing.policyNeeded')}>
+                {t('missing.policyIntro', { namespace: run.namespace })}
+              </Alert>
+              {block(suggestNetworkPolicy(run), t('missing.copyPolicy'), 'missing-policy')}
+            </SpaceBetween>
+          ),
+        },
+        requestTab,
+      ]
+    : [requestTab];
+  return (
+    <Container header={header}>
+      <Tabs tabs={tabs} />
+    </Container>
+  );
+}
+
 export function RunDetailPage({ id, load, onRunAgain, pollMs = 2000 }: Props) {
   const { t, formatDate } = useI18n();
   const [run, setRun] = useState<RunDetail | null>(null);
@@ -332,6 +401,8 @@ export function RunDetailPage({ id, load, onRunAgain, pollMs = 2000 }: Props) {
 
         <FidelityAlert fidelity={run.fidelity} />
 
+        {done && run.status !== 'infra_error' && first && <PathView run={run} />}
+
         <Table
           header={<Header variant="h2" counter={`(${run.checks.length})`}>{t('run.checks')}</Header>}
           items={run.checks}
@@ -355,6 +426,8 @@ export function RunDetailPage({ id, load, onRunAgain, pollMs = 2000 }: Props) {
         />
 
         {done && selected && <CheckDetail key={selected.checkId} c={selected} />}
+
+        {done && run.status !== 'infra_error' && run.checks.length > 0 && <MissingPanel run={run} />}
       </SpaceBetween>
     </ContentLayout>
   );

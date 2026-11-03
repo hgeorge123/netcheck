@@ -90,6 +90,30 @@ const icmp: RunDetail = {
   ],
 };
 
+describe('RunDetailPage what is missing', () => {
+  it('says no NetworkPolicy is needed when none applies to the probe', async () => {
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(done)} />);
+    expect(await screen.findByText('What is missing')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Suggested NetworkPolicy' })).not.toBeInTheDocument();
+    expect(screen.getByText('No NetworkPolicy change is needed')).toBeInTheDocument();
+    expect(screen.getByTestId('missing-request')).toHaveTextContent('TCP 10.20.30.40:443');
+  });
+
+  it('suggests a NetworkPolicy when the namespace policies select the probe', async () => {
+    const withPolicy: RunDetail = { ...done, fidelity: { level: 'namespace-wide-likely', egressPolicies: [{ name: 'deny', podSelector: '{}', selectsProbe: true }], notes: [] } };
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(withPolicy)} />);
+    expect(await screen.findByRole('tab', { name: 'Suggested NetworkPolicy' })).toBeInTheDocument();
+    expect(screen.getByTestId('missing-policy')).toHaveTextContent('- ipBlock: {cidr: 10.20.30.40/32}');
+    expect(screen.getByText('A NetworkPolicy change is probably needed')).toBeInTheDocument();
+  });
+
+  it('says nothing is missing when every check got an answer', async () => {
+    renderI18n(<RunDetailPage id={icmp.id} load={vi.fn().mockResolvedValue({ ...icmp, checks: [icmp.checks[0]] })} />);
+    expect(await screen.findByText('Nothing is missing')).toBeInTheDocument();
+    expect(screen.queryByTestId('missing-request')).not.toBeInTheDocument();
+  });
+});
+
 describe('RunDetailPage', () => {
   it('polls until the run is terminal', async () => {
     const load = vi.fn().mockResolvedValueOnce(base).mockResolvedValue(done);
@@ -99,7 +123,7 @@ describe('RunDetailPage', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(load.mock.calls.length).toBe(calls); // no polling after terminal state
     expect(screen.getByText('10.1.1.9')).toBeInTheDocument();
-    expect(screen.getByText('node-a')).toBeInTheDocument();
+    expect(screen.getAllByText('node-a').length).toBeGreaterThan(0); // details and path
   });
 
   it('does not paint an HTTP 404 as a network error', async () => {

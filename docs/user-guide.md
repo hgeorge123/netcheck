@@ -285,6 +285,29 @@ A timeout caused by a NetworkPolicy that blocks egress:
 
 ![Timeout detail](images/user-18-timeout-detail.png)
 
+### 5.6 Path
+
+The **Path** panel draws where the traffic goes and where it stops, with measured values only: the probe Pod and its
+node (from the Kubernetes API), the hops of the traceroute if the test included one, and the destination with the
+result of every check. Without a traceroute the middle is shown as *Path not measured*; silent hops are grouped, and
+the last hop that answered is marked when the traceroute did not reach the destination. The hops come from ICMP:
+TCP and UDP can take another path, and many networks (an AWS VPC, for example) do not answer the traceroute.
+
+### 5.7 What is missing
+
+Every finished test ends with a **What is missing** panel that always states what has to change, if anything:
+
+| Situation | What the panel says |
+|---|---|
+| Every check got an answer | **Nothing is missing.** No NetworkPolicy or firewall change is needed. Errors that come with an answer (connection refused, TLS, HTTP status) come from the destination |
+| Checks got no answer and egress NetworkPolicies of the namespace apply to the probe | **A NetworkPolicy change is probably needed**, with a suggested egress NetworkPolicy (YAML) built from the measured IPs, ports and protocols, plus the cluster DNS rule when name resolution timed out. Narrow its `podSelector` to your application before applying it |
+| Checks got no answer and no egress NetworkPolicy applies to the probe | **No NetworkPolicy change is needed**: the block is most likely outside the cluster |
+
+In both blocked cases the **Firewall request** tab has a ready-to-copy text for the firewall team: source namespace,
+Pod and node IPs (the firewall sees one of them depending on SNAT), the destinations and ports that got no answer with
+their times, and what does work from the same Pod. NetCheck never applies the policy or changes anything: it tells
+whoever owns the change what to do. ICMP cannot be allowed with a NetworkPolicy, so it is listed as a comment.
+
 ## 6. Test history
 
 **Test history** lists the tests of your namespaces, newest first, with filters by namespace and status. Click the

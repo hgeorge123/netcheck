@@ -15,7 +15,7 @@ To report a vulnerability, see [SECURITY.md](../SECURITY.md).
 | Least-privilege RBAC | The controller cannot create Pods directly, read Secrets, exec or change RBAC |
 | Destination policy | Cloud metadata, the API server, loopback and link-local are always denied; every resolved IP is checked inside the probe |
 | Namespace exclusions | System namespaces, the NetCheck namespace and the ones you exclude are never used as sources |
-| Local authentication | argon2id, server-side sessions, lockout, rate limiting, mandatory change of initial passwords |
+| Authentication | Local accounts (argon2id, lockout, rate limiting, mandatory change of initial passwords) and optional single sign-on (OIDC with PKCE); server-side sessions; API tokens limited to tests |
 | Evidence integrity | NetCheck never fabricates output: what was not measured is not shown |
 | Supply chain | Images and chart built only by the release workflow, scanned for vulnerabilities, signed with Sigstore, with SBOM and provenance |
 
@@ -133,8 +133,25 @@ NetCheck has its own user database (no external identity provider is required):
 - CSRF: mutating endpoints require JSON and reject cross-site `Origin` / `Sec-Fetch-Site`.
 - Authorization is checked on every request in the backend; runs from namespaces a user cannot see answer `404`.
 - Two roles: `admin` and `user`. The last active administrator cannot be removed, disabled or demoted.
-- **No built-in MFA.** If you need it, put NetCheck behind your SSO proxy. Mitigations: lockout, rate limiting,
-  mandatory HTTPS and sign-in auditing.
+- **No built-in MFA for local accounts.** Use single sign-on (below) so the MFA of your identity provider applies, or
+  put NetCheck behind your SSO proxy. Mitigations for local accounts: lockout, rate limiting, mandatory HTTPS and
+  sign-in auditing.
+
+**Single sign-on (optional, [sso.md](sso.md)).** OpenID Connect authorization code flow with PKCE (S256); the `state`
+is bound to the browser by a short-lived `HttpOnly` cookie and the ID token must carry the one-time `nonce`, the
+expected issuer and audience and a valid signature. NetCheck keeps no provider token: after the sign-in the person has
+a normal NetCheck session. The callback always lands on the NetCheck home page (no open redirect). With `email` as the
+username, addresses the provider marks as unverified are refused. Permissions come only from access rules written by
+administrators; no rule, no access. SSO accounts have no password and can never use the password form; a username
+already used by a local account is refused instead of being merged. The bundled Dex runs non-root with a read-only
+file system and no Kubernetes token, its connector credentials come from a Secret, and NetCheck reaches it inside the
+cluster for the token exchange.
+
+**API tokens.** Random 256-bit tokens with the `nck_` prefix (easy to detect if leaked), stored as SHA-256, shown
+once, with a mandatory expiry of at most a year and at most 20 per user. A token acts as its owner but only on the
+test endpoints (run, read results, list namespaces and the catalog): it cannot manage users, tokens, rules or
+settings. It stops working when it expires or is revoked, when the account is disabled or must change its password,
+and when an SSO account loses its access rule. Creation and revocation are audited.
 
 **Initial administrator.** `admin`, with a random 24-character password that the chart generates on the first install
 (unless you set `auth.bootstrapAdmin.password` or `existingSecret`). Upgrades never change the Secret, and the

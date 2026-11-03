@@ -8,7 +8,8 @@ each test it creates a short-lived Pod (the *probe*) in the namespace you choose
 
 With the **User** role you can:
 
-- Sign in, choose the interface language (English or Spanish) and change your password.
+- Sign in with a NetCheck account or, if your organization enabled it, with single sign-on; choose the interface
+  language (English or Spanish) and change your password.
 - Run **DNS**, **TCP connection**, **UDP**, **HTTP**, **HTTPS**, **ping** and **traceroute** checks from the namespaces an
   administrator assigned to you.
 - Produce, in one click, the **troubleshooting output for a firewall ticket** (date, hostname, ping, traceroute,
@@ -17,6 +18,9 @@ With the **User** role you can:
   hand.
 - Browse the dashboard and the test history of your namespaces, including tests run by colleagues with access to
   them.
+- See where the traffic stops (**Path**) and **what is missing** for it to flow: nothing, a suggested NetworkPolicy or
+  a ready-to-send request for the firewall team.
+- Run tests from pipelines with an **API token** and `netcheck-cli`.
 
 You cannot:
 
@@ -36,13 +40,18 @@ is **in English by default**, whatever your browser language is.
 
 ![Sign-in page](images/user-01-sign-in.png)
 
-To work in Spanish, pick **Español** in the **Language** selector at the bottom. The choice is **saved in your
+To work in Spanish, pick **Español** in the **Language** selector in the top-right corner. The choice is **saved in your
 account** when you sign in, so NetCheck opens in Spanish in any browser from then on.
 
 - A wrong username or password shows a generic message that does not say which one failed.
 - After **5 failed attempts** in a row the account is locked for **15 minutes**. Wait, or ask an administrator to
   unlock it.
 - **Forgot your password?** Ask an administrator to reset it. You will get a temporary password.
+
+**Single sign-on.** If your organization enabled it, the page also shows **Sign in with &lt;provider&gt;** (for example
+*Sign in with GitHub*). Use it with the account of your organization: you have no NetCheck password and skip the
+password change below. What you can do depends on the *access rules* your administrators defined for your groups; if no
+rule matches you, the page says so and you need to ask a NetCheck administrator for access.
 
 ### 2.2 First sign-in: mandatory password change
 
@@ -66,7 +75,8 @@ NetCheck follows the layout of the AWS console:
 
 ### 2.4 User menu, preferences and sign out
 
-The menu with your name opens **Preferences**, **Change password** and **Sign out**. Its description shows your
+The menu with your name opens **Preferences**, **Change password** (not shown for single sign-on accounts), **API
+tokens** (section 8) and **Sign out**. Its description shows your
 username, your role and the NetCheck version.
 
 ![User menu](images/user-20-user-menu.png)
@@ -325,7 +335,25 @@ sessions in other browsers.
 
 ![Change password](images/user-22-change-password.png)
 
-## 8. FAQ
+## 8. API tokens and the command line
+
+To run tests from a CI/CD pipeline or a terminal, create an **API token** in the **user menu → API tokens → Create
+token**. Give it a name and an expiry (30 to 365 days); it is shown **once**, so copy it into the secrets of your
+pipeline. The token acts as you, with your namespaces and the destination policy, but it can only run and read tests.
+Revoke it from the same page when it is no longer needed.
+
+Use it with `netcheck-cli`, which runs the test, waits for the result and exits with `0` (passed), `1`
+(connectivity failures), `2` (the test could not run) or `3` (usage or API error):
+
+```bash
+export NETCHECK_URL=https://netcheck.example.com
+export NETCHECK_TOKEN=nck_...
+netcheck-cli run -n payments -t db.corp.example -c dns -c tcp:5432
+```
+
+The [CLI guide](cli.md) explains how to download it, every check and pipeline examples.
+
+## 9. FAQ
 
 **I cannot see the namespace I need.** Ask an administrator to assign it to you or, if it was excluded, to include it
 again in **Administration → Namespaces**. If you have "All namespaces" and the namespace is new, it can take up to a

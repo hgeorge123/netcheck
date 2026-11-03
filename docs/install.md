@@ -236,6 +236,10 @@ Settings you usually keep:
 
 Keep `values.yaml` in your configuration repository. It holds no secrets: the initial password lives only in the cluster.
 
+**Optional: single sign-on.** To let people sign in with the account of your organization (Entra ID, Okta, Keycloak,
+Google… or GitHub, GitLab, LDAP and SAML through the bundled Dex), add `auth.oidc` (and `dex`) to this file as
+explained in [sso.md](sso.md). You can also enable it later with a normal upgrade.
+
 ## 8. Validate against the cluster
 
 <!-- x-release-please-start-version -->
@@ -318,7 +322,8 @@ kubectl -n "$NC_NS" get secret netcheck-bootstrap-admin -o jsonpath='{.data.pass
 2. The interface is in English; choose **Español** in the **Language** selector if you prefer Spanish.
 3. Sign in as `admin`. NetCheck **forces a password change** (at least 12 characters) before anything else.
 4. Open **Administration → System and versions**: it must show the version and the image digests of the chart.
-5. Create the users ([admin guide](admin-guide.md), Part II).
+5. Create the users ([admin guide](admin-guide.md), Part II) or, with single sign-on, the access rules
+   ([sso.md](sso.md), §2.4).
 
 The Secret password only creates the first administrator. Afterwards it is no longer valid, but the Secret is kept for
 emergency recovery ([admin guide](admin-guide.md), Part III §5).

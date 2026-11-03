@@ -137,6 +137,7 @@ that come up most often:
 | Exposure | Gateway API `HTTPRoute` (`httpRoute`) **or** `Ingress` (`ingress`), never both |
 | Allowed destinations | Any name, IP and port by default; change it in **Administration → Destination policy** without redeploying (Part II §11). Cloud metadata and the API server are always denied |
 | Cloud IAM roles | None for NetCheck or the probes |
+| Single sign-on | Optional: any OIDC provider, or GitHub, GitLab, LDAP or SAML through the bundled Dex. See [sso.md](sso.md) |
 
 ---
 
@@ -175,7 +176,8 @@ in their account, in the database, and applies in any browser.
 
 ## 3. User list
 
-**Administration → Users** lists every account with its role, namespaces, status and last sign-in. The search box
+**Administration → Users** lists every account with its role, namespaces, how it signs in (**Password** for local
+accounts, **SSO** for single sign-on), status and last sign-in. The search box
 filters by username, name or namespace; the table can be sorted and paginated. The **NetCheck** label in the namespaces
 column means the account can use the NetCheck namespace.
 
@@ -189,6 +191,10 @@ Statuses:
 | Temporary password | Must change the password at next sign-in |
 | Locked | Too many failed attempts; unlocks by itself after 15 minutes or with **Unlock** |
 | Disabled | Cannot sign in; their sessions were ended |
+
+Single sign-on accounts appear the first time someone signs in with the identity provider. Their role and namespaces
+come from the access rules (§16): editing one shows the groups of its last sign-in and only lets you enable or disable
+it, and *Reset password* does not apply.
 
 To act on an account, **select it** with the radio button on the left and open **Actions**:
 
@@ -389,6 +395,33 @@ Administrators see in **Test history** the tests of every namespace and every us
 status.
 
 ![Administrator history](images/admin-14-full-history.png)
+
+## 16. Access rules (single sign-on)
+
+With single sign-on enabled ([sso.md](sso.md)), **Administration → Access rules** decides who can sign in with the
+identity provider and with which permissions, **before** they sign in for the first time:
+
+1. Click **Create rule**.
+2. **Applies to:** a **Group** of the provider (for GitHub through Dex, `my-org:my-team`), one **User** (the username
+   the provider sends, usually the e-mail or the GitHub login) or **Any authenticated user**.
+3. Choose the **role** and, for the User role, the **namespaces** (a list or all, including future ones) and whether
+   the NetCheck namespace is allowed. It is the same as for a local user.
+4. **Save.** The rule applies at once to the existing SSO accounts.
+
+A person gets the union of every rule that matches. Without a matching rule they cannot sign in with SSO, and an SSO
+account left without rules by a change is signed out and loses its API tokens. The rules can be prepared before SSO
+is enabled. Every change is in the audit log.
+
+## 17. API tokens
+
+Users create API tokens for pipelines and `netcheck-cli` in their **user menu → API tokens** (see the
+[CLI guide](cli.md)). A token acts as its owner but can only run and read tests, expires after at most one year and
+stops working when the account is disabled.
+
+**Administration → API tokens** lists every token with its owner, creation, expiry and last use. Select one and
+**Revoke** it when it is no longer needed or may have leaked: pipelines using it fail at once with an authentication
+error. Expired tokens are deleted automatically. Creating and revoking tokens is audited (`token.create`,
+`token.revoke`).
 
 ---
 

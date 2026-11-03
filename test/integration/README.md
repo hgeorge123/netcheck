@@ -62,3 +62,10 @@ Measurements worth repeating on each new CNI or cluster before trusting the resu
   `settleSeconds` from the data.
 - **Security groups for Pods:** if workloads use them, document which security group the probe gets.
 - **ICMP:** check ping and traceroute through security groups and NetworkPolicies.
+
+## Single sign-on in the lab
+
+With the lab Gateway (`lab.sh gateway`), `LAB_SSO=1 bash test/integration/lab.sh deploy` also deploys the bundled Dex
+with its mock connector ([values-kind-sso.yaml](values-kind-sso.yaml)). **Sign in with Dex (lab)** at
+`https://netcheck.lab.test:8443` signs you in as `kilgore@kilgore.trout` (group `authors`) without any external
+account, once an administrator has created an access rule for that group or user.

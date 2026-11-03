@@ -25,10 +25,15 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
   `traceroute`, `telnet` and `curl -v` output, ready to paste, plus the real Pod and node IPs the firewall will see.
 - **Readable diagnosis:** every result says what it means *and what it does not mean* (a timeout is not proof of a
   NetworkPolicy block; an HTTP 503 is not a network failure), with an equivalent command to reproduce it by hand.
+- **Path and what is missing:** each result shows where the traffic stops and what has to change: nothing, a
+  suggested NetworkPolicy, or a ready-to-send request for the firewall team.
 - **Fidelity notice:** tells you whether the namespace's egress policies apply to the probe exactly as to your
   workloads.
 - **Users and roles:** built-in accounts with `admin` and `user` roles, per-user namespaces (a fixed list or "all",
   including future namespaces), active sessions, audit log.
+- **Single sign-on:** any OpenID Connect provider, or GitHub, GitLab, LDAP and SAML through the bundled Dex, with
+  access rules per group or user defined before anyone signs in ([docs/sso.md](docs/sso.md)).
+- **Pipelines:** API tokens and `netcheck-cli` to check connectivity before a deployment ([docs/cli.md](docs/cli.md)).
 - **Administration from the web:** destination policy, namespace exclusions and data retention, applied immediately
   without redeploying.
 - **Secure by default:** probes run a shell-less Go binary pinned by digest, as non-root with no capabilities, no

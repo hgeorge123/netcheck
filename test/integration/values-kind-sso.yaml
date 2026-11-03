@@ -1,0 +1,18 @@
+# Lab only: single sign-on through the bundled Dex with its mock connector,
+# which signs everybody in as "Kilgore Trout" (kilgore@kilgore.trout, group
+# "authors") without any external account. Needs the lab Gateway:
+#   bash test/integration/lab.sh gateway
+#   LAB_SSO=1 bash test/integration/lab.sh deploy
+# and https://netcheck.lab.test:8443 (port-forward of the Gateway).
+auth:
+  oidc:
+    enabled: true
+    providerName: Dex (lab)
+    issuerUrl: https://netcheck.lab.test:8443/dex
+    redirectUrl: https://netcheck.lab.test:8443/api/v1/auth/oidc/callback
+dex:
+  enabled: true
+  connectors:
+    - type: mockCallback
+      id: mock
+      name: Example

@@ -5,6 +5,7 @@
 #
 #   lab.sh up       create registry + kind cluster + Calico + fixtures
 #   lab.sh deploy   build/push images, install the chart by digest
+#                   (LAB_SSO=1: with single sign-on through the bundled Dex)
 #   lab.sh down     delete the kind cluster and the registry container
 set -euo pipefail
 
@@ -65,6 +66,10 @@ deploy() {
   local overlay=()
   if kc -n gateway-lab get gateway lab-gateway >/dev/null 2>&1; then
     overlay=(-f "${ROOT}/test/integration/values-kind-gateway.yaml")
+  fi
+  # LAB_SSO=1: single sign-on with the bundled Dex (mock connector), behind the Gateway.
+  if [ "${LAB_SSO:-}" = 1 ]; then
+    overlay+=(-f "${ROOT}/test/integration/values-kind-sso.yaml")
   fi
 
   kc create namespace netcheck --dry-run=client -o yaml | kc apply -f -

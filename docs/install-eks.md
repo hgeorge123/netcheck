@@ -651,6 +651,10 @@ helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --versi
 
 Keep `values-eks.yaml` in your configuration repository (it holds no secrets: the initial password lives only in the cluster).
 
+**Optional: single sign-on.** To sign in with GitHub, Entra ID, Okta or another provider, add `auth.oidc` (and, for
+GitHub, the bundled `dex`) as explained in [sso.md](sso.md). With the ALB, Dex is served at `https://<host>/dex` on the
+same load balancer and certificate: there is nothing else to create in AWS.
+
 ## 16. Verify the installation
 
 ```bash

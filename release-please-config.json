@@ -70,6 +70,7 @@
         "docs/install.md",
         "docs/install-eks.md",
         "docs/admin-guide.md",
+        "docs/cli.md",
         "docs/dockerhub/netcheck.md",
         "docs/dockerhub/netcheck-probe.md"
       ]

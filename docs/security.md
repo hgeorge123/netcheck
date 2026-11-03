@@ -176,9 +176,11 @@ the Secret could use it.
 
 ## 7. Audit
 
-The `audit_events` table records sign-ins (successful and failed), sign-outs, password changes, user changes, tests
-started or rejected, destination policy, retention and namespace changes, and probe security events. It never contains passwords
-or tokens. Logs are JSON with a `request_id` per request.
+The `audit_events` table records sign-ins (successful and failed), sign-outs, password changes, user changes,
+recoveries and ended sessions, API tokens, access rules, tests started or rejected, destination policy, retention and
+namespace changes, trusted certificate authorities (subject and fingerprint), shared and personal proxies (name and
+address), and probe security events. It never contains passwords, tokens or certificate PEM. Logs are JSON with a
+`request_id` per request.
 
 ## 8. Evidence integrity
 

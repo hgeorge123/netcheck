@@ -22,7 +22,8 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
 - **Checks:** DNS, TCP, UDP (generic, DNS server or NTP server), HTTP, HTTPS, ping and traceroute. ICMP and UDP work
   without privileges (no `NET_RAW`, no root). HTTPS names every certificate problem (expired, another name, untrusted
   authority, self-signed) and can ignore them on request. Your corporate certificate authorities can be trusted
-  without a custom image, and TCP and HTTPS can optionally go through your corporate HTTP proxy.
+  without a custom image, and TCP, HTTP and HTTPS can optionally go through an HTTP proxy: a shared one of the
+  administrators or each user's own, with its own certificate authority if it inspects TLS.
 - **Firewall ticket mode:** enter a destination and a port and get one block of `date`, `hostname`, `ping`,
   `traceroute`, `telnet` and `curl -v` output, ready to paste, plus the real Pod and node IPs the firewall will see.
 - **Readable diagnosis:** every result says what it means *and what it does not mean* (a timeout is not proof of a
@@ -32,7 +33,8 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
 - **Fidelity notice:** tells you whether the namespace's egress policies apply to the probe exactly as to your
   workloads.
 - **Users and roles:** built-in accounts with `admin` and `user` roles, per-user namespaces (a fixed list or "all",
-  including future namespaces), active sessions, audit log.
+  including future namespaces), private test history (each user sees only their own tests; administrators see all),
+  active sessions, audit log.
 - **Single sign-on:** any OpenID Connect provider, or GitHub, GitLab, LDAP and SAML through the bundled Dex, with
   access rules per group or user defined before anyone signs in ([docs/sso.md](docs/sso.md)).
 - **Pipelines:** API tokens and `netcheck-cli` to check connectivity before a deployment ([docs/cli.md](docs/cli.md)).

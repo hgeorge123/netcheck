@@ -16,13 +16,13 @@ Each test runs in a short-lived probe Pod that uses the
 ## Features
 
 - DNS, TCP, UDP (generic, DNS or NTP), HTTP, HTTPS, ping and traceroute checks; ICMP without privileges.
-- Corporate certificate authorities trusted by HTTPS without a custom image, and an optional corporate HTTP proxy for
-  TCP and HTTPS.
+- Corporate certificate authorities trusted by HTTPS without a custom image, and optional HTTP proxies for TCP, HTTP
+  and HTTPS: shared by the administrators or personal to each user, with their own certificate authorities.
 - Firewall ticket mode: one block of `date`, `hostname`, `ping`, `traceroute`, `telnet` and `curl -v` output.
 - Readable diagnosis, equivalent command and NetworkPolicy fidelity notice for every result, plus what is missing:
   nothing, a suggested NetworkPolicy or a request for the firewall team.
-- Local users with `admin` and `user` roles, per-user namespaces and audit log; single sign-on with OpenID Connect or,
-  through the bundled Dex, GitHub, LDAP and SAML.
+- Local users with `admin` and `user` roles, per-user namespaces, private test history and audit log; single sign-on
+  with OpenID Connect or, through the bundled Dex, GitHub, LDAP and SAML.
 - API tokens and `netcheck-cli` to check connectivity from pipelines.
 - Destination policy, namespace exclusions, certificate authorities, proxies and data retention managed from the web.
 - English and Spanish interface.

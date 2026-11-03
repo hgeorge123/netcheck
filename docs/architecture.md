@@ -86,10 +86,14 @@ which one the firewall is likely to see (SNAT).
 
 | Table | Content |
 |---|---|
-| `users`, `sessions` | Accounts (argon2id hashes), roles, namespaces, language; session token hashes |
-| `runs`, `checks` | Test specifications, states, results and technical output |
+| `users`, `user_namespaces`, `sessions` | Accounts (argon2id hashes), roles, namespaces, language; session token hashes |
+| `api_tokens` | API tokens of each user (only the SHA-256 of each token) |
+| `access_rules` | Single sign-on access rules (role and namespaces per group or user) |
+| `runs`, `probe_executions` | Tests: who started them, specification, state, and each check's result and technical output |
 | `audit_events` | Security-relevant events |
 | `destination_policy` | The policy edited in the web (`destinationsManagedBy: ui`) |
+| `trusted_cas` | Certificate authorities trusted by every HTTPS check (`trustedCasManagedBy: ui`) |
+| `http_proxies`, `proxy_seed` | Shared proxies of the administrators and personal proxies of each user, with their own certificate authorities; whether the Helm values already seeded them |
 | `namespace_exclusions` | Exclusions added in the web |
 | `retention_settings` | Retention periods edited in the web |
 | `app_versions` | Every version, commit, image and chart that has started |

@@ -74,7 +74,7 @@ NetworkPolicies, DNS and routes. Up to seven checks run one after another in the
 |---|---|---|
 | API tokens | Personal tokens (30 to 365 days, shown once) that can only run and read tests | [User guide §8](user-guide.md#8-api-tokens-and-the-command-line), [CLI guide §2](cli.md#2-create-an-api-token) |
 | `netcheck-cli` | Runs a test, waits for the result and exits with a code a pipeline can act on (0, 1, 2, 3) | [CLI guide](cli.md) |
-| Binaries | Linux, macOS and Windows binaries attached to every release, with checksums and provenance | [CLI guide §1](cli.md#1-get-the-cli) |
+| Binaries | Linux, macOS and Windows binaries attached to every release, with checksums and provenance; the Windows binary carries version metadata, icon and manifest, and an Authenticode signature when signing is configured | [CLI guide §1](cli.md#1-get-the-cli), [Security model §10](security.md#10-verifying-releases) |
 | Token administration | Administrators list and revoke every token; expired tokens are deleted automatically | [Admin guide §17](admin-guide.md#17-api-tokens) |
 
 ## 6. Accounts and sign-in
@@ -82,7 +82,7 @@ NetworkPolicies, DNS and routes. Up to seven checks run one after another in the
 | Feature | What it does | How to use it |
 |---|---|---|
 | Local accounts | `admin` and `user` roles, per-user namespaces (a list or all, including future ones) | [Admin guide §4](admin-guide.md#4-creating-a-user) |
-| Generated initial password | The chart creates a random `admin` password on new installs and never changes it on upgrades | [Installation §11](install.md#11-first-sign-in) |
+| Generated initial password | The chart creates a random `admin` password on new installs and never changes it on upgrades; the Pod log warns if the Secret no longer matches the initial admin (for example after an Argo CD sync) | [Installation §11](install.md#11-first-sign-in), [Admin guide, troubleshooting](admin-guide.md#8-troubleshooting) |
 | Password rules | At least 12 characters, mandatory change of temporary passwords, argon2id hashing | [User guide §2.2](user-guide.md#22-first-sign-in-mandatory-password-change) |
 | Lockout and rate limiting | 5 failed attempts lock the account for 15 minutes; per-IP rate limiting | [User guide §2.1](user-guide.md#21-signing-in-and-language) |
 | Sessions | Server-side sessions, 60 minutes idle and 12 hours at most; administrators see and end them | [Admin guide §9](admin-guide.md#9-active-sessions) |

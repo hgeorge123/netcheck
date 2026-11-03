@@ -21,6 +21,8 @@ With the **User** role you can:
 - See where the traffic stops (**Path**) and **what is missing** for it to flow: nothing, a suggested NetworkPolicy or
   a ready-to-send request for the firewall team.
 - Run tests from pipelines with an **API token** and `netcheck-cli`.
+- Send TCP, HTTP and HTTPS checks through an HTTP proxy: a shared one of your administrators or one of your own
+  (**My proxies**, which only you see and use).
 
 You cannot:
 
@@ -76,7 +78,7 @@ NetCheck follows the layout of the AWS console:
 ### 2.4 User menu, preferences and sign out
 
 The menu with your name opens **Preferences**, **Change password** (not shown for single sign-on accounts), **API
-tokens** (section 8) and **Sign out**. Its description shows your
+tokens** (section 8), **My proxies** (your own proxies, section 4.2) and **Sign out**. Its description shows your
 username, your role and the NetCheck version.
 
 ![User menu](images/user-20-user-menu.png)

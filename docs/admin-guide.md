@@ -157,6 +157,11 @@ that come up most often:
 | Change the destination policy (which names, networks and ports can be tested) | — | ✔ |
 | Exclude namespaces or include them again (web exclusions) | — | ✔ |
 | Change how long test data and the audit log are kept | — | ✔ |
+| Manage the trusted certificate authorities (§18) | — | ✔ |
+| Manage the shared proxies (§19) | — | ✔ |
+| Have personal proxies (**My proxies**), seen and used only by their owner | ✔ | ✔ |
+| Create API tokens for the CLI (their own) | ✔ | ✔ |
+| Define the access rules of single sign-on (§16) | — | ✔ |
 
 The namespace where NetCheck is installed is **not available to anyone** (administrators included) except accounts with
 the "Allow tests in the NetCheck namespace" checkbox (§4). System namespaces (`kube-system`, `kube-public`,
@@ -258,8 +263,8 @@ exists.
 
 ## 8. Deleting a user
 
-**Actions → Delete** removes the account permanently. The test history it created is kept with its name. To block
-access only for a while, disable the account instead.
+**Actions → Delete** removes the account permanently, with its sessions, API tokens and personal proxies. The test
+history it created is kept with its name. To block access only for a while, disable the account instead.
 
 ![Delete user](images/admin-06-delete-user.png)
 
@@ -597,8 +602,10 @@ the cluster can do it.
 ## 6. Audit and logs
 
 - **Audit** (`audit_events` table in SQLite): successful and failed sign-ins, sign-outs, password changes, user
-  creation, deletion and changes, tests started or rejected, destination policy, retention and namespace changes,
-  and probe security events. It never contains passwords or tokens.
+  creation, deletion, changes, unlocks and recovery, ended sessions, API tokens, access rules, tests started or
+  rejected, destination policy, retention and namespace changes, trusted certificate authorities (subject and
+  fingerprint), shared and personal proxies (name and address), and probe security events. It never contains
+  passwords, tokens or certificate PEM.
 - **Logs** of the Pod in JSON, with a `request_id` on every request: `kubectl -n netcheck logs deploy/netcheck`.
 - **Log level** (`logLevel` in the chart values, `info` by default), validated at startup:
 

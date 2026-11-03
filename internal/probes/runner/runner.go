@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/netip"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -289,22 +288,38 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 	}
 
 	// Never use environment proxies: only the proxy chosen for the check.
-	var proxyURL func(*http.Request) (*url.URL, error)
 	var dial func(ctx context.Context) (net.Conn, error)
-	var connectStart time.Time
+	var start, connectDone, tlsStart, tlsDone, firstByte time.Time
 	pinned := ""
 	if p := c.Proxy; p != nil {
 		// The proxy resolves the destination; it is checked by name only.
 		if err := policy.CheckHost(t); err != nil {
 			return err
 		}
-		proxyURL = func(*http.Request) (*url.URL, error) { return &url.URL{Scheme: "http", Host: p.Address()}, nil }
-		dial = func(ctx context.Context) (net.Conn, error) {
-			conn, err := r.dialProxy(ctx, policy, *p, cr, st)
-			connectStart = time.Now()
-			return conn, err
+		cr.Equivalent = append(cr.Equivalent, "--proxy", "http://"+p.Address(), "--", u)
+		// The tunnel is opened here, not by http.Transport, so every proxy
+		// result is written by this goroutine; the transport only gets the
+		// open tunnel and speaks TLS over it.
+		start = time.Now()
+		conn, err := r.dialProxy(ctx, policy, *p, cr, st)
+		if err != nil {
+			return err
 		}
-		cr.Equivalent = append(cr.Equivalent, "--proxy", "http://"+p.Address())
+		defer conn.Close()
+		if err := proxyTunnel(ctx, conn, net.JoinHostPort(t.Host, strconv.Itoa(c.Port)), cr, st); err != nil {
+			return err
+		}
+		connectDone = time.Now() // through the tunnel: TCP to the proxy plus CONNECT
+		tunnel := make(chan net.Conn, 1)
+		tunnel <- conn
+		dial = func(context.Context) (net.Conn, error) {
+			select {
+			case c := <-tunnel:
+				return c, nil
+			default:
+				return nil, errors.New("the proxy tunnel was already used")
+			}
+		}
 	} else {
 		allowed, err := r.resolve(ctx, t, "ip", policy, cr, st)
 		if err != nil {
@@ -318,24 +333,16 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		if !t.IsIP {
 			cr.Equivalent = append(cr.Equivalent, "--resolve", fmt.Sprintf("%s:%d:%s", t.Host, c.Port, ip))
 		}
+		cr.Equivalent = append(cr.Equivalent, "--", u)
 	}
-	cr.Equivalent = append(cr.Equivalent, "--", u)
 
 	roots, extra, err := r.trustPool(spec.TrustedCAs)
 	if err != nil {
 		return err
 	}
 	transport := &http.Transport{
-		Proxy:       proxyURL,
+		Proxy:       nil,
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return dial(ctx) },
-		OnProxyConnectResponse: func(_ context.Context, _ *url.URL, _ *http.Request, resp *http.Response) error {
-			recordConnect(cr.Proxy, resp, time.Since(connectStart))
-			st.printf("CONNECT %s: proxy answered %s", net.JoinHostPort(t.Host, strconv.Itoa(c.Port)), cr.Proxy.StatusText)
-			if resp.StatusCode/100 != 2 {
-				cr.Category = proxyStatusCategory(resp.StatusCode)
-			}
-			return nil
-		},
 		// The certificate is checked by inspectCertificate, which reports
 		// every problem; the handshake fails on them unless they are ignored.
 		TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12, InsecureSkipVerify: true,
@@ -371,7 +378,6 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		},
 	}
 
-	var start, connectDone, tlsStart, tlsDone, firstByte time.Time
 	trace := &httptrace.ClientTrace{
 		ConnectStart:         func(string, string) { start = time.Now() },
 		ConnectDone:          func(string, string, error) { connectDone = time.Now() },
@@ -399,17 +405,11 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		h.TLSMS = tlsDone.Sub(tlsStart).Milliseconds()
 	}
 	if err != nil {
-		switch {
-		case cr.Category != "": // the proxy could not be reached or refused the tunnel
-		case cr.Proxy != nil && cr.Proxy.Reached && cr.Proxy.Status == 0:
-			cr.Category = noAnswerCategory(err)
-		default:
-			cat := diagnostics.Classify(err, isDenied)
-			if cat == diagnostics.CategoryError && !connectDone.IsZero() {
-				cat = diagnostics.CategoryHTTPProtocol
-			}
-			cr.Category = cat
+		cat := diagnostics.Classify(err, isDenied)
+		if cat == diagnostics.CategoryError && !connectDone.IsZero() {
+			cat = diagnostics.CategoryHTTPProtocol
 		}
+		cr.Category = cat
 		return err
 	}
 	defer resp.Body.Close()

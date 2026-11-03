@@ -101,8 +101,8 @@ with every new version, so the `main` branch always documents the latest release
 
 <!-- x-release-please-start-version -->
 ```bash
-helm show chart oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1
-helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 > values.reference.yaml
+helm show chart oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2
+helm show values oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 > values.reference.yaml
 ```
 <!-- x-release-please-end -->
 
@@ -131,11 +131,11 @@ probeImage:
 <!-- x-release-please-start-version -->
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg VERSION=1.1.1 --build-arg COMMIT="$(git rev-parse --short HEAD)" \
+  --build-arg VERSION=1.1.2 --build-arg COMMIT="$(git rev-parse --short HEAD)" \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  -t registry.example.com/netcheck:1.1.1 --push .
+  -t registry.example.com/netcheck:1.1.2 --push .
 docker buildx build --platform linux/amd64,linux/arm64 -f probe-image/Dockerfile \
-  -t registry.example.com/netcheck-probe:1.1.1 --push .
+  -t registry.example.com/netcheck-probe:1.1.2 --push .
 ```
 <!-- x-release-please-end -->
 
@@ -209,7 +209,7 @@ Start from the generic example:
 
 <!-- x-release-please-start-version -->
 ```bash
-helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 --untar
+helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 --untar
 cp netcheck/values-generic.example.yaml values.yaml
 ```
 <!-- x-release-please-end -->
@@ -271,7 +271,7 @@ explained in [sso.md](sso.md). You can also enable it later with a normal upgrad
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 \
   -n "$NC_NS" -f values.yaml --dry-run=server > /tmp/netcheck-render.yaml && echo OK
 ```
 <!-- x-release-please-end -->
@@ -294,7 +294,7 @@ example:
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 \
   -n "$NC_NS" -f values.yaml --wait --timeout 10m
 ```
 <!-- x-release-please-end -->
@@ -371,7 +371,7 @@ emergency recovery ([admin guide](admin-guide.md), Part III §5).
 <!-- x-release-please-start-version -->
 ```bash
 # Upgrade: the new chart version brings the digests of its images
-helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.1 -n "$NC_NS" -f values.yaml \
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 -n "$NC_NS" -f values.yaml \
   --wait --timeout 10m
 
 # History and rollback

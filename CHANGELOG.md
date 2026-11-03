@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/hgeorge123/netcheck/compare/v1.1.1...v1.1.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* **cli:** Windows metadata, symbols and optional Authenticode signing ([76d0124](https://github.com/hgeorge123/netcheck/commit/76d01245e2863ceb9756b738cfed6bba9c9faaee))
+
 ## [1.1.1](https://github.com/hgeorge123/netcheck/compare/v1.1.0...v1.1.1) (2026-11-03)
 
 

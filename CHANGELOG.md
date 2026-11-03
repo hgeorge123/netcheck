@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0](https://github.com/hgeorge123/netcheck/compare/v0.5.0...v0.6.0) (2026-11-03)
+
+
+### Features
+
+* API tokens and netcheck-cli to run tests from pipelines ([7506337](https://github.com/hgeorge123/netcheck/commit/7506337d809e535e455071af16e5e87b3d805def))
+* **auth:** sign in with OpenID Connect and grant access with rules ([3efdf41](https://github.com/hgeorge123/netcheck/commit/3efdf41b9d1eed23db58d1fa3cafb09a6dcc7acc))
+* **chart:** configure single sign-on and bundle Dex for GitHub, LDAP or SAML ([03a2bd2](https://github.com/hgeorge123/netcheck/commit/03a2bd2ac7171f1b427071211621b384d1729e7d))
+* **ui:** show the measured path and what is missing for a blocked test ([4c36de2](https://github.com/hgeorge123/netcheck/commit/4c36de202304b66be7d7b1fbaa872cc64f0fbfe3))
+* **ui:** sign in with single sign-on and manage access rules ([2fed08c](https://github.com/hgeorge123/netcheck/commit/2fed08c92206b0d9c09fa374e01adc0ac9100373))
+
+
+### Bug Fixes
+
+* **deps:** update go-jose to v4.1.6 ([ad8956d](https://github.com/hgeorge123/netcheck/commit/ad8956daf5d4b3cb9f2e740c45866bba7dfc5892))
+
+
+### Documentation
+
+* single sign-on with LDAP or Active Directory, tested in the lab ([140b770](https://github.com/hgeorge123/netcheck/commit/140b77056a4af05c6bff6735bff462eb0571020d))
+* single sign-on, access rules, API tokens and netcheck-cli ([ca8fc7c](https://github.com/hgeorge123/netcheck/commit/ca8fc7c108526647cd4053f4133feb9b7e8d7e0a))
+
 ## [0.5.0](https://github.com/hgeorge123/netcheck/compare/v0.4.1...v0.5.0) (2026-11-02)
 
 

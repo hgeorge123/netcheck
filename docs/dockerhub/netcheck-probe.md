@@ -26,7 +26,7 @@ allow the NetCheck controller to create Jobs with exactly that image and a locke
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.5.0 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 0.6.0 \
   --namespace netcheck -f values.yaml
 ```
 <!-- x-release-please-end -->
@@ -47,7 +47,7 @@ Images are built for `linux/amd64` and `linux/arm64`. The same images, with the 
 
 <!-- x-release-please-start-version -->
 ```bash
-cosign verify hgeorge123/netcheck-probe:0.5.0 \
+cosign verify hgeorge123/netcheck-probe:0.6.0 \
   --certificate-identity https://github.com/hgeorge123/netcheck/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```

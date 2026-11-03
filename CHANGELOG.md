@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/hgeorge123/netcheck/compare/v1.1.0...v1.1.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **probe:** open the proxy tunnel in the check goroutine for HTTPS ([8b862e4](https://github.com/hgeorge123/netcheck/commit/8b862e41290c4efdd046686f08667340b89355c8))
+
 ## [1.1.0](https://github.com/hgeorge123/netcheck/compare/v1.0.3...v1.1.0) (2026-11-03)
 
 

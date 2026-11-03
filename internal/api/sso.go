@@ -69,8 +69,12 @@ type AccessRuleView struct {
 }
 
 func ruleView(r store.AccessRule) AccessRuleView {
+	ns := r.Namespaces
+	if ns == nil {
+		ns = []string{} // [] in JSON, not null: the web form edits the list
+	}
 	return AccessRuleView{ID: r.ID, SubjectType: r.SubjectType, Subject: r.Subject, Role: r.Role, AllNamespaces: r.AllNamespaces,
-		AllowNetcheckNamespace: r.AllowNetcheckNamespace, Namespaces: r.Namespaces, UpdatedAt: r.UpdatedAt, UpdatedBy: r.UpdatedBy}
+		AllowNetcheckNamespace: r.AllowNetcheckNamespace, Namespaces: ns, UpdatedAt: r.UpdatedAt, UpdatedBy: r.UpdatedBy}
 }
 
 func (s *Server) adminAccessRules(w http.ResponseWriter, r *http.Request) {

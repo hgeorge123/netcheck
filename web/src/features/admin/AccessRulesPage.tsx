@@ -24,6 +24,12 @@ interface Props {
 
 const EMPTY: AccessRuleInput = { subjectType: 'group', subject: '', role: 'user', allNamespaces: false, allowNetcheckNamespace: false, namespaces: [] };
 
+/** The editable fields of a rule: the API rejects the read-only ones (id, updatedAt, updatedBy). */
+function toInput(r: AccessRule): AccessRuleInput {
+  const { subjectType, subject, role, allNamespaces, allowNetcheckNamespace, namespaces } = r;
+  return { subjectType, subject, role, allNamespaces, allowNetcheckNamespace, namespaces: namespaces ?? [] };
+}
+
 export function subjectText(t: Translate, r: Pick<AccessRule, 'subjectType' | 'subject'>): string {
   return r.subjectType === 'authenticated' ? t('rules.subject.authenticated') : `${t(`rules.subject.${r.subjectType}`)}: ${r.subject}`;
 }
@@ -137,7 +143,7 @@ export function AccessRulesPage({ admin, notify }: Props) {
               description={t('rules.unionNote')}
               actions={
                 <SpaceBetween direction="horizontal" size="xs">
-                  <Button disabled={selected.length !== 1} onClick={() => selected[0] && setEditing({ id: selected[0].id, input: { ...selected[0] } })}>
+                  <Button disabled={selected.length !== 1} onClick={() => selected[0] && setEditing({ id: selected[0].id, input: toInput(selected[0]) })}>
                     {t('rules.edit')}
                   </Button>
                   <Button disabled={selected.length !== 1} onClick={() => setDeleting(selected[0] ?? null)}>

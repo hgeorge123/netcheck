@@ -49,7 +49,9 @@ func TestAdminAccessRules(t *testing.T) {
 		}
 	}
 	upd := `{"subjectType":"group","subject":"acme:payments","role":"admin","allNamespaces":true}`
-	if rec := f.do(f.admin, "PUT", "/api/v1/admin/access-rules/"+created.ID, upd); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"admin"`) {
+	// A rule for all namespaces lists none as [], never null: the web form edits the list.
+	if rec := f.do(f.admin, "PUT", "/api/v1/admin/access-rules/"+created.ID, upd); rec.Code != http.StatusOK ||
+		!strings.Contains(rec.Body.String(), `"role":"admin"`) || !strings.Contains(rec.Body.String(), `"namespaces":[]`) {
 		t.Errorf("update: %d %s", rec.Code, rec.Body)
 	}
 	rec = f.do(f.admin, "GET", "/api/v1/admin/access-rules", "")

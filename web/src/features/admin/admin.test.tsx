@@ -417,6 +417,45 @@ describe('AccessRulesPage', () => {
     expect(notify).toHaveBeenCalledWith('success', expect.stringContaining('Access rule saved'));
   });
 
+  it('edits a rule sending only the editable fields', async () => {
+    const rule = { id: 'r1', subjectType: 'group' as const, subject: 'CCT_Plataformas', role: 'user' as const, allNamespaces: true, allowNetcheckNamespace: false, namespaces: [], updatedAt: common.createdAt, updatedBy: 'admin' };
+    const admin = mockAdmin({ accessRules: vi.fn().mockResolvedValue({ items: [rule], ssoEnabled: true }) });
+    const { container } = renderI18n(<AccessRulesPage admin={admin} notify={vi.fn()} />);
+    expect(await screen.findByText('Group: CCT_Plataformas')).toBeInTheDocument();
+    createWrapper(container).findTable()!.findRowSelectionArea(1)!.click();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('radio', { name: /Administrator/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(admin.updateAccessRule).toHaveBeenCalledWith('r1', {
+        subjectType: 'group',
+        subject: 'CCT_Plataformas',
+        role: 'admin',
+        allNamespaces: true,
+        allowNetcheckNamespace: false,
+        namespaces: [],
+      }),
+    );
+  });
+
+  it('edits a rule for all namespaces into selected namespaces', async () => {
+    // Earlier versions of the API sent null instead of [] for a rule with all namespaces.
+    const rule = { id: 'r2', subjectType: 'group' as const, subject: 'CCT_Plataformas', role: 'user' as const, allNamespaces: true, allowNetcheckNamespace: false, namespaces: null as unknown as string[], updatedAt: common.createdAt, updatedBy: 'admin' };
+    const admin = mockAdmin({ accessRules: vi.fn().mockResolvedValue({ items: [rule], ssoEnabled: true }) });
+    const { container } = renderI18n(<AccessRulesPage admin={admin} notify={vi.fn()} />);
+    expect(await screen.findByText('Group: CCT_Plataformas')).toBeInTheDocument();
+    createWrapper(container).findTable()!.findRowSelectionArea(1)!.click();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Selected namespaces' }));
+    const ms = createWrapper(document.body).findMultiselect()!;
+    ms.openDropdown();
+    ms.selectOptionByValue('payments');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(admin.updateAccessRule).toHaveBeenCalledWith('r2', expect.objectContaining({ allNamespaces: false, namespaces: ['payments'] })),
+    );
+  });
+
   it('lists rules and warns when SSO is not enabled', async () => {
     const rule = { id: 'r1', subjectType: 'authenticated' as const, subject: '', role: 'user' as const, allNamespaces: true, allowNetcheckNamespace: false, namespaces: [], updatedAt: common.createdAt, updatedBy: 'admin' };
     renderI18n(<AccessRulesPage admin={mockAdmin({ accessRules: vi.fn().mockResolvedValue({ items: [rule], ssoEnabled: false }) })} notify={vi.fn()} />);

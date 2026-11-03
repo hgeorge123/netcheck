@@ -228,3 +228,26 @@ docker buildx imagetools inspect docker.io/hgeorge123/netcheck@sha256:<digest> -
 
 To enforce this in your cluster, admission controllers such as the Sigstore policy-controller or Kyverno can require
 these signatures for the NetCheck images.
+
+### netcheck-cli binaries
+
+The CLI binaries are built by [tools/build-cli.sh](../tools/build-cli.sh) and released with a checksums file and build
+provenance (`gh attestation verify <file> --owner hgeorge123`). The Windows binary also carries a version resource
+(product, version, company, copyright), the NetCheck icon and an `asInvoker` manifest
+([cmd/netcheck-cli/winres/winres.json](../cmd/netcheck-cli/winres/winres.json), embedded with
+[go-winres](https://github.com/tc-hib/go-winres) pinned by version), and keeps its symbols: stripped Go executables
+without metadata are often flagged by antivirus heuristics.
+
+**Authenticode signing (maintainers).** The release signs the Windows binary with
+[Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/) when these repository **variables**
+(Settings → Secrets and variables → Actions → Variables) are set; without them the binary is published unsigned:
+
+| Variable | Value |
+|---|---|
+| `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | App registration with a federated credential for this repository (subject `repo:hgeorge123/netcheck:ref:refs/heads/main`) and the *Artifact Signing Certificate Profile Signer* role. Sign-in uses OIDC: no client secret |
+| `AZURE_ARTIFACT_SIGNING_ENDPOINT` | Endpoint of the signing account, e.g. `https://eus.codesigning.azure.net/` |
+| `AZURE_ARTIFACT_SIGNING_ACCOUNT` | Signing account name |
+| `AZURE_ARTIFACT_SIGNING_PROFILE` | Certificate profile name (public trust) |
+
+The signature is timestamped and checked in the workflow (`Get-AuthenticodeSignature` must be `Valid`) before the
+checksums and the provenance are computed, so both cover the signed binary.

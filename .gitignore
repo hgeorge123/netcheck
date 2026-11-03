@@ -3,9 +3,13 @@
 *.db-wal
 *.db-shm
 /bin/
+/dist/
 web/node_modules/
 web/dist/
 .env
 web/test-results/
 web/playwright-report/
 web/tsconfig.tsbuildinfo
+
+# go-winres output of tools/build-cli.sh (removed after each build).
+/cmd/netcheck-cli/rsrc_*.syso

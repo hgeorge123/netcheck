@@ -388,14 +388,22 @@ jobs:
           readme-filepath: docs/dockerhub/netcheck-probe.md
 
   # netcheck-cli for pipelines: static binaries built from the tag, with
-  # checksums and build provenance, attached to the GitHub release.
+  # checksums and build provenance, attached to the GitHub release. The
+  # Windows binary carries version metadata, an icon and a manifest, and is
+  # signed with Authenticode (Azure Artifact Signing) when the repository
+  # variables below are set; signing needs a Windows runner.
   cli:
     needs: [release-please, publish]
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     permissions:
       contents: write # upload the release assets
-      id-token: write # build provenance
+      id-token: write # build provenance and Azure sign-in (OIDC)
       attestations: write
+    env:
+      VERSION: ${{ needs.release-please.outputs.version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -406,16 +414,37 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Build netcheck-cli
-        env:
-          VERSION: ${{ needs.release-please.outputs.version }}
+        run: bash tools/build-cli.sh "${VERSION}" dist
+      # Authenticode signing, only when configured (see docs/security.md §10).
+      - name: Azure sign-in for code signing
+        if: vars.AZURE_ARTIFACT_SIGNING_ENDPOINT != ''
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign the Windows binary
+        if: vars.AZURE_ARTIFACT_SIGNING_ENDPOINT != ''
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\dist\netcheck-cli_${{ env.VERSION }}_windows_amd64.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: NetCheck command-line client
+          description-url: https://github.com/${{ github.repository }}
+      - name: Check the Windows signature
+        if: vars.AZURE_ARTIFACT_SIGNING_ENDPOINT != ''
+        shell: pwsh
         run: |
-          mkdir dist
-          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
-            os="${target%/*}" arch="${target#*/}" ext=""
-            [ "${os}" = windows ] && ext=".exe"
-            CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -trimpath -ldflags "-s -w -X main.version=${VERSION}"               -o "dist/netcheck-cli_${VERSION}_${os}_${arch}${ext}" ./cmd/netcheck-cli
-          done
-          (cd dist && sha256sum netcheck-cli_* > "netcheck-cli_${VERSION}_checksums.txt")
+          $sig = Get-AuthenticodeSignature "dist\netcheck-cli_${env:VERSION}_windows_amd64.exe"
+          "{0}: {1}" -f $sig.Status, $sig.SignerCertificate.Subject
+          if ($sig.Status -ne 'Valid') { throw "the Windows binary is not validly signed" }
+      - name: Checksums
+        run: (cd dist && sha256sum netcheck-cli_* > "netcheck-cli_${VERSION}_checksums.txt")
       - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: dist/netcheck-cli_*

@@ -13,7 +13,7 @@ VERSION ?= $(shell awk -F'"' '/^appVersion:/ {print $$2}' chart/netcheck/Chart.y
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BUILD_ARGS = --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --build-arg BUILD_DATE=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-.PHONY: fmt lint test build test-integration docker-build helm-lint run-local lab-up lab-gateway lab-deploy lab-down web-install docs-screenshots
+.PHONY: fmt lint test build cli test-integration docker-build helm-lint run-local lab-up lab-gateway lab-deploy lab-down web-install docs-screenshots
 
 fmt:
 	gofmt -w cmd internal test
@@ -36,6 +36,10 @@ build: web-install
 	cd web && $(NPM) run build
 	CGO_ENABLED=0 $(GO) build -trimpath -o bin/netcheck ./cmd/netcheck
 	CGO_ENABLED=0 GOOS=linux $(GO) build -trimpath -o bin/probe-linux ./cmd/probe
+
+# netcheck-cli for every platform, as the release builds it (unsigned).
+cli:
+	GO=$(GO) bash tools/build-cli.sh $(VERSION) bin/cli
 
 # Requires a laboratory cluster prepared with `make lab-up` and the probe
 # image digest exported as NETCHECK_PROBE_IMAGE.

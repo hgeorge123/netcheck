@@ -26,6 +26,22 @@ To verify that the binary was built by the NetCheck release workflow:
 gh attestation verify "netcheck-cli_${VERSION}_linux_amd64" --owner hgeorge123
 ```
 
+**Windows.** Download `netcheck-cli_<version>_windows_amd64.exe` and the checksums file, check the hash and rename it to
+`netcheck-cli.exe` in a folder of your `PATH`:
+
+```powershell
+certutil -hashfile netcheck-cli_<version>_windows_amd64.exe SHA256
+```
+
+The Windows binary carries its product name, version, description and copyright (**Properties → Details**), the
+NetCheck icon and an application manifest, and is signed with Authenticode when the release is signed. Check the
+signature with `Get-AuthenticodeSignature .\netcheck-cli.exe` (`Valid`).
+
+If Microsoft Defender removes an unsigned release as `Trojan:Win32/Sabsik…!ml`, that is a machine-learning heuristic,
+not a known threat: verify the SHA-256 and the provenance above, and report it at
+<https://www.microsoft.com/wdsi/filesubmission> as *Incorrectly detected*. The CLI only sends HTTPS requests to the
+NetCheck URL you give it; it never runs commands.
+
 ## 2. Create an API token
 
 In NetCheck, open the **user menu → API tokens → Create token**, give it a name (for example *payments deploy

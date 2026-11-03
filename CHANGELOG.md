@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/hgeorge123/netcheck/compare/v1.0.1...v1.0.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* **ui:** edit access rules without sending read-only fields ([4a876f0](https://github.com/hgeorge123/netcheck/commit/4a876f0d750ef8b0e8e3283d4933676d0c3cb5f0))
+
 ## [1.0.1](https://github.com/hgeorge123/netcheck/compare/v1.0.0...v1.0.1) (2026-11-03)
 
 

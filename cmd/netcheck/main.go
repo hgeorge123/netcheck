@@ -151,6 +151,15 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	}
 	if created {
 		log.Info("bootstrap admin created", "username", cfg.Auth.BootstrapAdmin.Username, "must_change_password", cfg.Auth.BootstrapAdmin.ForcePasswordChange)
+	} else if stale, err := local.BootstrapPasswordStale(ctx, cfg.Auth.BootstrapAdmin.Username, os.Getenv("NETCHECK_BOOTSTRAP_ADMIN_PASSWORD")); err != nil {
+		log.Warn("bootstrap admin password check failed", "error", err)
+	} else if stale {
+		// Typical with Argo CD or helm template: without cluster access the
+		// chart cannot see the existing Secret and generates a new password.
+		log.Warn("the bootstrap admin still has a temporary password that is not the one in the bootstrap Secret "+
+			"(the Secret changed after the admin was created); to sign in with the Secret password enable "+
+			"auth.bootstrapAdmin.recoverOnStart once, and use auth.bootstrapAdmin.existingSecret with Argo CD",
+			"username", cfg.Auth.BootstrapAdmin.Username)
 	}
 
 	limiter := scheduler.NewLimiter(cfg.Limits.MaxConcurrentPerNamespace, cfg.Limits.MaxConcurrentGlobal)

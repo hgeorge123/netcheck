@@ -171,6 +171,11 @@ helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --versi
 Then follow [install.md](install.md) from §10: verify the installation, sign in with the generated `admin` password
 and run the smoke test.
 
+**Installing with Argo CD** (or anything that runs `helm template`): create the initial admin Secret yourself and set
+`auth.bootstrapAdmin.existingSecret` (and `auth.oidc.existingSecret` with the bundled Dex). Without cluster access the
+chart cannot see its own Secrets and would generate new random values on every sync, so the password in the Secret
+would stop matching the `admin` account. See *Initial admin password* in [install.md](install.md).
+
 ## 8. AKS notes
 
 - **Azure platform addresses.** `169.254.169.254` (instance metadata) is always denied by NetCheck. `168.63.129.16` is

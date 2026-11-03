@@ -544,6 +544,7 @@ provider if you no longer need it.
 | "The netcheck-probe ServiceAccount has the IRSA annotation" | Someone attached a cloud IAM role to the probe | Remove the annotation or association; the probe must have no credentials |
 | A new namespace does not show up | 30-second cache, or the namespace is excluded | Wait a minute; check **Administration → Namespaces** |
 | The NetCheck namespace does not show up | Hidden by design | Check "Allow tests in the NetCheck namespace" for that user |
+| The initial `admin` password from the Secret is refused; the Pod log says *the bootstrap admin still has a temporary password that is not the one in the bootstrap Secret* | The Secret changed after the admin was created. Typical with Argo CD or `helm template`: without cluster access the chart cannot see the Secret and generates a new password on every sync | Recover access (§5), then set `auth.bootstrapAdmin.existingSecret` so the password stops changing |
 | Many `429` at sign-in | Per-IP rate limit, or `trustedProxyCidrs` is wrong (every user shares the Gateway IP) | Put the Gateway Pod CIDR in `auth.trustedProxyCidrs` |
 
 ## 9. Known limitations

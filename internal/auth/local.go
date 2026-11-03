@@ -515,3 +515,23 @@ func (l *LocalAuth) EnsureBootstrapAdmin(ctx context.Context, username, password
 	return true, l.Store.CreateUser(ctx, u, store.AuditEvent{ActorID: "system:bootstrap", Action: "user.create", Outcome: "success",
 		DetailsJSON: details(map[string]any{"userId": u.ID, "username": u.Username, "role": u.Role, "bootstrap": true})})
 }
+
+// BootstrapPasswordStale reports whether the initial admin still has a
+// temporary password that is not the one in the bootstrap Secret: the Secret
+// was recreated after the admin was created (or the password was reset), so
+// the Secret password does not sign in. Bootstrap never updates an existing
+// admin; only the break-glass recovery does.
+func (l *LocalAuth) BootstrapPasswordStale(ctx context.Context, username, password string) (bool, error) {
+	u, err := l.Store.GetUserByUsername(ctx, strings.ToLower(strings.TrimSpace(username)))
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if password == "" || !u.MustChangePassword || sourceOf(u) != store.SourceLocal {
+		return false, nil
+	}
+	ok, err := VerifyPassword(password, u.PasswordHash)
+	return !ok, err
+}

@@ -252,6 +252,30 @@ func TestRecoverBootstrapAdmin(t *testing.T) {
 	}
 }
 
+func TestBootstrapPasswordStale(t *testing.T) {
+	ctx := context.Background()
+	l, _ := newLocal(t)
+	if stale, err := l.BootstrapPasswordStale(ctx, "admin", "initial-pass-123"); err != nil || stale {
+		t.Fatalf("no admin yet: %v %v", stale, err)
+	}
+	l.EnsureBootstrapAdmin(ctx, "admin", "initial-pass-123", true)
+	if stale, err := l.BootstrapPasswordStale(ctx, "admin", "initial-pass-123"); err != nil || stale {
+		t.Fatalf("Secret matches: %v %v", stale, err)
+	}
+	// The Secret was recreated with a new password after the admin existed.
+	if stale, err := l.BootstrapPasswordStale(ctx, " ADMIN ", "regenerated-pass-1"); err != nil || !stale {
+		t.Fatalf("Secret regenerated: %v %v", stale, err)
+	}
+	// Once the admin chose a password, the Secret no longer matters.
+	_, id, _ := login(t, l, "admin", "initial-pass-123")
+	if err := l.ChangeOwnPassword(ctx, id, "initial-pass-123", "chosen-pass-12345", "r"); err != nil {
+		t.Fatal(err)
+	}
+	if stale, err := l.BootstrapPasswordStale(ctx, "admin", "regenerated-pass-1"); err != nil || stale {
+		t.Fatalf("password already changed: %v %v", stale, err)
+	}
+}
+
 func TestAuthorizerDynamicAllNamespaces(t *testing.T) {
 	src := &mutableNS{list: []string{"orders", "payments"}}
 	a := &Authorizer{Source: src}

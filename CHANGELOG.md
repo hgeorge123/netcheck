@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/hgeorge123/netcheck/compare/v1.1.2...v1.2.0) (2026-11-03)
+
+
+### Features
+
+* **auth:** each user only sees the tests they started ([ca5ac84](https://github.com/hgeorge123/netcheck/commit/ca5ac84837bccda1353a8fe455bd26d9487b8272))
+* personal and shared proxies with their own certificate authorities ([20464a8](https://github.com/hgeorge123/netcheck/commit/20464a8af84125f36caf934881109011c78b3577))
+
 ## [1.1.2](https://github.com/hgeorge123/netcheck/compare/v1.1.1...v1.1.2) (2026-11-03)
 
 

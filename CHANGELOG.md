@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/hgeorge123/netcheck/compare/v1.0.0...v1.0.1) (2026-11-03)
+
+
+### Documentation
+
+* list every feature with a link to how to use it ([457a61b](https://github.com/hgeorge123/netcheck/commit/457a61bf620d45afbdc601ec8c3ff1853f2063aa))
+
 ## [1.0.0](https://github.com/hgeorge123/netcheck/compare/v0.7.0...v1.0.0) (2026-11-03)
 
 

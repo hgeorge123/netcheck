@@ -69,6 +69,9 @@ type CheckRequest struct {
 	UDP        *UDPOptions        `json:"udp,omitempty"`
 	Ping       *PingOptions       `json:"ping,omitempty"`
 	Traceroute *TracerouteOptions `json:"traceroute,omitempty"`
+	// Proxy is the name of a configured proxy (TCP and HTTPS only); empty
+	// means the direct path.
+	Proxy string `json:"proxy,omitempty"`
 }
 
 // Run modes. ModeFirewall marks a run created by the "firewall ticket"
@@ -113,8 +116,9 @@ func TracerouteTimeout(maxHops int) time.Duration {
 
 // BuildSpec validates a request and builds the immutable probe spec. It
 // returns ValidationErrors for malformed input and *DeniedError when the
-// destination or a port is rejected by policy.
-func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limits) (Spec, error) {
+// destination, a port or a proxy is rejected by policy. proxies are the
+// configured proxies a check may name.
+func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limits, proxies ...Proxy) (Spec, error) {
 	compiled, err := policy.Compile()
 	if err != nil {
 		return Spec{}, fmt.Errorf("invalid destination policy: %w", err)
@@ -177,6 +181,16 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 			(cr.Ping != nil && cr.Method != MethodPing) || (cr.Traceroute != nil && cr.Method != MethodTraceroute) ||
 			(cr.UDP != nil && cr.Method != MethodUDP) {
 			errs = append(errs, fieldErr(field, "unexpected_options", "options not applicable to the %s check", cr.Method))
+		}
+		if cr.Proxy != "" {
+			switch p, found := findProxy(proxies, cr.Proxy); {
+			case !ProxyAllowed(cr.Method):
+				errs = append(errs, fieldErr(field+".proxy", "proxy_not_applicable", "only TCP and HTTPS checks can go through a proxy"))
+			case !found:
+				errs = append(errs, fieldErr(field+".proxy", "proxy_unknown", "there is no proxy named %q", cr.Proxy))
+			default:
+				c.Proxy = &p
+			}
 		}
 		switch cr.Method {
 		case MethodDNS:
@@ -262,6 +276,11 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 				return Spec{}, err
 			}
 		}
+		if c.Proxy != nil {
+			if err := compiled.checkProxy(*c.Proxy); err != nil {
+				return Spec{}, err
+			}
+		}
 	}
 
 	spec := Spec{
@@ -277,6 +296,15 @@ func BuildSpec(runID string, req RunRequest, policy DestinationPolicy, lim Limit
 		return Spec{}, fmt.Errorf("internal spec validation failed: %w", err)
 	}
 	return spec, nil
+}
+
+func findProxy(proxies []Proxy, name string) (Proxy, bool) {
+	for _, p := range proxies {
+		if p.Name == name {
+			return p, true
+		}
+	}
+	return Proxy{}, false
 }
 
 func validateChecksShape(checks []CheckRequest, lim Limits) ValidationErrors {
@@ -350,6 +378,11 @@ func (s Spec) Validate() error {
 		}
 		if entry.HostnameOnly && s.Target.IsIP {
 			return fmt.Errorf("check %s: hostname required", c.ID)
+		}
+		if c.Proxy != nil {
+			if p, err := normalizeProxy(*c.Proxy); err != nil || p != *c.Proxy || !ProxyAllowed(c.Method) {
+				return fmt.Errorf("check %s: invalid proxy", c.ID)
+			}
 		}
 		switch c.Method {
 		case MethodHTTP, MethodHTTPS:

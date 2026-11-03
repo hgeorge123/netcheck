@@ -41,6 +41,9 @@ export interface RunForm {
   httpsMethod: HTTPMethod;
   httpsPath: string;
   httpsIgnoreTls: boolean;
+  /** Name of the proxy for TCP / HTTPS; '' is the direct path (default). */
+  tcpProxy: string;
+  httpsProxy: string;
   dnsFamily: 'ip' | 'ip4' | 'ip6';
   pingCount: string;
   maxHops: string;
@@ -64,6 +67,8 @@ export const emptyForm = (namespace = ''): RunForm => ({
   httpsMethod: 'GET',
   httpsPath: '/',
   httpsIgnoreTls: false,
+  tcpProxy: '',
+  httpsProxy: '',
   dnsFamily: 'ip',
   pingCount: String(DEFAULT_PING_COUNT),
   maxHops: String(DEFAULT_MAX_HOPS),
@@ -81,6 +86,8 @@ export type FormField =
   | 'httpsPort'
   | 'httpPath'
   | 'httpsPath'
+  | 'tcpProxy'
+  | 'httpsProxy'
   | 'pingCount'
   | 'maxHops';
 
@@ -187,7 +194,7 @@ export function buildRequest(f: RunForm): RunRequest {
       case 'dns':
         return { method, dns: { family: f.dnsFamily } };
       case 'tcp':
-        return { method, port: Number(f.tcpPort) };
+        return { method, port: Number(f.tcpPort), ...(f.tcpProxy ? { proxy: f.tcpProxy } : {}) };
       case 'udp': {
         const def = DEFAULT_UDP_PORTS[f.udpProtocol];
         return { method, port: def === undefined ? Number(f.udpPort) : port(f.udpPort, def), udp: { protocol: f.udpProtocol } };
@@ -199,6 +206,7 @@ export function buildRequest(f: RunForm): RunRequest {
           method,
           port: port(f.httpsPort, DEFAULT_PORTS.https),
           http: { method: f.httpsMethod, path: f.httpsPath || '/', ...(f.httpsIgnoreTls ? { ignoreTlsErrors: true } : {}) },
+          ...(f.httpsProxy ? { proxy: f.httpsProxy } : {}),
         };
       case 'ping':
         return { method, ping: { count: Number(f.pingCount) } };
@@ -228,6 +236,8 @@ export function formFromRun(run: Pick<RunDetail, 'request'>): RunForm {
     if (!METHODS.includes(c.method) || f.methods.includes(c.method)) continue;
     f.methods.push(c.method);
     if (c.method === 'tcp' && c.port) f.tcpPort = String(c.port);
+    if (c.method === 'tcp') f.tcpProxy = c.proxy ?? '';
+    if (c.method === 'https') f.httpsProxy = c.proxy ?? '';
     if (c.method === 'udp') {
       f.udpProtocol = c.udp?.protocol ?? 'generic';
       if (c.port) f.udpPort = String(c.port);
@@ -266,6 +276,7 @@ export function mapServerErrors(details: FieldError[], req: RunRequest, text: (f
       const sub = m[2];
       if ((sub === 'port' || sub === 'udp.protocol') && (method === 'tcp' || method === 'udp' || method === 'http' || method === 'https')) field = `${method}Port`;
       else if (sub === 'http.path' && (method === 'http' || method === 'https')) field = `${method}Path`;
+      else if (sub === 'proxy' && (method === 'tcp' || method === 'https')) field = `${method}Proxy`;
       else if (sub === 'ping.count') field = 'pingCount';
       else if (sub === 'traceroute.maxHops') field = 'maxHops';
     }

@@ -89,6 +89,22 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
     { value: 'ip4', label: t('newTest.family.ip4') },
     { value: 'ip6', label: t('newTest.family.ip6') },
   ];
+  // Optional proxy for TCP and HTTPS; hidden when none is configured.
+  const proxies = catalog.proxies ?? [];
+  const proxyOptions: SelectProps.Option[] = [
+    { value: '', label: t('newTest.proxy.direct'), description: t('newTest.proxy.directDesc') },
+    ...proxies.map((p) => ({ value: p.name, label: t('newTest.proxy.through', { name: p.name }), description: `${p.host}:${p.port}` })),
+  ];
+  const proxyField = (field: 'tcpProxy' | 'httpsProxy') => (
+    <FormField label={t('newTest.proxy')} description={t('newTest.proxyDesc')} errorText={err(field)}>
+      <Select
+        selectedOption={proxyOptions.find((o) => o.value === form[field]) ?? proxyOptions[0] ?? null}
+        onChange={({ detail }) => set(field, detail.selectedOption.value ?? '')}
+        options={proxyOptions}
+        ariaLabel={t('newTest.proxy')}
+      />
+    </FormField>
+  );
 
   const selectAll = () => {
     const all = catalog.items.filter((c) => !(c.hostnameOnly && targetIsIP)).map((c) => c.method);
@@ -143,9 +159,12 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
       </FormField>
     ),
     tcp: (
-      <FormField label={t('newTest.port')} description={t('newTest.tcpPortDesc')} errorText={err('tcpPort')}>
-        <Input value={form.tcpPort} onChange={({ detail }) => set('tcpPort', detail.value)} inputMode="numeric" placeholder="5432" ariaRequired />
-      </FormField>
+      <ColumnLayout columns={proxies.length > 0 ? 2 : 1}>
+        <FormField label={t('newTest.port')} description={t('newTest.tcpPortDesc')} errorText={err('tcpPort')}>
+          <Input value={form.tcpPort} onChange={({ detail }) => set('tcpPort', detail.value)} inputMode="numeric" placeholder="5432" ariaRequired />
+        </FormField>
+        {proxies.length > 0 && proxyField('tcpProxy')}
+      </ColumnLayout>
     ),
     udp: (
       <ColumnLayout columns={2}>
@@ -213,6 +232,7 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
             {t('newTest.ignoreTls')}
           </Checkbox>
         </FormField>
+        {proxies.length > 0 && proxyField('httpsProxy')}
       </ColumnLayout>
     ),
     ping: (

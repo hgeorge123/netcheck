@@ -105,6 +105,12 @@ The probe could otherwise be used as an SSRF proxy. Protections:
   rejected, values starting with `-` or containing whitespace or control characters are rejected.
 - **HTTP:** redirects are not followed (the `Location` is reported), URLs with credentials or query strings are
   rejected, there are no custom headers or bodies.
+- **Proxies:** TCP and HTTPS checks may go through an HTTP proxy, but only one from the list administrators define
+  (never an address typed by users), and only when the user chooses it. The proxy is a destination like any other:
+  its address and port must pass the policy (platform protections included), and every IP it resolves to is checked
+  before the probe connects. The destination itself is then checked **by name and port only**, because the proxy, not
+  the probe, resolves it; that is why only administrators choose proxies. The probe never sends proxy credentials and
+  ignores `HTTP_PROXY`/`HTTPS_PROXY`: without a proxy chosen, it always tests the direct path.
 
 Defense in depth on AWS: require **IMDSv2 with `HttpPutResponseHopLimit: 1`** on the nodes, so no Pod can reach the
 instance metadata whatever NetCheck's configuration.

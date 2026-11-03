@@ -20,6 +20,7 @@ import { NamespacesPage } from '../features/admin/NamespacesPage';
 import { PolicyPage } from '../features/admin/PolicyPage';
 import { RetentionPage } from '../features/admin/RetentionPage';
 import { TrustedCAsPage } from '../features/admin/TrustedCAsPage';
+import { ProxiesPage } from '../features/admin/ProxiesPage';
 import { SessionsPage } from '../features/admin/SessionsPage';
 import { SystemPage } from '../features/admin/SystemPage';
 import { UserFormPage } from '../features/admin/UserFormPage';
@@ -102,6 +103,9 @@ function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
       break;
     case 'trusted-cas':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.trustedCas'), href: '#/admin/trusted-cas' });
+      break;
+    case 'proxies':
+      items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.proxies'), href: '#/admin/proxies' });
       break;
     case 'tokens':
       items.push({ text: t('tokens.title'), href: '#/account/tokens' });
@@ -317,6 +321,8 @@ export function App() {
     content = <RetentionPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'trusted-cas') {
     content = <TrustedCAsPage admin={api.admin} notify={notify} />;
+  } else if (route.page === 'proxies') {
+    content = <ProxiesPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'tokens') {
     content = <TokensPage scope="mine" list={api.tokens.list} create={api.tokens.create} revoke={api.tokens.revoke} notify={notify} />;
   } else if (route.page === 'admin-tokens') {
@@ -357,6 +363,7 @@ export function App() {
           { type: 'link', text: t('nav.namespaces'), href: '#/admin/namespaces' },
           { type: 'link', text: t('nav.policy'), href: '#/admin/policy' },
           { type: 'link', text: t('nav.trustedCas'), href: '#/admin/trusted-cas' },
+          { type: 'link', text: t('nav.proxies'), href: '#/admin/proxies' },
           { type: 'link', text: t('nav.retention'), href: '#/admin/retention' },
           { type: 'link', text: t('nav.sessions'), href: '#/admin/sessions' },
           { type: 'link', text: t('tokens.title'), href: '#/admin/tokens' },

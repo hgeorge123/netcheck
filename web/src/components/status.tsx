@@ -55,6 +55,13 @@ export function CheckStatusBadge({ status, diagnosis }: { status: CheckStatus; d
 
 /** Translated diagnosis texts, chosen by category (and HTTP status). */
 export function diagnosisText(t: Translate, method: Method, d: Diagnosis): { summary: string; detail: string } {
+  if (!d.proxy) return baseDiagnosisText(t, method, d);
+  // Through a proxy: say so, a success proves the path through the proxy only.
+  const base = d.category === 'ok' && method === 'tcp' ? { summary: t('diag.ok.tcp.proxy'), detail: t('diag.ok.tcp.proxy.detail') } : baseDiagnosisText(t, method, d);
+  return { summary: base.summary, detail: `${base.detail} ${t('diag.proxyNote', { name: d.proxy })}`.trim() };
+}
+
+function baseDiagnosisText(t: Translate, method: Method, d: Diagnosis): { summary: string; detail: string } {
   if (d.category === 'ok') {
     return { summary: lookup(t, `diag.ok.${method}`) ?? t('diag.ok'), detail: lookup(t, `diag.ok.${method}.detail`) ?? '' };
   }

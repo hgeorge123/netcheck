@@ -139,6 +139,11 @@ Select one or more cards (or **Select all**). They run one after another in a si
   exactly why (expired, another name, untrusted authority, self-signed). With this option the request goes on, so you
   can check the application behind it; the result is a **warning** that still lists every certificate problem, like
   `curl --insecure`.
+- **TCP / HTTPS → Connection** (only when your administrators configured proxies): **Direct** (default) tests the
+  path from the Pod; **Through proxy …** asks that proxy for a tunnel to the destination, like
+  `curl --proxy` or `nc -X connect`. Use it when your applications reach the destination through the proxy. A success
+  proves the path through the proxy, not the direct one; the proxy resolves the name, so the result shows the proxy's
+  IP and its answer instead of the destination IP.
 - **DNS:** address family (IPv4 and IPv6, IPv4 only or IPv6 only).
 - **Ping:** number of echo requests (1–10, one per second).
 - **Traceroute:** maximum hops (1–30, at most one second per hop).
@@ -246,6 +251,9 @@ The **Details** block also shows the **probe Pod IP** and the **node** the measu
 | TLS **certificate not valid** | It connected, but the certificate failed; the detail says which problem: expired or not yet valid, issued for another name, signed by an authority the probe does not trust, or self-signed | A network block |
 | HTTPS **Trusted through** an authority *configured in NetCheck* | The certificate is valid, but only thanks to an authority your administrators added (corporate PKI or a TLS inspection proxy, [admin guide §18](admin-guide.md#18-certificate-authorities)) | That other clients trust it: they need the same authority installed |
 | HTTPS answered, **certificate errors ignored** (warning) | You chose *Ignore certificate errors*: the network and the application answer, but the certificate has the problems listed | That clients will accept it: anything that verifies certificates still rejects it |
+| Through a proxy: **proxy could not be reached** | The block is between the Pod and the proxy (NetworkPolicy, firewall or wrong address); the destination was never tried | A block towards the destination |
+| Through a proxy: **proxy refused the tunnel** (403) / **requires authentication** (407) | The proxy answered: its policy denies that destination or port (many proxies only allow port 443), or it only accepts authenticated clients | A network block: ask the proxy team |
+| Through a proxy: **proxy could not reach the destination** (502/503/504) or **did not answer in time** | The Pod reaches the proxy; the problem is beyond it | That the Pod-to-proxy path is blocked |
 | Ping **no reply** | No echo reply arrived | That TCP is blocked: ICMP is often filtered while TCP works |
 | Ping **partial loss** | Some requests got no reply; the host is reachable | — |
 | Traceroute **incomplete** | The destination was not reached; hops shown as `*` did not answer | Packet loss: many routers and policies do not answer ICMP |

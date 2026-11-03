@@ -120,9 +120,26 @@ export interface Limits {
   settleSeconds: number;
 }
 
+/** HTTP proxy TCP and HTTPS checks may go through (CONNECT tunnel). */
+export interface Proxy {
+  name: string;
+  host: string;
+  port: number;
+}
+
+export interface ProxiesView {
+  proxies: Proxy[];
+  managedBy: 'ui' | 'helm';
+  editable: boolean;
+  updatedAt: string;
+  updatedBy: string;
+}
+
 export interface Catalog {
   items: CatalogEntry[];
   limits: Limits;
+  /** Proxies users may choose; none hides the option. */
+  proxies?: Proxy[] | null;
 }
 
 export interface CheckRequest {
@@ -134,6 +151,8 @@ export interface CheckRequest {
   udp?: { protocol: UDPProtocol };
   ping?: { count: number };
   traceroute?: { maxHops: number };
+  /** Name of a configured proxy (TCP and HTTPS only); absent = direct path. */
+  proxy?: string;
 }
 
 export interface RunRequest {
@@ -165,6 +184,8 @@ export interface Diagnosis {
   httpStatus?: number;
   /** An HTTPS answer obtained although the certificate is not valid. */
   tlsIgnored?: boolean;
+  /** Name of the proxy the check went through. */
+  proxy?: string;
 }
 
 export type TLSProblem = 'expired' | 'not_yet_valid' | 'hostname_mismatch' | 'unknown_authority' | 'self_signed' | 'invalid';
@@ -245,6 +266,21 @@ export interface CheckResultDetail {
   udp?: UDPResult;
   ping?: PingResult;
   traceroute?: TracerouteResult;
+  proxy?: ProxyResult;
+}
+
+/** Evidence of a check tunnelled through a proxy. */
+export interface ProxyResult {
+  name: string;
+  address: string;
+  resolvedIps?: string[];
+  usedIp?: string;
+  reached: boolean;
+  connectMs?: number;
+  /** Reply of the proxy to CONNECT. */
+  status?: number;
+  statusText?: string;
+  tunnelMs?: number;
 }
 
 export interface ExecutionView {

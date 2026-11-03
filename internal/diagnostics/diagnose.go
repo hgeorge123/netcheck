@@ -26,6 +26,8 @@ type Diagnosis struct {
 	HTTPStatus int    `json:"httpStatus,omitempty"`
 	// TLSIgnored: an HTTPS answer obtained although the certificate is not valid.
 	TLSIgnored bool `json:"tlsIgnored,omitempty"`
+	// Proxy names the proxy the check went through, if any.
+	Proxy string `json:"proxy,omitempty"`
 }
 
 type text struct{ summary, detail string }
@@ -52,6 +54,12 @@ var texts = map[string]text{
 	CategoryICMPUnreachable:      {"ICMP destination unreachable.", "A router or the destination answered that it cannot deliver the packet (code shown in the details)."},
 	CategoryICMPNotPermitted:     {"ICMP is not permitted inside the probe.", "The node did not allow unprivileged ICMP sockets (net.ipv4.ping_group_range). This is a platform issue, not a network result."},
 	CategoryTracerouteIncomplete: {"Traceroute did not reach the destination.", "Hops shown as * did not answer; that does not prove loss. Firewalls and NetworkPolicies often drop ICMP while allowing TCP."},
+	CategoryProxyUnreachable:     {"The proxy could not be reached from the source Pod.", "The block is between the Pod and the proxy (NetworkPolicy, firewall or a wrong proxy address); the destination was never tried. The error says whether it timed out or was refused."},
+	CategoryProxyNoAnswer:        {"The proxy accepted the connection but did not answer in time.", "The proxy is usually still trying to reach the destination: a block or a slow path beyond the proxy. The Pod-to-proxy path works."},
+	CategoryProxyAuthRequired:    {"The proxy requires authentication (407).", "The Pod reached the proxy, but it only accepts authenticated clients. NetCheck tests proxies that authorise by source address only."},
+	CategoryProxyDenied:          {"The proxy refused the tunnel (its policy).", "The Pod reached the proxy, which denied this destination or port (for example, many proxies only allow CONNECT to port 443). Ask the proxy team; it is not a network block."},
+	CategoryProxyUpstreamFail:    {"The proxy could not reach the destination.", "The Pod reached the proxy, which answered that the destination is unreachable, refused or timed out (502/503/504). The block is beyond the proxy."},
+	CategoryProxyProtocolError:   {"The proxy answered something that is not a valid tunnel reply.", "The address may not be an HTTP proxy, or it does not support CONNECT."},
 	CategoryAdmissionRejected:    {"The cluster refused to create the probe.", "Admission (Pod Security, ValidatingAdmissionPolicy, ResourceQuota or LimitRange) rejected the Job. Not a network result."},
 	CategoryInfraError:           {"NetCheck infrastructure error.", "The probe could not run or returned no result. Not a network result."},
 	CategoryProbeOutputInvalid:   {"The probe did not return a valid structured result.", "Not a network result. Check the probe logs and image version."},
@@ -96,7 +104,20 @@ func Diagnose(method, category string, httpStatus int) Diagnosis {
 		CategoryUDPNoReply, CategoryUDPUnexpected:
 		d.Severity = SeverityWarning
 	}
-	d.Conclusive = category == CategoryDestinationDenied || category == CategoryAdmissionRejected
+	d.Conclusive = category == CategoryDestinationDenied || category == CategoryAdmissionRejected ||
+		category == CategoryProxyAuthRequired || category == CategoryProxyDenied
+	return d
+}
+
+// WithProxy marks a check tunnelled through a proxy: a success proves the
+// path through the proxy, not the direct path from the Pod.
+func WithProxy(d Diagnosis, method, name string) Diagnosis {
+	d.Proxy = name
+	if d.Category == CategoryOK && method == "tcp" {
+		d.Summary = "TCP tunnel established through the proxy."
+		d.Detail = "The proxy reached the destination port (CONNECT answered 2xx)."
+	}
+	d.Detail = strings.TrimSpace(d.Detail + " Tested through the proxy " + name + ": the proxy resolved the destination and connected to it; the direct path from the Pod was not tested.")
 	return d
 }
 

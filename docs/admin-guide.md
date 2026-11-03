@@ -5,7 +5,7 @@ interface. For day-to-day use, see the [user guide](user-guide.md).
 
 - **Part I:** what gets deployed, how probes work and which NetworkPolicies are needed.
 - **Part II:** administration from the web (users, roles, namespaces, destination policy, certificate authorities,
-  sessions and versions).
+  proxies, sessions and versions).
 - **Part III:** operations (upgrades, backups, recovery, uninstall and troubleshooting).
 
 Installation itself is covered step by step in [install.md](install.md) (any Kubernetes cluster) and
@@ -459,6 +459,44 @@ trustedCas:
     -----BEGIN CERTIFICATE-----
     ...
     -----END CERTIFICATE-----
+```
+
+## 19. Proxies
+
+When your applications reach a destination through a corporate HTTP proxy, testing the direct path from the Pod
+answers the wrong question. **Administration → Proxies** lists the proxies users may choose for **TCP and HTTPS**
+checks:
+
+1. Click **Add proxy** and give it a **name** (shown to users, for example `corp`), the **host name or IP** and the
+   **port** (usually 3128 or 8080).
+2. **Save.** Users see a **Connection** choice in the TCP and HTTPS settings: **Direct** (the default) or **Through proxy
+   corp**. Without proxies the choice is hidden.
+
+Through a proxy, the probe connects to the proxy and asks it for a `CONNECT` tunnel to the destination; for HTTPS it
+then speaks TLS inside the tunnel, like `curl --proxy`. The result shows the proxy, its IP and its answer, and tells
+apart where the problem is: the proxy **could not be reached** from the Pod, it **refused the tunnel** (403, its policy;
+many proxies only allow port 443), it **requires authentication** (407), it **could not reach the destination**
+(502/503/504) or it **did not answer in time**.
+
+Rules and limits:
+
+- Each proxy must be a **destination the policy allows** (its address and port), like any destination; a test through
+  a proxy outside the policy is denied with that reason. The proxy needs an egress NetworkPolicy from the source
+  namespace like any other destination.
+- The proxy, not the probe, resolves and connects to the destination, so the destination is checked by name and port
+  only. That is why only administrators define proxies.
+- **No authentication:** the probe never carries credentials. Use proxies that allow the cluster by source address.
+- HTTP, DNS, UDP, ping, traceroute and the firewall ticket always use the direct path.
+- If the proxy inspects TLS, add its authority in **Certificate authorities** (§18); the result then says the
+  certificate was trusted through it.
+- At most 20 proxies; names are 1–32 lowercase letters, digits or dashes. Changes are audited (`proxies.update`).
+
+**With Helm or Argo CD:** `proxies` in the values is the initial list, managed in the web afterwards
+(`proxiesManagedBy: ui`, default), or authoritative with `proxiesManagedBy: helm`:
+
+```yaml
+proxies:
+  - {name: corp, host: proxy.example.com, port: 3128}
 ```
 
 ---

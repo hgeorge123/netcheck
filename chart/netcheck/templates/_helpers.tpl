@@ -150,6 +150,9 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- if not (has $v.trustedCasManagedBy (list "ui" "helm")) -}}
 {{- fail "trustedCasManagedBy must be ui (managed in the web) or helm (trustedCas is authoritative)" -}}
 {{- end -}}
+{{- if not (has $v.proxiesManagedBy (list "ui" "helm")) -}}
+{{- fail "proxiesManagedBy must be ui (managed in the web) or helm (proxies is authoritative)" -}}
+{{- end -}}
 {{- if and $v.httpRoute.enabled $v.ingress.enabled -}}
 {{- fail "httpRoute.enabled and ingress.enabled are mutually exclusive: choose a Gateway API route (httpRoute) or an Ingress (ingress). To use an Ingress set httpRoute.enabled=false" -}}
 {{- end -}}

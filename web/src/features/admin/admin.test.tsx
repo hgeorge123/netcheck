@@ -4,10 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api } from '../../services/api';
 import { renderI18n } from '../../test/render';
-import type { DestinationPolicy, PolicyView, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
+import type { DestinationPolicy, PolicyView, ProxiesView, Proxy, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
 import { AccessRulesPage } from './AccessRulesPage';
 import { NamespacesPage } from './NamespacesPage';
 import { ALLOW_ALL, PolicyPage } from './PolicyPage';
+import { ProxiesPage } from './ProxiesPage';
 import { RetentionPage } from './RetentionPage';
 import { browserName, SessionsPage } from './SessionsPage';
 import { shortDigest, SystemPage } from './SystemPage';
@@ -75,6 +76,8 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     retention: vi.fn().mockResolvedValue({ outputDays: 15, metadataDays: 45, updatedAt: common.createdAt, updatedBy: 'helm (initial values)' }),
     saveRetention: vi.fn().mockImplementation((r: { outputDays: number; metadataDays: number }) => Promise.resolve({ ...r, updatedAt: common.createdAt, updatedBy: 'admin' })),
     trustedCAs: vi.fn().mockResolvedValue(trustedView()),
+    proxies: vi.fn().mockResolvedValue(proxiesView()),
+    saveProxies: vi.fn().mockImplementation((proxies: Proxy[]) => Promise.resolve({ ...proxiesView(), proxies, updatedBy: 'admin' })),
     saveTrustedCAs: vi.fn().mockImplementation((certificates: string[]) => Promise.resolve({ ...trustedView(), certificates: certificates.map((pem, i) => ({ ...corpCA, pem, fingerprintSha256: String(i).repeat(64) })), updatedBy: 'admin' })),
     accessRules: vi.fn().mockResolvedValue({ items: [], ssoEnabled: true }),
     createAccessRule: vi.fn().mockResolvedValue(undefined),
@@ -96,6 +99,10 @@ const corpCA: TrustedCertificate = {
   expired: false,
 };
 const oldCA: TrustedCertificate = { ...corpCA, pem: 'OLD', subject: 'CN=Old Proxy CA', issuer: 'CN=Corp Root,O=Corp', notAfter: '2025-01-01T00:00:00Z', fingerprintSha256: 'cd34'.repeat(16), expired: true };
+
+function proxiesView(editable = true): ProxiesView {
+  return { proxies: [{ name: 'corp', host: 'proxy.corp.example', port: 3128 }], managedBy: editable ? 'ui' : 'helm', editable, updatedAt: common.createdAt, updatedBy: 'admin' };
+}
 
 function trustedView(editable = true): TrustedCAsView {
   return { certificates: [corpCA, oldCA], managedBy: editable ? 'ui' : 'helm', editable, updatedAt: common.createdAt, updatedBy: 'helm (initial values)' };
@@ -408,6 +415,61 @@ describe('TrustedCAsPage', () => {
     renderI18n(<TrustedCAsPage admin={mockAdmin({ trustedCAs: vi.fn().mockResolvedValue(trustedView(false)) })} notify={vi.fn()} />);
     expect(await screen.findByText('Managed in the Helm values')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add certificates' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ProxiesPage', () => {
+  it('adds a proxy to the list', async () => {
+    const admin = mockAdmin();
+    const notify = vi.fn();
+    renderI18n(<ProxiesPage admin={admin} notify={notify} />);
+    expect(await screen.findByText('proxy.corp.example:3128')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Add proxy' }));
+    const dialog = within(screen.getByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText('Name'), 'dmz');
+    await userEvent.type(dialog.getByLabelText('Host name or IP'), '10.0.0.9');
+    await userEvent.clear(dialog.getByLabelText('Port'));
+    await userEvent.type(dialog.getByLabelText('Port'), '8080');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(admin.saveProxies).toHaveBeenCalledWith([
+        { name: 'corp', host: 'proxy.corp.example', port: 3128 },
+        { name: 'dmz', host: '10.0.0.9', port: 8080 },
+      ]),
+    );
+    expect(notify).toHaveBeenCalledWith('success', 'Proxies saved. Users can choose them at once.');
+  });
+
+  it('edits the selected proxy and shows field errors from the server', async () => {
+    const admin = mockAdmin({
+      saveProxies: vi.fn().mockRejectedValue(new ApiError(400, 'validation_failed', 'x', [{ field: 'proxies[0].name', code: 'invalid_proxy_name', message: 'x' }])),
+    });
+    const { container } = renderI18n(<ProxiesPage admin={admin} notify={vi.fn()} />);
+    await screen.findByText('proxy.corp.example:3128');
+    createWrapper(container).findTable()!.findRowSelectionArea(1)!.click();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const dialog = within(screen.getByRole('dialog'));
+    await userEvent.clear(dialog.getByLabelText('Name'));
+    await userEvent.type(dialog.getByLabelText('Name'), 'Corp Proxy');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Use 1-32 lowercase letters, digits or dashes.')).toBeInTheDocument();
+    expect(admin.saveProxies).toHaveBeenCalledWith([{ name: 'Corp Proxy', host: 'proxy.corp.example', port: 3128 }]);
+  });
+
+  it('deletes the selected proxy', async () => {
+    const admin = mockAdmin();
+    const { container } = renderI18n(<ProxiesPage admin={admin} notify={vi.fn()} />);
+    await screen.findByText('proxy.corp.example:3128');
+    createWrapper(container).findTable()!.findRowSelectionArea(1)!.click();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(admin.saveProxies).toHaveBeenCalledWith([]));
+  });
+
+  it('is read-only when managed in Helm', async () => {
+    renderI18n(<ProxiesPage admin={mockAdmin({ proxies: vi.fn().mockResolvedValue(proxiesView(false)) })} notify={vi.fn()} />);
+    expect(await screen.findByText('Managed in the Helm values')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add proxy' })).not.toBeInTheDocument();
   });
 });
 

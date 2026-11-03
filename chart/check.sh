@@ -182,7 +182,8 @@ for values in eks list kind sso aks cas; do
     list) extra=("${EKS[@]}" "${GW[@]}" --set namespaceScope.mode=list --set 'namespaceScope.namespaces={payments}' --set 'namespaceScope.exclude=null') ;;
     sso) extra=("${EKS[@]}" "${ALB[@]}" "${DEX[@]}") ;;
     aks) extra=("${AKS[@]}") ;;
-    cas) extra=("${EKS[@]}" "${GW[@]}" --set trustedCasManagedBy=helm --set-file "trustedCas[0]=${CA_FILE}") ;;
+    cas) extra=("${EKS[@]}" "${GW[@]}" --set trustedCasManagedBy=helm --set-file "trustedCas[0]=${CA_FILE}")
+          extra+=(--set proxiesManagedBy=helm --set "proxies[0].name=corp" --set "proxies[0].host=proxy.example.com" --set "proxies[0].port=3128") ;;
     kind) extra=(-f "${ROOT}/test/integration/values-kind.yaml" --set image.repository=localhost:5001/netcheck --set image.tag=lab
           --set probeImage.repository=localhost:5001/netcheck-probe --set "probeImage.digest=sha256:$(printf '0%.0s' {1..64})") ;;
   esac
@@ -205,6 +206,8 @@ expect_not "no trusted authorities by default" "${TMP}/cm-kind.yaml" 'BEGIN CERT
 expect "trusted authorities managed in the web by default" "${TMP}/cm-kind.yaml" 'trustedCasManagedBy: "ui"'
 expect "trusted authority rendered as PEM" "${TMP}/cm-cas.yaml" 'BEGIN CERTIFICATE'
 must_fail "unknown trusted authorities manager" "trustedCasManagedBy must be ui" "${EKS[@]}" "${GW[@]}" --set trustedCasManagedBy=git
+expect "proxy rendered" "${TMP}/cm-cas.yaml" "host: proxy.example.com"
+must_fail "unknown proxies manager" "proxiesManagedBy must be ui" "${EKS[@]}" "${GW[@]}" --set proxiesManagedBy=git
 
 [ "${failures}" -eq 0 ] || { echo "${failures} chart check(s) failed"; exit 1; }
 echo "All chart checks passed."

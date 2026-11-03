@@ -130,6 +130,43 @@ describe('RunDetailPage certificate problems', () => {
   });
 });
 
+describe('RunDetailPage through a proxy', () => {
+  const proxied = (ok: boolean): RunDetail => ({
+    ...done,
+    status: ok ? 'succeeded' : 'failed',
+    checks: [
+      {
+        checkId: '1-tcp',
+        method: 'tcp',
+        status: ok ? 'succeeded' : 'failed',
+        category: ok ? 'ok' : 'proxy_denied',
+        output: '',
+        equivalentArgv: [],
+        resolvedIps: [],
+        diagnosis: { category: ok ? 'ok' : 'proxy_denied', severity: ok ? 'success' : 'error', summary: '', detail: '', conclusive: !ok, proxy: 'corp' },
+        result: {
+          port: 5432,
+          proxy: { name: 'corp', address: 'proxy.corp.example:3128', usedIp: '10.0.0.9', reached: true, status: ok ? 200 : 403, statusText: ok ? '200 Connection established' : '403 Forbidden' },
+        },
+      },
+    ],
+  });
+
+  it('says the tunnel worked and that the direct path was not tested', async () => {
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(proxied(true))} />);
+    expect(await screen.findAllByText('TCP tunnel established through the proxy.')).not.toHaveLength(0);
+    expect(screen.getAllByText(/the direct path from the Pod was not tested/)).not.toHaveLength(0);
+    expect(screen.getByText('corp (proxy.corp.example:3128, IP 10.0.0.9)')).toBeInTheDocument();
+    expect(screen.getByText('CONNECT → 200 Connection established')).toBeInTheDocument();
+  });
+
+  it('explains a refusal of the proxy', async () => {
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(proxied(false))} />);
+    expect(await screen.findAllByText('The proxy refused the tunnel (its policy).')).not.toHaveLength(0);
+    expect(screen.getByText('CONNECT → 403 Forbidden')).toBeInTheDocument();
+  });
+});
+
 describe('RunDetailPage what is missing', () => {
   it('says no NetworkPolicy is needed when none applies to the probe', async () => {
     renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(done)} />);

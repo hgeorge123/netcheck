@@ -147,3 +147,25 @@ func TestIgnoreTLSErrorsFlag(t *testing.T) {
 		t.Errorf("output:\n%s", out.String())
 	}
 }
+
+func TestProxyFlag(t *testing.T) {
+	var got runRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			_ = json.NewDecoder(r.Body).Decode(&got)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"abcdef0123456789"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"succeeded","checks":[]}`))
+	}))
+	t.Cleanup(srv.Close)
+	e := env(map[string]string{"NETCHECK_URL": strings.Replace(srv.URL, "127.0.0.1", "localhost", 1), "NETCHECK_TOKEN": "nck_test"})
+	if err := run(context.Background(), []string{"run", "-n", "payments", "-t", "api", "-c", "https", "-c", "tcp:443", "-c", "dns", "--proxy", "corp"}, e, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	// Only TCP and HTTPS go through the proxy; DNS stays direct.
+	if got.Checks[0].Proxy != "corp" || got.Checks[1].Proxy != "corp" || got.Checks[2].Proxy != "" {
+		t.Errorf("request = %+v", got.Checks)
+	}
+}

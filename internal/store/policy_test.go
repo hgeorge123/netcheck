@@ -54,3 +54,20 @@ func TestTrustedCAsRoundTrip(t *testing.T) {
 		t.Errorf("audit events = %d, want 2", n)
 	}
 }
+
+func TestProxiesRoundTrip(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	if _, err := s.GetProxies(ctx); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("empty database: %v", err)
+	}
+	now := time.Date(2026, 11, 3, 10, 0, 0, 0, time.UTC)
+	ev := AuditEvent{ActorID: "u1", Action: "proxies.update", Outcome: "success"}
+	if err := s.SaveProxies(ctx, StoredProxies{ProxiesJSON: `[{"name":"corp"}]`, UpdatedAt: now, UpdatedBy: "admin"}, ev); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.GetProxies(ctx)
+	if err != nil || p.ProxiesJSON != `[{"name":"corp"}]` || p.UpdatedBy != "admin" || !p.UpdatedAt.Equal(now) {
+		t.Fatalf("got %+v %v", p, err)
+	}
+}

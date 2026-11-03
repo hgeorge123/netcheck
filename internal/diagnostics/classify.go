@@ -40,10 +40,18 @@ const (
 	CategoryICMPNotPermitted  = "icmp_not_permitted"
 	// CategoryTracerouteIncomplete means the destination was not reached.
 	CategoryTracerouteIncomplete = "traceroute_incomplete"
-	CategoryError                = "error"
-	CategoryInfraError           = "infra_error"
-	CategoryAdmissionRejected    = "admission_rejected"
-	CategoryProbeOutputInvalid   = "probe_output_invalid"
+	// Checks through a proxy: the Pod could not reach the proxy, the proxy
+	// did not answer the CONNECT in time, or it answered with an error.
+	CategoryProxyUnreachable   = "proxy_unreachable"
+	CategoryProxyNoAnswer      = "proxy_no_answer"
+	CategoryProxyAuthRequired  = "proxy_auth_required"
+	CategoryProxyDenied        = "proxy_denied"
+	CategoryProxyUpstreamFail  = "proxy_upstream_failed"
+	CategoryProxyProtocolError = "proxy_protocol_error"
+	CategoryError              = "error"
+	CategoryInfraError         = "infra_error"
+	CategoryAdmissionRejected  = "admission_rejected"
+	CategoryProbeOutputInvalid = "probe_output_invalid"
 )
 
 // DeniedChecker lets callers recognise policy denials without importing the

@@ -75,6 +75,7 @@ NetworkPolicy or a request for the firewall team).
 | `--wait` | Maximum time to wait for the result (default `5m`) |
 | `--json` | Print the full result as JSON instead of the table |
 | `--ignore-tls-errors` | HTTPS checks go on despite certificate problems (expired, another name, untrusted authority); the problems are still printed, like `curl --insecure` |
+| `--proxy` | Name of a proxy configured by the administrators: TCP and HTTPS checks go through it; the other checks stay direct. Without it every check uses the direct path |
 
 Checks:
 

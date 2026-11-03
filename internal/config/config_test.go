@@ -76,6 +76,8 @@ func TestRejectsUnsafeConfig(t *testing.T) {
 		"lockout too lax":      baseYAML("auth: {maxFailedLogins: 1000}"),
 		"trusted CA not PEM":   baseYAML("trustedCas: [hello]"),
 		"trusted CAs manager":  baseYAML("trustedCasManagedBy: git"),
+		"proxy name":           baseYAML("proxies: [{name: Corp, host: p, port: 3128}]"),
+		"proxies manager":      baseYAML("proxiesManagedBy: git"),
 		"list without ns":      baseYAML("namespaceScope: {mode: list}"),
 		"list kube-system":     baseYAML("namespaceScope: {mode: list, namespaces: [kube-system]}"),
 		"list default":         baseYAML("namespaceScope: {mode: list, namespaces: [default]}"),

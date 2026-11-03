@@ -94,6 +94,7 @@ func newFixture(t *testing.T) *fixture {
 		Policies: NewDestinationPolicies(probes.DestinationPolicy{AllowCIDRs: []string{"10.0.0.0/8"}, AllowHostnameSuffixes: []string{".svc.cluster.local"},
 			AllowPorts: []probes.PortRange{{From: 80, To: 443}}}, probes.BuiltinDenyCIDRs, true),
 		TrustedCAs: mustTrustedCAs(t, st),
+		Proxies:    mustProxies(t, st),
 		Retention:  NewRetentionSettings(15, 45),
 		Limits:     probes.Limits{MaxChecks: 5, DefaultCheckTimeout: 5 * time.Second, MaxCheckTimeout: 10 * time.Second, MaxJobDuration: 60 * time.Second, MaxOutputBytes: 65536},
 		ClusterID:  "lab", WebDir: web, Log: slog.New(slog.NewTextHandler(io.Discard, nil)),

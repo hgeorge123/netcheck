@@ -14,6 +14,7 @@ export type Route =
   | { page: 'policy' }
   | { page: 'retention' }
   | { page: 'trusted-cas' }
+  | { page: 'proxies' }
   | { page: 'access-rules' }
   | { page: 'tokens' }
   | { page: 'admin-tokens' }
@@ -51,6 +52,8 @@ export function parseHash(hash: string): Route {
       return { page: 'retention' };
     case '/admin/trusted-cas':
       return { page: 'trusted-cas' };
+    case '/admin/proxies':
+      return { page: 'proxies' };
     case '/admin/access-rules':
       return { page: 'access-rules' };
     case '/account/tokens':

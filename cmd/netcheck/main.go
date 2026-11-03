@@ -252,6 +252,10 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
+	proxies, err := api.LoadProxies(ctx, st, cfg.Proxies, cfg.ProxiesManagedBy == config.DestinationsManagedByUI, time.Now())
+	if err != nil {
+		return err
+	}
 
 	srv := &api.Server{
 		Version: build,
@@ -268,6 +272,7 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 		Limiter:    limiter,
 		Policies:   policies,
 		TrustedCAs: trustedCAs,
+		Proxies:    proxies,
 		Retention:  retention,
 		Limits:     cfg.ProbeLimits(),
 		ClusterID:  cfg.ClusterID,

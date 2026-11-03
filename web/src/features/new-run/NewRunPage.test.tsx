@@ -97,6 +97,38 @@ describe('NewRunPage', () => {
     });
   });
 
+  it('lets TCP and HTTPS go through a configured proxy, direct by default', async () => {
+    const submit = vi.fn().mockResolvedValue({ id: 'abcdef0123456789' });
+    const withProxies: Catalog = { ...catalog, proxies: [{ name: 'corp', host: 'proxy.corp.example', port: 3128 }] };
+    const { container } = renderI18n(<NewRunPage namespaces={namespaces} catalog={withProxies} submit={submit} onCreated={vi.fn()} />);
+    const w = createWrapper(container);
+    w.findSelect()!.openDropdown();
+    w.findSelect()!.selectOption(1);
+    await userEvent.type(screen.getByLabelText('Destination'), 'api.example.com');
+    w.findCards()!.findItems()[1]!.findSelectionArea()!.click();
+    w.findCards()!.findItems()[3]!.findSelectionArea()!.click();
+    await userEvent.type(screen.getAllByLabelText('Port')[0]!, '443');
+    const selects = w.findAllSelects();
+    // The proxy selects start on Direct (segmented controls may render selects too).
+    const [tcpProxy, httpsProxy] = selects.filter((s) => s.findTrigger().getElement().textContent?.includes('Direct'));
+    expect(httpsProxy).toBeDefined();
+    expect(tcpProxy!.findTrigger().getElement().textContent).toContain('Direct');
+    httpsProxy!.openDropdown();
+    httpsProxy!.selectOptionByValue('corp');
+    await userEvent.click(screen.getByRole('button', { name: 'Run test' }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(submit.mock.calls[0]![0].checks).toEqual([
+      { method: 'tcp', port: 443 },
+      { method: 'https', port: 443, http: { method: 'GET', path: '/' }, proxy: 'corp' },
+    ]);
+  });
+
+  it('hides the connection choice when no proxy is configured', () => {
+    const { toggle } = setup();
+    toggle(1);
+    expect(screen.queryByText('Connection')).not.toBeInTheDocument();
+  });
+
   it('offers only what can be tested over UDP, with the port of each mode', async () => {
     const { submit, onCreated, selectNamespace, toggle } = setup();
     selectNamespace();

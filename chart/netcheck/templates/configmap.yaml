@@ -54,6 +54,9 @@ data:
     trustedCasManagedBy: {{ .Values.trustedCasManagedBy | quote }}
     trustedCas:
       {{- toYaml .Values.trustedCas | nindent 6 }}
+    proxiesManagedBy: {{ .Values.proxiesManagedBy | quote }}
+    proxies:
+      {{- toYaml .Values.proxies | nindent 6 }}
     kubeApiServerCidrs:
       {{- toYaml (concat .Values.kubeApiServerCidrs .Values.networkPolicy.apiServer.cidrs | uniq) | nindent 6 }}
     limits:

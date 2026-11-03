@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/netip"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -144,7 +145,8 @@ func (r *Runner) runCheck(parent context.Context, spec probes.Spec, policy *prob
 	switch {
 	case err == nil:
 		cr.Status = probes.StatusSucceeded
-	case cr.Category == diagnostics.CategoryTimeout || cr.Category == diagnostics.CategoryDNSTimeout || cr.Category == diagnostics.CategoryUDPNoReply:
+	case cr.Category == diagnostics.CategoryTimeout || cr.Category == diagnostics.CategoryDNSTimeout || cr.Category == diagnostics.CategoryUDPNoReply ||
+		cr.Category == diagnostics.CategoryProxyNoAnswer:
 		cr.Status = probes.StatusTimedOut
 	default:
 		cr.Status = probes.StatusFailed
@@ -236,6 +238,20 @@ func (r *Runner) runTCP(ctx context.Context, spec probes.Spec, policy *probes.Co
 	if err := policy.CheckPort(c.Port); err != nil {
 		return err
 	}
+	if c.Proxy != nil {
+		// Through a proxy the destination is checked by name only: the proxy
+		// resolves it and connects to it.
+		if err := policy.CheckHost(t); err != nil {
+			return err
+		}
+		cr.Equivalent = []string{"nc", "-z", "-v", "-w", strconv.Itoa(max(1, c.TimeoutMS/1000)), "-X", "connect", "-x", c.Proxy.Address(), t.Host, strconv.Itoa(c.Port)}
+		conn, err := r.dialProxy(ctx, policy, *c.Proxy, cr, st)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		return proxyTunnel(ctx, conn, net.JoinHostPort(t.Host, strconv.Itoa(c.Port)), cr, st)
+	}
 	allowed, err := r.resolve(ctx, t, "ip", policy, cr, st)
 	if err != nil {
 		return err
@@ -264,14 +280,6 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 	u := scheme + "://" + net.JoinHostPort(t.Host, strconv.Itoa(c.Port)) + opts.Path
 	cr.HTTP = &probes.HTTPResult{URL: u, Method: opts.Method}
 
-	allowed, err := r.resolve(ctx, t, "ip", policy, cr, st)
-	if err != nil {
-		return err
-	}
-	ip := allowed[0]
-	cr.UsedIP = ip.String()
-	pinned := net.JoinHostPort(ip.String(), strconv.Itoa(c.Port))
-
 	cr.Equivalent = []string{"curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}\\n", "--max-time", strconv.Itoa(max(1, c.TimeoutMS/1000)), "--max-redirs", "0"}
 	if opts.Method == "HEAD" {
 		cr.Equivalent = append(cr.Equivalent, "--head")
@@ -279,8 +287,37 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 	if opts.IgnoreTLSErrors {
 		cr.Equivalent = append(cr.Equivalent, "--insecure")
 	}
-	if !t.IsIP {
-		cr.Equivalent = append(cr.Equivalent, "--resolve", fmt.Sprintf("%s:%d:%s", t.Host, c.Port, ip))
+
+	// Never use environment proxies: only the proxy chosen for the check.
+	var proxyURL func(*http.Request) (*url.URL, error)
+	var dial func(ctx context.Context) (net.Conn, error)
+	var connectStart time.Time
+	pinned := ""
+	if p := c.Proxy; p != nil {
+		// The proxy resolves the destination; it is checked by name only.
+		if err := policy.CheckHost(t); err != nil {
+			return err
+		}
+		proxyURL = func(*http.Request) (*url.URL, error) { return &url.URL{Scheme: "http", Host: p.Address()}, nil }
+		dial = func(ctx context.Context) (net.Conn, error) {
+			conn, err := r.dialProxy(ctx, policy, *p, cr, st)
+			connectStart = time.Now()
+			return conn, err
+		}
+		cr.Equivalent = append(cr.Equivalent, "--proxy", "http://"+p.Address())
+	} else {
+		allowed, err := r.resolve(ctx, t, "ip", policy, cr, st)
+		if err != nil {
+			return err
+		}
+		ip := allowed[0]
+		cr.UsedIP = ip.String()
+		pinned = net.JoinHostPort(ip.String(), strconv.Itoa(c.Port))
+		// Always dial the validated, pinned address (DNS rebinding defense).
+		dial = func(ctx context.Context) (net.Conn, error) { return r.Dialer.DialContext(ctx, "tcp", pinned) }
+		if !t.IsIP {
+			cr.Equivalent = append(cr.Equivalent, "--resolve", fmt.Sprintf("%s:%d:%s", t.Host, c.Port, ip))
+		}
 	}
 	cr.Equivalent = append(cr.Equivalent, "--", u)
 
@@ -289,10 +326,15 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		return err
 	}
 	transport := &http.Transport{
-		Proxy: nil, // never use environment proxies: the probe must test the Pod's direct path
-		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			// Always dial the validated, pinned address (DNS rebinding defense).
-			return r.Dialer.DialContext(ctx, "tcp", pinned)
+		Proxy:       proxyURL,
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return dial(ctx) },
+		OnProxyConnectResponse: func(_ context.Context, _ *url.URL, _ *http.Request, resp *http.Response) error {
+			recordConnect(cr.Proxy, resp, time.Since(connectStart))
+			st.printf("CONNECT %s: proxy answered %s", net.JoinHostPort(t.Host, strconv.Itoa(c.Port)), cr.Proxy.StatusText)
+			if resp.StatusCode/100 != 2 {
+				cr.Category = proxyStatusCategory(resp.StatusCode)
+			}
+			return nil
 		},
 		// The certificate is checked by inspectCertificate, which reports
 		// every problem; the handshake fails on them unless they are ignored.
@@ -342,7 +384,11 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		return err
 	}
 	req.Header.Set("User-Agent", userAgent)
-	st.printf("%s %s (pinned to %s)", opts.Method, u, pinned)
+	if c.Proxy != nil {
+		st.printf("%s %s (through proxy %s)", opts.Method, u, c.Proxy.Name)
+	} else {
+		st.printf("%s %s (pinned to %s)", opts.Method, u, pinned)
+	}
 
 	resp, err := client.Do(req)
 	h := cr.HTTP
@@ -353,11 +399,17 @@ func (r *Runner) runHTTP(ctx context.Context, spec probes.Spec, policy *probes.C
 		h.TLSMS = tlsDone.Sub(tlsStart).Milliseconds()
 	}
 	if err != nil {
-		cat := diagnostics.Classify(err, isDenied)
-		if cat == diagnostics.CategoryError && !connectDone.IsZero() {
-			cat = diagnostics.CategoryHTTPProtocol
+		switch {
+		case cr.Category != "": // the proxy could not be reached or refused the tunnel
+		case cr.Proxy != nil && cr.Proxy.Reached && cr.Proxy.Status == 0:
+			cr.Category = noAnswerCategory(err)
+		default:
+			cat := diagnostics.Classify(err, isDenied)
+			if cat == diagnostics.CategoryError && !connectDone.IsZero() {
+				cat = diagnostics.CategoryHTTPProtocol
+			}
+			cr.Category = cat
 		}
-		cr.Category = cat
 		return err
 	}
 	defer resp.Body.Close()

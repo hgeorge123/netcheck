@@ -102,6 +102,21 @@ describe('buildRequest', () => {
   });
 });
 
+describe('proxies', () => {
+  it('sends the proxy only for the checks that use one and restores it on Run again', () => {
+    const req = buildRequest({ ...base, methods: ['tcp', 'https', 'ping'], tcpProxy: 'corp', httpsProxy: '' });
+    expect(req.checks[0]).toEqual({ method: 'tcp', port: 5432, proxy: 'corp' });
+    expect(req.checks[1]).not.toHaveProperty('proxy');
+    expect(buildRequest(formFromRun({ request: req }))).toEqual(req);
+  });
+
+  it('maps proxy errors to the proxy field of that method', () => {
+    const req = buildRequest({ ...base, methods: ['tcp', 'https'], tcpProxy: 'gone', httpsProxy: 'gone' });
+    const e = mapServerErrors([{ field: 'checks[1].proxy', code: 'proxy_unknown', message: 'x' }], req, (d) => d.message);
+    expect(e).toEqual({ httpsProxy: { text: 'x' } });
+  });
+});
+
 describe('mapServerErrors', () => {
   it('maps indexed check errors to the field of that method', () => {
     const req = buildRequest({ ...base, methods: ['tcp', 'https', 'ping'] });

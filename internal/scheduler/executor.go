@@ -415,6 +415,9 @@ func (e *Executor) collect(ctx context.Context, run store.Run, spec probes.Spec,
 		if cr.HTTP != nil && cr.HTTP.TLSIgnored {
 			diag = diagnostics.WithIgnoredCertificate(diag, cr.HTTP.TLSProblemDetail)
 		}
+		if cr.Proxy != nil {
+			diag = diagnostics.WithProxy(diag, string(cr.Method), cr.Proxy.Name)
+		}
 		out := cr.Output
 		cr.Output = "" // stored separately so retention can purge it
 		started, finished := cr.StartedAt, cr.FinishedAt

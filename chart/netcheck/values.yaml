@@ -154,6 +154,18 @@ trustedCasManagedBy: ui
 #     -----END CERTIFICATE-----
 trustedCas: []
 
+# -- Who manages the proxies: "ui" (default) = proxies is only the INITIAL list,
+# copied to the database on the first start; afterwards administrators manage
+# it in Administration > Proxies. "helm" = proxies is authoritative and the web
+# page is read-only.
+proxiesManagedBy: ui
+
+# -- HTTP proxies users may choose for TCP and HTTPS checks (a CONNECT tunnel),
+# always optional per check; without proxies the option is hidden. Each proxy
+# must be a destination the policy allows. Authentication is not supported.
+# Example: proxies: [{name: corp, host: proxy.example.com, port: 3128}]
+proxies: []
+
 # -- Keep true. Always denies cloud metadata (169.254.169.254, fd00:ec2::254,
 # where a Pod could read the node IAM credentials), the Kubernetes API server,
 # loopback, link-local, multicast and reserved ranges, whatever destinations

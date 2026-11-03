@@ -256,6 +256,9 @@ Settings you usually keep:
 - **Certificate authorities:** HTTPS checks trust the public authorities only. If your services use a corporate PKI or
   a proxy inspects TLS, list its authority in `trustedCas` (PEM, public data) or add it later in
   **Administration → Certificate authorities** ([admin guide §18](admin-guide.md#18-certificate-authorities)).
+- **Proxies:** none by default, and every check uses the direct path. If your applications go out through an HTTP
+  proxy, list it in `proxies` or add it later in **Administration → Proxies**
+  ([admin guide §19](admin-guide.md#19-proxies)); users may then choose it for TCP and HTTPS checks.
 - **`probe.settleSeconds`:** 3 s wait so the CNI applies policies to the new probe Pod before measuring (step 12).
 
 Keep `values.yaml` in your configuration repository. It holds no secrets: the initial password lives only in the cluster.

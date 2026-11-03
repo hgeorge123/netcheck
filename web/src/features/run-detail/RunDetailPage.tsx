@@ -113,6 +113,14 @@ function CheckDetail({ c }: { c: ExecutionView }) {
     { label: t('run.col.port'), value: r?.port ? String(r.port) : '—' },
     { label: t('run.deniedIps'), value: r?.deniedIps?.length ? r.deniedIps.join(', ') : '—' },
   ];
+  if (r?.proxy) {
+    const p = r.proxy;
+    pairs.push({ label: t('run.proxy'), value: t('run.proxyValue', { name: p.name, address: p.address, ip: p.usedIp ?? '—' }) });
+    pairs.push({
+      label: t('run.proxyReply'),
+      value: p.statusText ? `CONNECT → ${p.statusText}` : t(p.reached ? 'run.proxyNoReply' : 'run.proxyNotReached'),
+    });
+  }
   if (r?.dns?.cname) pairs.push({ label: t('run.cname'), value: r.dns.cname });
   if (r?.http?.statusCode !== undefined) pairs.push({ label: t('run.httpStatus'), value: `${r.http.statusCode} (${r.http.proto ?? ''})` });
   if (r?.http?.location) pairs.push({ label: t('run.location'), value: r.http.location });

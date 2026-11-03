@@ -105,6 +105,9 @@ type Check struct {
 	UDP        *UDPOptions        `json:"udp,omitempty"`
 	Ping       *PingOptions       `json:"ping,omitempty"`
 	Traceroute *TracerouteOptions `json:"traceroute,omitempty"`
+	// Proxy (TCP and HTTPS only) tunnels the check through this proxy
+	// instead of the direct path.
+	Proxy *Proxy `json:"proxy,omitempty"`
 }
 
 // Spec is the immutable description of a run. It is built and validated by
@@ -176,6 +179,23 @@ type CheckResult struct {
 	UDP         *UDPResult        `json:"udp,omitempty"`
 	Ping        *PingResult       `json:"ping,omitempty"`
 	Traceroute  *TracerouteResult `json:"traceroute,omitempty"`
+	Proxy       *ProxyResult      `json:"proxy,omitempty"`
+}
+
+// ProxyResult is the evidence of a check tunnelled through a proxy: the
+// probe reached the proxy (Reached) and asked it for a CONNECT tunnel to the
+// destination, which the proxy answered with Status. The proxy, not the
+// probe, resolves the destination and connects to it.
+type ProxyResult struct {
+	Name        string   `json:"name"`
+	Address     string   `json:"address"`
+	ResolvedIPs []string `json:"resolvedIps,omitempty"`
+	UsedIP      string   `json:"usedIp,omitempty"`
+	Reached     bool     `json:"reached"`
+	ConnectMS   int64    `json:"connectMs,omitempty"`
+	Status      int      `json:"status,omitempty"`
+	StatusText  string   `json:"statusText,omitempty"`
+	TunnelMS    int64    `json:"tunnelMs,omitempty"`
 }
 
 // DNSResult holds DNS specific evidence.

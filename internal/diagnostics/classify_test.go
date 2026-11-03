@@ -111,3 +111,17 @@ func TestIgnoredCertificateIsNeverACleanSuccess(t *testing.T) {
 		t.Errorf("a 503 keeps its warning: %+v", d)
 	}
 }
+
+func TestWithProxy(t *testing.T) {
+	d := WithProxy(Diagnose("tcp", CategoryOK, 0), "tcp", "corp")
+	if d.Proxy != "corp" || d.Summary != "TCP tunnel established through the proxy." || !strings.Contains(d.Detail, "direct path from the Pod was not tested") {
+		t.Errorf("tcp through proxy = %+v", d)
+	}
+	d = WithProxy(Diagnose("https", CategoryProxyDenied, 0), "https", "corp")
+	if !d.Conclusive || d.Severity != SeverityError || !strings.HasPrefix(d.Summary, "The proxy refused") {
+		t.Errorf("proxy denied = %+v", d)
+	}
+	if d := Diagnose("tcp", CategoryProxyUnreachable, 0); d.Conclusive || !strings.Contains(d.Detail, "between the Pod and the proxy") {
+		t.Errorf("proxy unreachable = %+v", d)
+	}
+}

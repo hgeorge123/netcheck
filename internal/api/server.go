@@ -53,6 +53,9 @@ type Server struct {
 	// TrustedCAs are the certificate authorities HTTPS checks trust on top
 	// of the public ones (editable by admins; nil means none).
 	TrustedCAs *TrustedCAs
+	// Proxies are the HTTP proxies TCP and HTTPS checks may go through
+	// (editable by admins; nil means none).
+	Proxies *Proxies
 	// Retention is how long test data is kept (editable by admins).
 	Retention *RetentionSettings
 	Limits    probes.Limits
@@ -106,6 +109,8 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("POST /api/v1/admin/policy/check", requireAdmin(http.HandlerFunc(s.adminCheckDestination)))
 	api.Handle("GET /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminTrustedCAs)))
 	api.Handle("PUT /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminSetTrustedCAs)))
+	api.Handle("GET /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminProxies)))
+	api.Handle("PUT /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminSetProxies)))
 	api.Handle("GET /api/v1/admin/retention", requireAdmin(http.HandlerFunc(s.adminRetention)))
 	api.Handle("GET /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminAccessRules)))
 	api.Handle("POST /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminSaveAccessRule)))
@@ -239,6 +244,8 @@ func (s *Server) namespaces(w http.ResponseWriter, r *http.Request) {
 func (s *Server) catalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": probes.Catalog,
+		// Proxies users may choose for TCP and HTTPS checks (optional).
+		"proxies": s.Proxies.List(),
 		"limits": map[string]any{
 			"maxChecks":                  s.Limits.MaxChecks,
 			"defaultCheckTimeoutSeconds": int(s.Limits.DefaultCheckTimeout.Seconds()),
@@ -277,7 +284,7 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	runID := newID(16)
-	spec, err := probes.BuildSpec(runID, req, s.Policies.Effective(), s.Limits)
+	spec, err := probes.BuildSpec(runID, req, s.Policies.Effective(), s.Limits, s.Proxies.List()...)
 	if err == nil {
 		spec.TrustedCAs = s.TrustedCAs.forSpec(spec)
 	}

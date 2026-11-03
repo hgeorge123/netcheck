@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0](https://github.com/hgeorge123/netcheck/compare/v0.7.0...v1.0.0) (2026-11-03)
+
+
+### Features
+
+* **probe:** explain certificate problems and allow ignoring them for HTTPS ([03b5930](https://github.com/hgeorge123/netcheck/commit/03b5930853802bb4193be6717f1d44670d47314a))
+
+
+### Miscellaneous
+
+* release 1.0.0 ([1d3d764](https://github.com/hgeorge123/netcheck/commit/1d3d76433b045fb8dd50c1b94cd13d4c300b11a5))
+
 ## [0.7.0](https://github.com/hgeorge123/netcheck/compare/v0.6.0...v0.7.0) (2026-11-03)
 
 

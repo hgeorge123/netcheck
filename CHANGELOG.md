@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/hgeorge123/netcheck/compare/v0.6.0...v0.7.0) (2026-11-03)
+
+
+### Features
+
+* **chart:** expose NetCheck with any Ingress controller and document AKS ([8465fea](https://github.com/hgeorge123/netcheck/commit/8465fea46ff07f7e52545be43b590b0f690ac72f))
+
 ## [0.6.0](https://github.com/hgeorge123/netcheck/compare/v0.5.0...v0.6.0) (2026-11-03)
 
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.1](https://github.com/hgeorge123/netcheck/compare/v1.2.0...v1.2.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* proxy tests render for their owner and new proxies appear at once ([66de77c](https://github.com/hgeorge123/netcheck/commit/66de77c10f9a8b8e7446a5915a9a5f6448d76a28))
+
+
+### Documentation
+
+* Argo CD examples use the current chart version ([6c42671](https://github.com/hgeorge123/netcheck/commit/6c426710103c0757c2da85d78e8fc840ef85fc8e))
+* Argo CD installation and screenshots of certificate authorities and proxies ([92f4d8c](https://github.com/hgeorge123/netcheck/commit/92f4d8c55a1911d30e38233885fa0f53ab5f1928))
+
 ## [1.2.0](https://github.com/hgeorge123/netcheck/compare/v1.1.2...v1.2.0) (2026-11-03)
 
 

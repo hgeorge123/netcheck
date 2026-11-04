@@ -421,8 +421,8 @@ is enabled. Every change is in the audit log.
 
 ## 17. API tokens
 
-Users create API tokens for pipelines and `netcheck-cli` in their **user menu → API tokens** (see the
-[CLI guide](cli.md)). A token acts as its owner but can only run and read tests, expires after at most one year and
+Users create API tokens for pipelines and `netcheck-cli` in **My API tokens** (side navigation) or their **user
+menu → API tokens** (see the [CLI guide](cli.md)). A token acts as its owner but can only run and read tests, expires after at most one year and
 stops working when the account is disabled.
 
 **Administration → API tokens** lists every token with its owner, creation, expiry and last use. Select one and
@@ -433,9 +433,10 @@ error. Expired tokens are deleted automatically. Creating and revoking tokens is
 ## 18. Certificate authorities
 
 HTTPS checks verify certificates against the **public** authorities only. A server with a certificate from your
-corporate PKI, or traffic that a proxy inspects (the proxy re-signs every certificate with its own authority), is
-reported as *signed by an authority the probe does not trust*. **Administration → Certificate authorities** adds
-authorities that HTTPS checks trust **on top of** the public ones:
+corporate PKI, or traffic that a firewall decrypts and re-signs on the way, is reported as *signed by an authority the
+probe does not trust*. **Administration → Certificate authorities** adds authorities that **every** HTTPS check trusts
+**on top of** the public ones, with or without a proxy. For the authority of a proxy you choose in the test, see
+[Which one to use](#which-one-to-use) below: it belongs in the proxy, not here.
 
 1. Click **Add certificates** and paste the authority in PEM, from `-----BEGIN CERTIFICATE-----` to
    `-----END CERTIFICATE-----`. A bundle with several certificates is split; duplicates are dropped.
@@ -444,7 +445,7 @@ authorities that HTTPS checks trust **on top of** the public ones:
 
 ![Certificate authorities with the example corporate root](images/admin-21-certificate-authorities.png)
 
-![Adding the authority of a TLS inspection proxy](images/admin-22-add-certificate-authority.png)
+![Adding a certificate authority in PEM](images/admin-22-add-certificate-authority.png)
 
 The list shows the subject, the issuer, the expiry (expired authorities are marked) and the SHA-256 fingerprint, to
 compare with the one your PKI team gives you. Select an authority and **Remove** it to stop trusting it.
@@ -457,6 +458,23 @@ specification of every HTTPS test. Tests without an HTTPS check never receive it
 When a certificate was validated through one of these authorities, the result says so (**Trusted through: … (authority
 configured in NetCheck, not a public one)**) and the equivalent command adds `--cacert`. If a public site such as
 `www.google.com` shows up as trusted through your corporate authority, something on the path is inspecting TLS.
+
+### Which one to use
+
+NetCheck trusts a non-public authority in two places. Pick by **who issued the certificate the check receives**:
+
+| Situation | Where the authority goes | Which checks trust it |
+|---|---|---|
+| Your servers have certificates from your **corporate PKI** (internal APIs, cert-manager with a private issuer) | **Certificate authorities** (this section) | Every HTTPS check of every user |
+| A **firewall decrypts TLS transparently** on the path (inline inspection: nothing is configured as a proxy, the Pod connects "directly") | **Certificate authorities** (this section) | Every HTTPS check of every user |
+| An **HTTP proxy that inspects TLS** and that users choose in **Connection** (Zscaler, Netskope, Squid with SSL bump…) | **The proxy** (§19, *Certificate authorities of this proxy*) | Only HTTPS checks **through that proxy**, by whoever may use it |
+
+Keep the authority of an explicit proxy in the proxy, not here. Here it would also be trusted by checks that do **not**
+go through the proxy, and an unexpected interception on a direct path would then look valid instead of being reported
+as an untrusted authority.
+
+A check through a proxy trusts **both lists**: these authorities plus the proxy's. So a check to an internal server with
+a corporate certificate works through an inspecting proxy too.
 
 **With Helm or Argo CD.** The initial list comes from `trustedCas` in the values (certificates are public data, safe in
 Git). Like the destination policy, `trustedCasManagedBy: ui` (default) copies it to the database on the first start
@@ -481,7 +499,7 @@ There are two kinds of proxies:
 
 | | Shared proxies (administrators) | Personal proxies (each user) |
 |---|---|---|
-| Where | **Administration → Proxies** | **User menu → My proxies** |
+| Where | **Administration → Proxies** | **My proxies** (side navigation or user menu) |
 | Who creates, edits and deletes them | Administrators only | Only their owner |
 | Who sees and uses them | **Every user** (*Share with every user*) or **administrators only** | **Only their owner**, administrators included: nobody else |
 | Limit | 20 | 10 per user; deleted with the account |
@@ -508,10 +526,17 @@ HTTP, an error page the proxy answers itself (Squid's `X-Squid-Error`, `Proxy-St
 answer is the destination's.
 
 **Certificate authorities of a proxy.** A proxy that inspects TLS re-signs every certificate with its own authority.
-Paste that authority (PEM) in the proxy: it is trusted **only for HTTPS checks through that proxy**, by its owner (or by
-every user who may use a shared proxy), and the result says the certificate was trusted through it. A proxy that does
-not inspect TLS needs none. The authorities of **Certificate authorities** (§18) apply to every HTTPS check, with or
-without a proxy.
+Paste that authority (PEM) in the proxy: it is trusted **only for HTTPS checks through that proxy**, and the result
+says the certificate was trusted through it. A proxy that does not inspect TLS needs none. The authorities of
+**Certificate authorities** (§18) apply to every HTTPS check, with or without a proxy; [which one to
+use](#which-one-to-use) explains where each authority belongs.
+
+The authorities **travel with the proxy**:
+
+- **Shared proxy:** every user who may choose it (every user, or administrators only) trusts its authorities in their
+  checks through it. They do not see the PEM: the **Connection** list only tags the proxy *with CA*. Only
+  administrators see, change or remove the authorities.
+- **Personal proxy:** only its owner trusts, sees and changes them.
 
 **Privacy of personal proxies.** Each user only sees their own tests (§15). When an administrator opens a test that
 went through a personal proxy, it shows **"Personal proxy of \<user\>"**: the name, address, IPs and authorities of the

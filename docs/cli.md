@@ -44,8 +44,9 @@ NetCheck URL you give it; it never runs commands.
 
 ## 2. Create an API token
 
-In NetCheck, open the **user menu → API tokens → Create token**, give it a name (for example *payments deploy
-pipeline*) and an expiry (30 to 365 days). The token is shown **once**: store it in the secrets of your pipeline.
+In NetCheck, open **My API tokens** in the side navigation (or **user menu → API tokens**) and click **Create
+token**; give it a name (for example *payments deploy pipeline*) and an expiry (30 to 365 days). The token is shown
+**once**: store it in the secrets of your pipeline.
 
 A token:
 

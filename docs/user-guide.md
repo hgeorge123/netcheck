@@ -70,16 +70,16 @@ NetCheck asks you to change it before anything else.
 NetCheck follows the layout of the AWS console:
 
 - **Top bar:** logo, **preferences** button (gear) and your name, with the user menu.
-- **Side navigation:** **Dashboard**, **Create test** and **Test history** (administrators also see
-  **Administration**). It can be collapsed with the arrow.
+- **Side navigation:** **Dashboard**, **Create test**, **Test history**, **My proxies** and **My API tokens**
+  (administrators also see **Administration**). It can be collapsed with the arrow.
 - **Breadcrumbs** above the title of each page.
 - **Help panel** (the "i" icon on the right or the **Info** link): a summary of how to read the results.
 
 ### 2.4 User menu, preferences and sign out
 
 The menu with your name opens **Preferences**, **Change password** (not shown for single sign-on accounts), **API
-tokens** (section 8), **My proxies** (your own proxies, section 4.2.2) and **Sign out**. Its description shows your
-username, your role and the NetCheck version.
+tokens** (section 8), **My proxies** (your own proxies, section 4.2.2) and **Sign out**. **API tokens** and **My
+proxies** are also in the side navigation. Its description shows your username, your role and the NetCheck version.
 
 ![User menu](images/user-20-user-menu.png)
 
@@ -147,10 +147,10 @@ Select one or more cards (or **Select all**). They run one after another in a si
   first and then the **Shared** ones. Use it when your applications reach the destination through the proxy. A success
   proves the path through the proxy, not the direct one; the proxy resolves the name, so the result shows the proxy's
   IP and its answer instead of the destination IP.
-- **My proxies** (user menu): your own proxies, which only you can see and use. Add the name, host and port, and, if
-  the proxy inspects TLS, its certificate authority (PEM), which is trusted only for your HTTPS checks through that
-  proxy. If an administrator opens one of your tests, they only see that it went through a personal proxy, not which
-  one.
+- **My proxies** (side navigation or user menu): your own proxies, which only you can see and use. Add the name,
+  host and port, and, if the proxy inspects TLS, its certificate authority (PEM), which is trusted only for your HTTPS
+  checks through that proxy. If an administrator opens one of your tests, they only see that it went through a
+  personal proxy, not which one.
 - **DNS:** address family (IPv4 and IPv6, IPv4 only or IPv6 only).
 - **Ping:** number of echo requests (1–10, one per second).
 - **Traceroute:** maximum hops (1–30, at most one second per hop).
@@ -181,8 +181,8 @@ sockets*, enabled only inside the probe Pod.
 
 #### 4.2.2 Through a proxy
 
-**User menu → My proxies → Add proxy** registers a proxy of your own: a name, the host and the port, and, only if the
-proxy inspects TLS, its certificate authority. Nobody else can see or use it.
+**My proxies → Add proxy** (side navigation or user menu) registers a proxy of your own: a name, the host and the
+port, and, only if the proxy inspects TLS, its certificate authority. Nobody else can see or use it.
 
 ![Adding a personal proxy](images/user-25-add-personal-proxy.png)
 
@@ -275,7 +275,7 @@ The **Details** block also shows the **probe Pod IP** and the **node** the measu
 | HTTP/HTTPS **200–299** | The service answered fine | — |
 | HTTP/HTTPS **401/403/404/5xx** | **There is connectivity**; the problem is in the application. Shown as a warning, not as a network failure | A network problem |
 | TLS **certificate not valid** | It connected, but the certificate failed; the detail says which problem: expired or not yet valid, issued for another name, signed by an authority the probe does not trust, or self-signed | A network block |
-| HTTPS **Trusted through** an authority *configured in NetCheck* | The certificate is valid, but only thanks to an authority your administrators added (corporate PKI or a TLS inspection proxy, [admin guide §18](admin-guide.md#18-certificate-authorities)) | That other clients trust it: they need the same authority installed |
+| HTTPS **Trusted through** an authority *configured in NetCheck* | The certificate is valid, but only thanks to an authority added in NetCheck: by your administrators (corporate PKI or a firewall that decrypts TLS, [admin guide §18](admin-guide.md#18-certificate-authorities)) or in the proxy the check went through | That other clients trust it: they need the same authority installed |
 | HTTPS answered, **certificate errors ignored** (warning) | You chose *Ignore certificate errors*: the network and the application answer, but the certificate has the problems listed | That clients will accept it: anything that verifies certificates still rejects it |
 | Through a proxy: **proxy could not be reached** | The block is between the Pod and the proxy (NetworkPolicy, firewall or wrong address); the destination was never tried | A block towards the destination |
 | Through a proxy: **proxy refused the tunnel** (403) / **requires authentication** (407) | The proxy answered: its policy denies that destination or port (many proxies only allow port 443), or it only accepts authenticated clients | A network block: ask the proxy team |
@@ -379,9 +379,10 @@ sessions in other browsers.
 
 ## 8. API tokens and the command line
 
-To run tests from a CI/CD pipeline or a terminal, create an **API token** in the **user menu → API tokens → Create
-token**. Give it a name and an expiry (30 to 365 days); it is shown **once**, so copy it into the secrets of your
-pipeline. The token acts as you, with your namespaces and the destination policy, but it can only run and read tests.
+To run tests from a CI/CD pipeline or a terminal, create an **API token** in **My API tokens** (side navigation, or
+**user menu → API tokens**) **→ Create token**. Give it a name and an expiry (30 to 365 days); it is shown
+**once**, so copy it into the secrets of your pipeline. The token acts as you, with your namespaces and the
+destination policy, but it can only run and read tests.
 Revoke it from the same page when it is no longer needed.
 
 Use it with `netcheck-cli`, which runs the test, waits for the result and exits with `0` (passed), `1`

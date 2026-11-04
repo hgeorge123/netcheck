@@ -257,8 +257,10 @@ Settings you usually keep:
   them later in **Administration → Data retention**.
 - **Sessions:** 60 min idle, 12 h maximum, 15 min lockout after 5 failed attempts.
 - **Certificate authorities:** HTTPS checks trust the public authorities only. If your services use a corporate PKI or
-  a proxy inspects TLS, list its authority in `trustedCas` (PEM, public data) or add it later in
-  **Administration → Certificate authorities** ([admin guide §18](admin-guide.md#18-certificate-authorities)).
+  a firewall decrypts TLS on the path, list its authority in `trustedCas` (PEM, public data) or add it later in
+  **Administration → Certificate authorities** ([admin guide §18](admin-guide.md#18-certificate-authorities)). The
+  authority of a proxy that users choose goes in that proxy instead ([which one to
+  use](admin-guide.md#which-one-to-use)).
 - **Proxies:** none by default, and every check uses the direct path. If your applications go out through an HTTP
   proxy, list it in `proxies` or add it later in **Administration → Proxies**
   ([admin guide §19](admin-guide.md#19-proxies)), shared with every user or kept for administrators, with the

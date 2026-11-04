@@ -361,6 +361,15 @@ func exitCode(p *corev1.Pod) *int {
 	return nil
 }
 
+// nonNil keeps empty lists as [] in the stored JSON: a check through a proxy
+// resolves nothing in the Pod.
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
 func mustJSON(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -425,7 +434,7 @@ func (e *Executor) collect(ctx context.Context, run store.Run, spec probes.Spec,
 		execs = append(execs, store.Execution{
 			CheckID: c.ID, Status: cr.Status, Category: cr.Category, ArgvJSON: mustJSON(cr.Equivalent),
 			StartedAt: &started, FinishedAt: &finished, DurationMS: &dur, ExitCode: code,
-			Stdout: out, Stderr: cr.Error, ResolvedIPsJSON: mustJSON(cr.ResolvedIPs), UsedIP: cr.UsedIP,
+			Stdout: out, Stderr: cr.Error, ResolvedIPsJSON: mustJSON(nonNil(cr.ResolvedIPs)), UsedIP: cr.UsedIP,
 			PodIP: podIP, NodeName: node, NodeIP: pod.Status.HostIP, PodName: pod.Name, JobName: jobName, DiagnosisJSON: mustJSON(diag), ResultJSON: mustJSON(cr),
 		})
 		if cr.Status != probes.StatusSucceeded && status == store.RunSucceeded {

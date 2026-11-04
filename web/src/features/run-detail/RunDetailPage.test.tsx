@@ -177,6 +177,14 @@ describe('RunDetailPage through a proxy', () => {
     expect(screen.getByText('1.1 squid')).toBeInTheDocument();
   });
 
+  it('renders a check whose Pod resolved nothing (stored before the fix as null)', async () => {
+    const fwd = proxied(true);
+    fwd.checks[0]!.resolvedIps = null as unknown as string[];
+    fwd.checks[0]!.result = { port: 80, proxy: { name: 'corp', address: 'proxy.corp.example:3128', usedIp: '10.0.0.9', mode: 'forward', reached: true } };
+    renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(fwd)} />);
+    expect(await screen.findByText('Request forwarded by the proxy')).toBeInTheDocument();
+  });
+
   it('explains a refusal of the proxy', async () => {
     renderI18n(<RunDetailPage id={done.id} load={vi.fn().mockResolvedValue(proxied(false))} />);
     expect(await screen.findAllByText('The proxy refused the tunnel (its policy).')).not.toHaveLength(0);

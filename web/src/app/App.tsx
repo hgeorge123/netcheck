@@ -210,6 +210,27 @@ export function App() {
     return () => setSessionListener(undefined);
   }, [load]);
 
+  // The catalog lists the proxies the user may choose: refresh it whenever
+  // the new-test form opens, so a proxy added a moment ago (by the user or an
+  // administrator) is offered without reloading the page.
+  const onNewTest = route.page === 'new';
+  const hasCatalog = session.state === 'ready' && session.catalog !== null;
+  useEffect(() => {
+    if (!onNewTest || !hasCatalog) return;
+    let current = true;
+    api
+      .catalog()
+      .then((catalog) => {
+        if (current) setSession((s) => (s.state === 'ready' && s.catalog ? { ...s, catalog } : s));
+      })
+      .catch(() => {
+        // Keep the catalog loaded at sign-in; the server validates every request anyway.
+      });
+    return () => {
+      current = false;
+    };
+  }, [onNewTest, hasCatalog]);
+
   if (session.state === 'loading') {
     return (
       <Box textAlign="center" padding="xxxl">

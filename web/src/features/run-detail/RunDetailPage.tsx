@@ -108,7 +108,7 @@ function CheckDetail({ c, actor }: { c: ExecutionView; actor: string }) {
   const cmd = c.equivalentArgv.length > 0 ? shellQuote(c.equivalentArgv) : '';
   const dx = c.diagnosis ? diagnosisText(t, c.method, c.diagnosis) : undefined;
   const pairs = [
-    { label: t('run.resolvedIps'), value: c.resolvedIps.length > 0 ? c.resolvedIps.join(', ') : '—' },
+    { label: t('run.resolvedIps'), value: c.resolvedIps?.length ? c.resolvedIps.join(', ') : '—' },
     { label: t('run.usedIp'), value: c.usedIp || '—' },
     { label: t('run.col.port'), value: r?.port ? String(r.port) : '—' },
     { label: t('run.deniedIps'), value: r?.deniedIps?.length ? r.deniedIps.join(', ') : '—' },

@@ -62,7 +62,9 @@ func summary(r store.Run) RunSummary {
 }
 
 func raw(s, fallback string) json.RawMessage {
-	if s == "" || !json.Valid([]byte(s)) {
+	// "null" comes from nil slices (checks through a proxy resolve nothing in
+	// the Pod): the API always returns the fallback, never null.
+	if s == "" || s == "null" || !json.Valid([]byte(s)) {
 		if fallback == "" {
 			return nil
 		}

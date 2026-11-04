@@ -171,10 +171,11 @@ helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --versi
 Then follow [install.md](install.md) from §10: verify the installation, sign in with the generated `admin` password
 and run the smoke test.
 
-**Installing with Argo CD** (or anything that runs `helm template`): create the initial admin Secret yourself and set
-`auth.bootstrapAdmin.existingSecret` (and `auth.oidc.existingSecret` with the bundled Dex). Without cluster access the
-chart cannot see its own Secrets and would generate new random values on every sync, so the password in the Secret
-would stop matching the `admin` account. See *Initial admin password* in [install.md](install.md).
+> **Installing with Argo CD?** Before the first sync, create the initial admin Secret (and the SSO client Secret with
+> Dex) yourself and set `auth.bootstrapAdmin.existingSecret` (and `auth.oidc.existingSecret`). Otherwise Argo CD, which
+> renders the chart without access to the cluster, generates a new random password on every sync and the password in
+> the Secret stops matching the `admin` account. Commands, values and how to fix an installation that already has the
+> problem: [install.md §14](install.md#14-installing-with-argo-cd).
 
 ## 8. AKS notes
 

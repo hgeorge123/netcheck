@@ -651,6 +651,12 @@ helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --versi
 
 Keep `values-eks.yaml` in your configuration repository (it holds no secrets: the initial password lives only in the cluster).
 
+> **Installing with Argo CD?** Before the first sync, create the initial admin Secret (and the SSO client Secret with
+> Dex) yourself and set `auth.bootstrapAdmin.existingSecret` (and `auth.oidc.existingSecret`). Otherwise Argo CD, which
+> renders the chart without access to the cluster, generates a new random password on every sync and the password in
+> the Secret stops matching the `admin` account. Commands, values and how to fix an installation that already has the
+> problem: [install.md §14](install.md#14-installing-with-argo-cd).
+
 **Optional: single sign-on.** To sign in with GitHub, Entra ID, Okta or another provider, add `auth.oidc` (and, for
 GitHub, the bundled `dex`) as explained in [sso.md](sso.md). With the ALB, Dex is served at `https://<host>/dex` on the
 same load balancer and certificate: there is nothing else to create in AWS.

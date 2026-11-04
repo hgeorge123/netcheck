@@ -22,6 +22,40 @@ const demoUsers = [
 
 const ALLOW_ALL = { allowCidrs: ['0.0.0.0/0', '::/0'], denyCidrs: [], allowHostnameSuffixes: ['*'], allowPorts: [{ from: 1, to: 65535 }] };
 
+// Example authorities for the screenshots: public certificates only, their
+// keys were discarded when they were generated.
+const EXAMPLE_ROOT_CA = `-----BEGIN CERTIFICATE-----
+MIIB0jCCAXegAwIBAgIUCBmeX35HWwXlVL4HbBdxPuYvYlswCgYIKoZIzj0EAwIw
+NjEVMBMGA1UECgwMRXhhbXBsZSBDb3JwMR0wGwYDVQQDDBRFeGFtcGxlIENvcnAg
+Um9vdCBDQTAeFw0yNjExMDMyMzM5MTNaFw0zNjEwMzEyMzM5MTNaMDYxFTATBgNV
+BAoMDEV4YW1wbGUgQ29ycDEdMBsGA1UEAwwURXhhbXBsZSBDb3JwIFJvb3QgQ0Ew
+WTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARCSbKlZpjKwCVqa36k5cHhnRYho+VW
+HDwM06oQZcuhdcdQT9RZDxF1JCEgZD3Jpxdz0uQqDvn8eMy33MA35KPwo2MwYTAd
+BgNVHQ4EFgQU7RBuQ620IQc0FBYjWtBCBgY8Sh0wHwYDVR0jBBgwFoAU7RBuQ620
+IQc0FBYjWtBCBgY8Sh0wDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYw
+CgYIKoZIzj0EAwIDSQAwRgIhAI66gidCHDsTlMRglZTrTCHfLS4Rw5mvEHN2rIrb
+/+RTAiEAxIq4OOT3QdZF2NGTSCpxKXLqFQArmCwW8b4OydDCIXk=
+-----END CERTIFICATE-----
+`;
+const EXAMPLE_INSPECTION_CA = `-----BEGIN CERTIFICATE-----
+MIIB5DCCAYugAwIBAgIUB0ruPw9HyEU48wrT2gWnQ16nX20wCgYIKoZIzj0EAwIw
+QDEVMBMGA1UECgwMRXhhbXBsZSBDb3JwMScwJQYDVQQDDB5FeGFtcGxlIENvcnAg
+VExTIEluc3BlY3Rpb24gQ0EwHhcNMjYxMTAzMjMzOTEzWhcNMzYxMDMxMjMzOTEz
+WjBAMRUwEwYDVQQKDAxFeGFtcGxlIENvcnAxJzAlBgNVBAMMHkV4YW1wbGUgQ29y
+cCBUTFMgSW5zcGVjdGlvbiBDQTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOKq
+bp47XVmXJcWzjog8D/cA4VcDxYGGpxA9pQCJ79xnPeNZeaazAciFDDHIADikMCdU
+D0o57EK/SQ+0RHX1OFSjYzBhMB0GA1UdDgQWBBRuBgMT6iQkLcEujFFuUGfZgQgt
+ijAfBgNVHSMEGDAWgBRuBgMT6iQkLcEujFFuUGfZgQgtijAPBgNVHRMBAf8EBTAD
+AQH/MA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAgNHADBEAiB6xDQT1QZ4D0TW
+Z5YLMObxjLYT+eGT+ez+YHrbZF6DfQIgHgBuMGPsAFhIlWzEX2W6bDBGeZdi1SlK
+AiMd05sayE4=
+-----END CERTIFICATE-----
+`;
+// Squid in the lab fixtures (nc-proxy), reachable from nc-open.
+const SQUID = 'squid.nc-proxy.svc.cluster.local';
+// Set by the user guide, opened by the administrator.
+let proxyRunPath = '';
+
 // API calls run inside the browser (same origin, same resolver rules and
 // TLS as a real user), so no hosts-file changes are needed on the machine.
 type Call = (method: string, path: string, data?: unknown) => Promise<{ status: number; body: unknown }>;
@@ -118,7 +152,17 @@ test.beforeAll(async ({ browser }) => {
   const admin = await apiSession(browser, 'admin', ADMIN_PASSWORD);
   expect((await admin('PUT', '/api/v1/me/preferences', { language: 'en' })).status).toBe(200);
   expect((await admin('PUT', '/api/v1/admin/policy', ALLOW_ALL)).status).toBe(200);
-  const list = (await admin('GET', '/api/v1/admin/users')).body as UserList;
+  // Example corporate authority and shared proxies (replaces the lab ones).
+  expect((await admin('PUT', '/api/v1/admin/trusted-cas', { certificates: [EXAMPLE_ROOT_CA] })).status).toBe(200);
+  const shared = (await admin('GET', '/api/v1/admin/proxies')).body as { proxies: { id: string }[] };
+  for (const p of shared.proxies) await admin('DELETE', `/api/v1/admin/proxies/${p.id}`);
+  for (const p of [
+    { name: 'corp-egress', host: SQUID, port: 3128, shared: true, certificates: [] },
+    { name: 'tls-inspection', host: 'proxy.corp.example', port: 8080, shared: false, certificates: [EXAMPLE_INSPECTION_CA] },
+  ]) {
+    expect((await admin('POST', '/api/v1/admin/proxies', p)).status, `proxy ${p.name}`).toBe(201);
+  }
+  const list =(await admin('GET', '/api/v1/admin/users')).body as UserList;
   // Remove previous demo users and leftovers of the integration tests.
   for (const u of list.items.filter((x) => demoUsers.some((d) => d.username === x.username) || x.username.startsWith('itest-'))) {
     await admin('DELETE', `/api/v1/admin/users/${u.id}`);
@@ -230,10 +274,49 @@ test('user guide', async ({ page }) => {
   await check(page, 'UDP').check();
   await page.getByRole('radio', { name: /^DNS server/ }).click();
   await shot(page, 'user-23-udp-modes', true);
-  await runAndWait(page, 'All checks passed');
+  // The probe asks for ". NS", which CoreDNS forwards upstream: when the
+  // machine's DNS does not answer it, keep the previous image instead of
+  // documenting a timeout.
+  await page.getByRole('button', { name: 'Run test' }).click();
+  await expect(page.getByText(/All checks passed|Connectivity failures/).first()).toBeVisible({ timeout: 120_000 });
   // A single check opens its detail directly.
   await expect(page.getByRole('heading', { name: 'UDP — details' })).toBeVisible();
-  await shot(page, 'user-24-udp-result', true);
+  if (await page.getByText('All checks passed').first().isVisible()) {
+    await shot(page, 'user-24-udp-result', true);
+  } else {
+    const note = 'UDP DNS got no answer (upstream DNS of the lab): user-24-udp-result.png kept';
+    test.info().annotations.push({ type: 'warning', description: note });
+    console.warn(note);
+  }
+
+  // A personal proxy: only alice.smith sees and uses it.
+  await page.getByRole('button', { name: /Alice Smith/ }).click();
+  await page.getByRole('menuitem', { name: 'My proxies' }).click();
+  await expect(page.getByRole('heading', { name: 'My proxies', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Add proxy' }).click();
+  const form = page.getByRole('dialog');
+  await form.getByLabel('Name', { exact: true }).fill('team-squid');
+  await form.getByLabel('Host name or IP').fill(SQUID);
+  await form.getByLabel('Port', { exact: true }).fill('3128');
+  await shot(page, 'user-25-add-personal-proxy');
+  await form.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Proxy saved. You can choose it in your tests now.')).toBeVisible();
+  await shot(page, 'user-26-my-proxies', true);
+
+  // HTTP through that proxy: the selector offers the direct path, the user's
+  // own proxies and the shared ones.
+  await newTest(page, 'nc-open', TARGET);
+  await check(page, 'HTTP').check();
+  await page.getByLabel('Port').fill('8080');
+  await page.getByRole('textbox', { name: 'Path', exact: true }).fill('/hostname');
+  await page.getByRole('button', { name: 'Connection' }).click();
+  await expect(page.getByRole('option', { name: /Through proxy team-squid/ })).toBeVisible();
+  await shot(page, 'user-27-proxy-selector', true);
+  await page.getByRole('option', { name: /Through proxy team-squid/ }).click();
+  await runAndWait(page, 'All checks passed');
+  await expect(page.getByRole('heading', { name: 'HTTP — details' })).toBeVisible();
+  proxyRunPath = new URL(page.url()).hash;
+  await shot(page, 'user-28-result-through-proxy', true);
 
   await page.goto('/#/runs');
   await expect(page.getByRole('heading', { name: /Test history/ })).toBeVisible();
@@ -384,5 +467,33 @@ test('admin guide', async ({ page, browser }) => {
   await page.getByRole('link', { name: 'Data retention' }).click();
   await expect(page.getByRole('heading', { name: 'Data retention', level: 1 })).toBeVisible();
   await shot(page, 'admin-20-data-retention', true);
+
+  // Certificate authorities trusted by every HTTPS check.
+  await page.getByRole('link', { name: 'Certificate authorities' }).click();
+  await expect(page.getByRole('heading', { name: 'Certificate authorities', level: 1 })).toBeVisible();
+  await expect(page.getByText('Example Corp Root CA').first()).toBeVisible();
+  await shot(page, 'admin-21-certificate-authorities', true);
+  await page.getByRole('button', { name: 'Add certificates' }).click();
+  await page.getByRole('dialog').getByLabel('Certificates (PEM)').fill(EXAMPLE_INSPECTION_CA);
+  await shot(page, 'admin-22-add-certificate-authority');
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
+  // Shared proxies: one for every user, one for administrators only with
+  // the authority of its TLS inspection.
+  await page.getByRole('link', { name: 'Proxies', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Proxies', level: 1 })).toBeVisible();
+  await expect(page.getByText('tls-inspection')).toBeVisible();
+  await shot(page, 'admin-23-proxies', true);
+  await pick(page, 'tls-inspection').click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await shot(page, 'admin-24-edit-proxy');
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
+  // The administrator sees that alice.smith used a personal proxy, not which one.
+  expect(proxyRunPath).not.toBe('');
+  await page.goto(`/${proxyRunPath}`);
+  await expect(page.getByText(/Personal proxy of/).first()).toBeVisible();
+  await shot(page, 'admin-25-personal-proxy-hidden', true);
   await other.close();
 });

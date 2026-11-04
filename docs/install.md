@@ -6,6 +6,8 @@ Each step says what to do, why, the exact commands and how to check that it work
 - Running on **Amazon EKS**? Follow [install-eks.md](install-eks.md) instead: it covers the VPC CNI, EBS volumes,
   availability zones and the AWS Load Balancer Controller.
 - Just want to try it? See [Try it locally with kind](#appendix-try-it-locally-with-kind) at the end.
+- Deploying with **Argo CD** (on any cluster)? Read [§14](#14-installing-with-argo-cd) before the first sync: the
+  initial password must live in a Secret you create.
 
 ## Contents
 
@@ -22,7 +24,8 @@ Each step says what to do, why, the exact commands and how to check that it work
 11. [First sign-in](#11-first-sign-in)
 12. [Smoke test](#12-smoke-test)
 13. [Upgrade, roll back and uninstall](#13-upgrade-roll-back-and-uninstall)
-14. [Troubleshooting](#14-troubleshooting)
+14. [Installing with Argo CD](#14-installing-with-argo-cd)
+15. [Troubleshooting](#15-troubleshooting)
 
 ---
 
@@ -235,9 +238,9 @@ Settings you usually keep:
   Secret `netcheck-bootstrap-admin`. Upgrades never change that Secret, and it survives `helm uninstall`, so a
   reinstall reuses it. The password must be changed at first sign-in. Alternatives:
   - `auth.bootstrapAdmin.password`: your own value, used only when the Secret is created.
-  - `existingSecret`: a Secret you manage, which keeps the password out of the values file. Use it too with tools that
-    render the chart with `helm template` (for example Argo CD): they cannot see the existing Secret and would
-    generate a new value on every sync.
+  - `existingSecret`: a Secret you manage, which keeps the password out of the values file. **Required with Argo CD**
+    or any tool that renders the chart with `helm template`: they cannot see the existing Secret and would generate a
+    new password on every sync. See [§14 Installing with Argo CD](#14-installing-with-argo-cd).
 
   ```bash
   kubectl -n "$NC_NS" create secret generic netcheck-initial-admin --from-literal=password='<a-long-password>'
@@ -363,7 +366,7 @@ emergency recovery ([admin guide](admin-guide.md), Part III §5).
    it and one that denies it. Run a **TCP connection** test to the service port from both: *Succeeded* in the first,
    *Timed out* in the second. If both succeed, your CNI is not enforcing the policy.
 2. **ICMP.** Run **Ping** to a Pod IP from a namespace without policies: it must get replies. If you get "ICMP is not
-   permitted inside the probe", see [troubleshooting](#14-troubleshooting).
+   permitted inside the probe", see [troubleshooting](#15-troubleshooting).
 3. **Calibrate `settleSeconds`.** Repeat the blocked test several times with `--set probe.settleSeconds=0`. If any run
    succeeds, the probe measured before the CNI applied the policy: go back to 3–5 s.
 4. **Restart.** `kubectl -n "$NC_NS" rollout restart deploy/netcheck` and check that the history is still there.
@@ -392,7 +395,159 @@ helm uninstall netcheck -n "$NC_NS"
 
 To delete everything, including data, see the [admin guide](admin-guide.md), Part III §7.
 
-## 14. Troubleshooting
+## 14. Installing with Argo CD
+
+This section applies to **any cluster** (AKS, EKS, on-premises…) whenever Argo CD deploys the chart, and to any tool
+that renders it with `helm template` (Kustomize `helmCharts`, `helm template | kubectl apply`…). A plain
+`helm install` / `helm upgrade` is not affected.
+
+### 14.1 The risk: Secrets that change on every sync
+
+The chart creates two Secrets with a **random value** when you do not give one:
+
+| Secret | When the chart creates it | What it holds |
+|---|---|---|
+| `netcheck-bootstrap-admin` | Always, unless `auth.bootstrapAdmin.existingSecret` is set | Initial password of `admin` |
+| `netcheck-oidc` | With `auth.oidc.enabled` and no `auth.oidc.existingSecret`: a random value for the bundled Dex, or `auth.oidc.clientSecret` | Client secret shared by NetCheck and the identity provider |
+
+To keep a random value across upgrades, the chart reads the existing Secret from the cluster (Helm's `lookup`). Argo
+CD renders charts **without access to the cluster**, so `lookup` finds nothing and the chart **draws a new random
+value on every render**. Argo CD sees a difference and overwrites the Secret on the next sync (or self-heal). What you
+then see:
+
+1. The first start creates `admin` with the first password. NetCheck only uses the Secret when it creates the
+   administrator; afterwards the password lives in the database.
+2. A later sync rewrites `netcheck-bootstrap-admin` with another password.
+3. The password you read from the Secret is refused: it is not the one `admin` was created with. The Pod log warns
+   *the bootstrap admin still has a temporary password that is not the one in the bootstrap Secret*.
+
+With the bundled Dex the same happens to `netcheck-oidc`: NetCheck and Dex restart with a new client secret, and
+sign-ins in progress fail.
+
+**The rule: with Argo CD, create these Secrets yourself and point the chart at them with `existingSecret`.** The chart
+then renders no Secret with a random value, and Argo CD never touches yours.
+
+### 14.2 Create the Secrets before the first sync
+
+Create the namespace and the Secrets with `kubectl` **before** creating the Argo CD Application. The values are random,
+are never printed and never reach Git:
+
+```bash
+# Namespace as in step 5 (skip if it already exists)
+export NC_NS=netcheck
+kubectl create namespace "$NC_NS"
+kubectl label namespace "$NC_NS" pod-security.kubernetes.io/enforce=restricted
+
+# 1. Initial admin password (always). Key: password
+kubectl -n "$NC_NS" create secret generic netcheck-initial-admin \
+  --from-literal=password="$(openssl rand -base64 24)"
+
+# 2. Only with single sign-on (auth.oidc.enabled). Key: client-secret
+#    a) With the bundled Dex: any random value, NetCheck and Dex share it
+kubectl -n "$NC_NS" create secret generic netcheck-oidc-client \
+  --from-literal=client-secret="$(openssl rand -hex 32)"
+#    b) With an external provider (Entra ID, Okta, Keycloak…), the secret the provider gave you instead:
+#    kubectl -n "$NC_NS" create secret generic netcheck-oidc-client --from-literal=client-secret='<provider secret>'
+
+# 3. Only with Dex connectors (GitHub, LDAP…): their credentials, as in sso.md
+#    kubectl -n "$NC_NS" create secret generic netcheck-github \
+#      --from-literal=GITHUB_CLIENT_ID='<id>' --from-literal=GITHUB_CLIENT_SECRET='<secret>'
+```
+
+Check the Secrets without showing their values:
+
+```bash
+kubectl -n "$NC_NS" describe secret netcheck-initial-admin netcheck-oidc-client   # names and sizes of the keys only
+```
+
+If you manage secrets with a vault (External Secrets Operator, Sealed Secrets, the Azure Key Vault or AWS Secrets
+Manager CSI driver…), create the same Secrets with it instead of `kubectl`: same names, same keys (`password`,
+`client-secret`).
+
+### 14.3 Values for Argo CD
+
+Add to your values file (or to `valuesObject` in the Application):
+
+```yaml
+auth:
+  bootstrapAdmin:
+    existingSecret: netcheck-initial-admin   # key "password" (auth.bootstrapAdmin.secretKey)
+  oidc:                                       # only with single sign-on
+    enabled: true
+    existingSecret: netcheck-oidc-client      # key "client-secret" (auth.oidc.secretKey)
+dex:                                          # only with the bundled Dex
+  enabled: true
+  envSecret: netcheck-github                  # connector credentials, if any
+```
+
+Do **not** use `auth.bootstrapAdmin.password` or `auth.oidc.clientSecret` with Argo CD: they would put the secrets in
+Git. Before the first sync, check that the chart renders no random Secret:
+
+<!-- x-release-please-start-version -->
+```bash
+helm template netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 -n "$NC_NS" -f values.yaml \
+  | grep -A3 '^kind: Secret' | grep 'name:'
+# Expected: neither netcheck-bootstrap-admin nor netcheck-oidc (with Dex, only its configuration, netcheck-dex)
+```
+<!-- x-release-please-end -->
+
+An Application for the chart in the OCI registry:
+
+<!-- x-release-please-start-version -->
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: netcheck
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/hgeorge123/charts
+    chart: netcheck
+    targetRevision: 1.1.2
+    helm:
+      valuesObject:
+        auth:
+          bootstrapAdmin:
+            existingSecret: netcheck-initial-admin
+        # ...the rest of your values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: netcheck
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+```
+<!-- x-release-please-end -->
+
+Depending on the Argo CD version, the OCI registry may need to be declared first as a Helm repository with
+`enableOCI: "true"`; see the Argo CD documentation of your version.
+
+### 14.4 First sign-in
+
+```bash
+kubectl -n "$NC_NS" get secret netcheck-initial-admin -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+Sign in as `admin` with that password and change it (mandatory). From then on the password lives in the database:
+changing or deleting the Secret does not change it.
+
+### 14.5 An installation that already has the problem
+
+If NetCheck was installed with Argo CD without `existingSecret` and the password from the Secret is refused:
+
+1. Create `netcheck-initial-admin` (and `netcheck-oidc-client` with Dex) as in 14.2.
+2. In Git, set `auth.bootstrapAdmin.existingSecret: netcheck-initial-admin` (and `auth.oidc.existingSecret` with Dex)
+   and, in the same commit, `auth.bootstrapAdmin.recoverOnStart: true`. Let Argo CD sync: at start NetCheck resets
+   `admin` to the password of the new Secret (enabled, unlocked, must change it) and records it in the audit log.
+3. Sign in as in 14.4 and change the password.
+4. Set `recoverOnStart` back to `false` in Git straight away and sync.
+
+With `prune: true` Argo CD then deletes the old `netcheck-bootstrap-admin` and `netcheck-oidc`, which are no longer
+used. It is the procedure of [admin guide Part III §5](admin-guide.md#5-recovering-administrator-access), with the
+values changed in Git instead of `helm upgrade --set`.
+
+## 15. Troubleshooting
 
 | Symptom | Likely cause | What to do |
 |---|---|---|

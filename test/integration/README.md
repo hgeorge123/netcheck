@@ -10,6 +10,7 @@ CNI and `lab.sh` installs Calico (pinned version), a local registry and the fixt
 | `nc-allow` | `podSelector: {}`: deny egress + DNS + TCP 8080 to `nc-target` | `echo.nc-target:8080`: DNS ok, TCP ok, HTTP 200; ping gets no reply (ICMP not allowed); fidelity `namespace-wide-likely` |
 | `nc-deny` | `podSelector: {}`: deny egress + DNS; an **additive** policy for `app=legacy` → echo | DNS ok, TCP `timed_out`; fidelity `specific-selectors-detected` |
 | `nc-open` | none | ping and traceroute to the echo Pod succeed; fidelity `no-native-egress-policies` |
+| `nc-proxy` | none | Squid forward proxy at `squid.nc-proxy.svc.cluster.local:3128`, for tests through a proxy from `nc-open` |
 
 The namespaces enforce Pod Security `restricted`, to show that the probe complies with the profile without exceptions
 (ping and traceroute included, without `NET_RAW`). As in production, the chart creates **no** NetworkPolicy in the

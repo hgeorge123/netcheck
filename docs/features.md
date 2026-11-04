@@ -127,6 +127,7 @@ Changes apply at once, without redeploying, and are audited.
 | Ingress | AWS Load Balancer Controller or any Ingress controller (ingress-nginx, Traefik, HAProxy, AKS application routing) | [Installation §6](install.md#6-choose-how-to-expose-netcheck) |
 | Amazon EKS | VPC CNI network policy, EBS, ALB or Gateway API, with preflight checks | [EKS guide](install-eks.md) |
 | Azure AKS | Network policy engine, Azure Disk and ZRS, Gateway API or Ingress | [AKS guide](install-aks.md) |
+| Argo CD | Deploy with Argo CD on any cluster, with the initial password and the SSO client secret in Secrets you create, so no sync can change them | [Installation §14](install.md#14-installing-with-argo-cd) |
 | Preflight checks | `helm install` and `helm upgrade` verify the cluster prerequisites first | [Installation §8](install.md#8-validate-against-the-cluster) |
 | NetworkPolicies | The chart protects the NetCheck namespace and explains which policies other namespaces need | [Admin guide §1.1](admin-guide.md#11-how-a-test-runs-from-another-namespace-and-which-networkpolicies-are-needed) |
 | Limits | Checks per test, timeouts, output size and concurrent tests per namespace and in total | [Installation §7](install.md#7-write-your-values-file) |

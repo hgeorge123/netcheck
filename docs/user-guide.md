@@ -78,7 +78,7 @@ NetCheck follows the layout of the AWS console:
 ### 2.4 User menu, preferences and sign out
 
 The menu with your name opens **Preferences**, **Change password** (not shown for single sign-on accounts), **API
-tokens** (section 8), **My proxies** (your own proxies, section 4.2) and **Sign out**. Its description shows your
+tokens** (section 8), **My proxies** (your own proxies, section 4.2.2) and **Sign out**. Its description shows your
 username, your role and the NetCheck version.
 
 ![User menu](images/user-20-user-menu.png)
@@ -178,6 +178,25 @@ The result shows the mode, the datagrams sent, the reply time and, in the DNS an
 
 Ping and traceroute work **without privileges**: the probe needs neither `NET_RAW` nor root. They use Linux *ping
 sockets*, enabled only inside the probe Pod.
+
+#### 4.2.2 Through a proxy
+
+**User menu → My proxies → Add proxy** registers a proxy of your own: a name, the host and the port, and, only if the
+proxy inspects TLS, its certificate authority. Nobody else can see or use it.
+
+![Adding a personal proxy](images/user-25-add-personal-proxy.png)
+
+![My proxies](images/user-26-my-proxies.png)
+
+In a TCP, HTTP or HTTPS check, **Connection** offers **Direct** (the default), your proxies under **My proxies** and
+the ones your administrators share under **Shared**. A proxy with its own authority is tagged *with CA*.
+
+![Choosing the connection of an HTTP check](images/user-27-proxy-selector.png)
+
+The result names the proxy, its IP and its answer: for HTTP, whether the proxy forwarded the request or answered it
+itself. The destination IP is not shown, because the proxy, not the Pod, resolved the name.
+
+![HTTP check through a personal proxy](images/user-28-result-through-proxy.png)
 
 ### 4.3 Firewall ticket troubleshooting
 

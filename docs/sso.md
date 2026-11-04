@@ -312,7 +312,7 @@ Every rule change is recorded in the audit log (`access_rule.create`, `access_ru
 | `auth.oidc.providerName` | `SSO` | Button label: "Sign in with &lt;providerName&gt;" |
 | `auth.oidc.issuerUrl` | with Dex: `https://<first host>/dex` | Must match the `iss` of the ID tokens |
 | `auth.oidc.clientId` | `netcheck` | Client ID at the provider |
-| `auth.oidc.existingSecret` / `secretKey` | `""` / `client-secret` | Secret with the client secret. Empty: the chart creates `netcheck-oidc` from `clientSecret`, or a random value for Dex. With Argo CD or `helm template` use `existingSecret`: the random value would change on every sync |
+| `auth.oidc.existingSecret` / `secretKey` | `""` / `client-secret` | Secret with the client secret. Empty: the chart creates `netcheck-oidc` from `clientSecret`, or a random value for Dex. With Argo CD or `helm template` use `existingSecret`: the random value would change on every sync ([install.md §14](install.md#14-installing-with-argo-cd)) |
 | `auth.oidc.redirectUrl` | `https://<first host>/api/v1/auth/oidc/callback` | Callback registered at the provider |
 | `auth.oidc.scopes` | `[openid, profile, email, groups]` | Requested scopes |
 | `auth.oidc.usernameClaim` | `email` | `email`, `preferred_username`, `sub` or `name`. With `email`, an address the provider marks as unverified is refused |

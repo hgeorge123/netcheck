@@ -3,7 +3,7 @@
 | Guide | Contents |
 |---|---|
 | [features.md](features.md) | Every feature, with a link to how to use it |
-| [install.md](install.md) | Step-by-step installation on any Kubernetes cluster, upgrades and a local kind laboratory |
+| [install.md](install.md) | Step-by-step installation on any Kubernetes cluster, installing with Argo CD, upgrades and a local kind laboratory |
 | [install-eks.md](install-eks.md) | Step-by-step installation on Amazon EKS |
 | [install-aks.md](install-aks.md) | Step-by-step installation on Azure Kubernetes Service (AKS) |
 | [user-guide.md](user-guide.md) | Creating tests, firewall ticket mode and reading the results |

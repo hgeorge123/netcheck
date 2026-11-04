@@ -442,6 +442,10 @@ authorities that HTTPS checks trust **on top of** the public ones:
 2. Click **Add certificates** again to save. New tests use the list at once; there is nothing to redeploy and no custom
    image.
 
+![Certificate authorities with the example corporate root](images/admin-21-certificate-authorities.png)
+
+![Adding the authority of a TLS inspection proxy](images/admin-22-add-certificate-authority.png)
+
 The list shows the subject, the issuer, the expiry (expired authorities are marked) and the SHA-256 fingerprint, to
 compare with the one your PKI team gives you. Select an authority and **Remove** it to stop trusting it.
 
@@ -482,10 +486,14 @@ There are two kinds of proxies:
 | Who sees and uses them | **Every user** (*Share with every user*) or **administrators only** | **Only their owner**, administrators included: nobody else |
 | Limit | 20 | 10 per user; deleted with the account |
 
+![Shared proxies: one for every user and one for administrators only, with its own authority](images/admin-23-proxies.png)
+
 To add one, click **Add proxy** and give it a **name** (for example `corp`: lowercase letters, digits or dashes), the
 **host name or IP** and the **port** (usually 3128 or 8080), and optionally the **certificate authorities of this
 proxy** (see below). In a test, the user's own proxies are listed under **My proxies** and the shared ones under
 **Shared**.
+
+![Editing a shared proxy](images/admin-24-edit-proxy.png)
 
 How a check goes through the proxy:
 
@@ -509,6 +517,8 @@ without a proxy.
 went through a personal proxy, it shows **"Personal proxy of \<user\>"**: the name, address, IPs and authorities of the
 proxy are hidden from the result, the output and the equivalent command. The audit log keeps who created, changed or
 deleted each proxy, with its name, address and the subject and fingerprint of its authorities (never the PEM).
+
+![An administrator opening a test that went through a personal proxy](images/admin-25-personal-proxy-hidden.png)
 
 Rules and limits:
 
@@ -656,7 +666,7 @@ provider if you no longer need it.
 | "The netcheck-probe ServiceAccount has the IRSA annotation" | Someone attached a cloud IAM role to the probe | Remove the annotation or association; the probe must have no credentials |
 | A new namespace does not show up | 30-second cache, or the namespace is excluded | Wait a minute; check **Administration → Namespaces** |
 | The NetCheck namespace does not show up | Hidden by design | Check "Allow tests in the NetCheck namespace" for that user |
-| The initial `admin` password from the Secret is refused; the Pod log says *the bootstrap admin still has a temporary password that is not the one in the bootstrap Secret* | The Secret changed after the admin was created. Typical with Argo CD or `helm template`: without cluster access the chart cannot see the Secret and generates a new password on every sync | Recover access (§5), then set `auth.bootstrapAdmin.existingSecret` so the password stops changing |
+| The initial `admin` password from the Secret is refused; the Pod log says *the bootstrap admin still has a temporary password that is not the one in the bootstrap Secret* | The Secret changed after the admin was created. Typical with Argo CD or `helm template`: without cluster access the chart cannot see the Secret and generates a new password on every sync | Recover access and set `auth.bootstrapAdmin.existingSecret` so the password stops changing: [install.md §14.5](install.md#145-an-installation-that-already-has-the-problem) |
 | Many `429` at sign-in | Per-IP rate limit, or `trustedProxyCidrs` is wrong (every user shares the Gateway IP) | Put the Gateway Pod CIDR in `auth.trustedProxyCidrs` |
 
 ## 9. Known limitations

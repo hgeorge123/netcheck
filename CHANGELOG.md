@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/hgeorge123/netcheck/compare/v1.2.1...v1.3.0) (2026-11-04)
+
+
+### Features
+
+* **web:** My proxies and My API tokens in the side navigation ([83e3984](https://github.com/hgeorge123/netcheck/commit/83e39840c7c5a86200862a5547d6a35905a5179a))
+
+
+### Documentation
+
+* where each certificate authority goes, and both menus ([1801da4](https://github.com/hgeorge123/netcheck/commit/1801da440e60ad785273fefd8699014b38dbcf4d))
+
 ## [1.2.1](https://github.com/hgeorge123/netcheck/compare/v1.2.0...v1.2.1) (2026-11-04)
 
 

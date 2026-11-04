@@ -136,7 +136,7 @@ Start from the AKS example of the chart:
 
 <!-- x-release-please-start-version -->
 ```bash
-helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 --untar
+helm pull oci://ghcr.io/hgeorge123/charts/netcheck --version 1.2.0 --untar
 cp netcheck/values-aks.example.yaml values-aks.yaml
 ```
 <!-- x-release-please-end -->
@@ -161,9 +161,9 @@ kubectl label namespace "$NC_NS" pod-security.kubernetes.io/enforce=restricted
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.2.0 \
   -n "$NC_NS" -f values-aks.yaml --dry-run=server > /dev/null && echo "VALIDATION OK"
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.2.0 \
   -n "$NC_NS" -f values-aks.yaml --wait --timeout 10m
 ```
 <!-- x-release-please-end -->

@@ -485,7 +485,7 @@ Git. Before the first sync, check that the chart renders no random Secret:
 
 <!-- x-release-please-start-version -->
 ```bash
-helm template netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.1.2 -n "$NC_NS" -f values.yaml \
+helm template netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.2.0 -n "$NC_NS" -f values.yaml \
   | grep -A3 '^kind: Secret' | grep 'name:'
 # Expected: neither netcheck-bootstrap-admin nor netcheck-oidc (with Dex, only its configuration, netcheck-dex)
 ```
@@ -505,7 +505,7 @@ spec:
   source:
     repoURL: ghcr.io/hgeorge123/charts
     chart: netcheck
-    targetRevision: 1.1.2
+    targetRevision: 1.2.0
     helm:
       valuesObject:
         auth:

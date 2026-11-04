@@ -47,6 +47,10 @@ type Config struct {
 	NamespaceScope     NamespaceScope           `json:"namespaceScope"`
 	Destinations       probes.DestinationPolicy `json:"destinations"`
 	KubeAPIServerCIDRs []string                 `json:"kubeApiServerCidrs"`
+	// KubeAPIServerFallbackCIDRs are denied only while the exact API server
+	// addresses (EndpointSlice default/kubernetes) are unknown: the ranges the
+	// NetworkPolicy lets NetCheck reach the API server through. Fail closed.
+	KubeAPIServerFallbackCIDRs []string `json:"kubeApiServerFallbackCidrs"`
 	// ProtectPlatformDestinations adds probes.BuiltinDenyCIDRs (metadata,
 	// loopback, link-local, multicast) and the API server addresses to the
 	// denied destinations. It can be disabled, but should not be.
@@ -434,6 +438,11 @@ func (c *Config) validate(getenv func(string) string) error {
 	for _, s := range c.KubeAPIServerCIDRs {
 		if _, err := netip.ParsePrefix(s); err != nil {
 			add("kubeApiServerCidrs: invalid CIDR %q", s)
+		}
+	}
+	for _, s := range c.KubeAPIServerFallbackCIDRs {
+		if _, err := netip.ParsePrefix(s); err != nil {
+			add("kubeApiServerFallbackCidrs: invalid CIDR %q", s)
 		}
 	}
 	if c.Retention.OutputDays < 1 || c.Retention.MetadataDays < c.Retention.OutputDays {

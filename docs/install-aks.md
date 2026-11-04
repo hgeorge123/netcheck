@@ -188,7 +188,8 @@ and run the smoke test.
 - **Private registries.** To use Azure Container Registry, import the release images keeping their digests
   (`az acr import --source docker.io/hgeorge123/netcheck:<version>`), check that the imported digests match the release
   notes, then set `image.repository` and `probeImage.repository` to your registry.
-- **Private clusters.** NetCheck detects the API server address of the `kubernetes` Service. On a private cluster add
-  the private endpoint address to `kubeApiServerCidrs` so tests can never target it.
+- **Private clusters.** NetCheck denies the `kubernetes` Service IP and the API server addresses it reads from the
+  EndpointSlice `default/kubernetes`. If your Pods can also reach the API server through another address (for
+  example the private endpoint name resolving elsewhere), add it to `kubeApiServerCidrs` so tests can never target it.
 - **Security groups.** Network Security Groups of the node subnet also apply to the probes, like to your Pods: a
   result reflects them too.

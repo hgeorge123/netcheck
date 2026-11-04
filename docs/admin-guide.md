@@ -327,8 +327,15 @@ the database and apply **to the next test**, without redeploying or restarting N
 | **Allowed networks** | IPv4/IPv6 CIDRs. Every resolved IP must be in one of them; `0.0.0.0/0` and `::/0` allow any address |
 | **Allowed ports** | Ranges for TCP, UDP, HTTP and HTTPS. Ping and traceroute do not use a port |
 | **Denied networks** | Always denied even inside an allowed network (for example a sensitive subnet) |
-| **Platform protections** | Cloud metadata, the Kubernetes API server, loopback, link-local, multicast and reserved ranges. Set in Helm (`protectPlatformDestinations`) and **cannot be removed from the web** |
+| **Platform protections** | Cloud metadata, the Kubernetes API server (its exact addresses, read from the cluster; see below), loopback, link-local, multicast and reserved ranges. Set in Helm (`protectPlatformDestinations`) and **cannot be removed from the web** |
 | **Check a destination** | Tells whether a name or IP (and port) is allowed **without sending traffic** |
+
+**The API server in the platform protections.** NetCheck denies the `kubernetes` Service IP, `kubeApiServerCidrs` and
+the exact addresses the API server publishes in the EndpointSlice `default/kubernetes`, refreshed every 30 s (one Role
+allows reading that object only). Until they are read, the ranges of `networkPolicy.apiServer.cidrs` are listed
+instead: those ranges only let NetCheck reach the API server and are often whole subnets. If they still show up a
+minute after the start, NetCheck cannot read the EndpointSlice: the Pod log says why (`cannot read the API server
+addresses`), and every address in those ranges stays denied until it is fixed.
 
 Example: restrict tests to internal services and a corporate domain. After **Save**, a destination such as
 `www.google.com` is denied for new tests:

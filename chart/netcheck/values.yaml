@@ -180,8 +180,11 @@ proxies: []
 # allow. false removes these protections (logged as a warning at startup).
 protectPlatformDestinations: true
 
-# -- Extra API server addresses denied as probe destinations (the in-cluster
-# service IP is detected automatically; networkPolicy.apiServer.cidrs are added).
+# -- Extra API server addresses always denied as probe destinations, for
+# example a public endpoint. Not needed in general: NetCheck denies the
+# kubernetes Service IP and the exact API server addresses, read every 30 s from
+# the EndpointSlice default/kubernetes (a Role allows get on that object only).
+# Until they are read, networkPolicy.apiServer.cidrs are denied instead.
 kubeApiServerCidrs: []
 
 limits:
@@ -364,7 +367,10 @@ networkPolicy:
   kubeletCidrs: []
   apiServer:
     # -- REQUIRED when enabled: CIDRs that contain the API server endpoint (on EKS,
-    # the subnets of the cluster VPC configuration).
+    # the subnets of the cluster VPC configuration). They only let NetCheck reach
+    # the API server: as test destinations they are denied just until the exact
+    # API server addresses are known, so other services in these ranges can be
+    # tested.
     cidrs: []
     ports: [443]
   dns:

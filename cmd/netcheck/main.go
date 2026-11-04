@@ -247,6 +247,14 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
+	// The API server is denied by its exact addresses, read from the cluster;
+	// until they are known, the ranges NetCheck reaches it through.
+	if cfg.ProtectPlatformDestinations {
+		policies.SetAPIServerFallback(cfg.KubeAPIServerFallbackCIDRs)
+		if kc, ok := jobs.(*k8s.Client); ok {
+			go every(ctx, 30*time.Second, apiServerDetector(ctx, kc, policies, log))
+		}
+	}
 	// Trusted certificate authorities for HTTPS checks, managed the same way.
 	trustedCAs, err := api.LoadTrustedCAs(ctx, st, cfg.TrustedCAs, cfg.TrustedCAsManagedBy == config.DestinationsManagedByUI, time.Now())
 	if err != nil {
@@ -313,6 +321,29 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	exec.Wait()
 	log.Info("shutdown complete")
 	return nil
+}
+
+// apiServerDetector refreshes the API server addresses denied as test
+// destinations. Errors keep the last known addresses, or the fallback ranges
+// when they were never read; they are logged when the situation changes.
+func apiServerDetector(ctx context.Context, kc *k8s.Client, policies *api.DestinationPolicies, log *slog.Logger) func() {
+	lastErr := ""
+	return func() {
+		readCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		addrs, err := k8s.APIServerAddresses(readCtx, kc.CS)
+		if err != nil {
+			if msg := err.Error(); msg != lastErr && ctx.Err() == nil {
+				lastErr = msg
+				log.Warn("cannot read the API server addresses; the known ones (or networkPolicy.apiServer.cidrs) stay denied", "error", err)
+			}
+			return
+		}
+		lastErr = ""
+		if policies.SetAPIServerAddresses(addrs) {
+			log.Info("API server addresses denied as test destinations", "addresses", addrs)
+		}
+	}
 }
 
 func every(ctx context.Context, d time.Duration, fn func()) {

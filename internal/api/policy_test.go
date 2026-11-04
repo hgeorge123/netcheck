@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -121,5 +122,45 @@ func TestLoadDestinationPoliciesSeedsOnce(t *testing.T) {
 	h, _ = LoadDestinationPolicies(ctx, st, seed, nil, false, time.Now())
 	if h.Effective().AllowCIDRs[0] != "10.0.0.0/8" {
 		t.Errorf("helm mode must use the values: %v", h.Effective())
+	}
+}
+
+// The API server is denied by its exact addresses once they are detected;
+// until then (or when they cannot be read) the fallback ranges stay denied.
+func TestAPIServerDeniedFailClosed(t *testing.T) {
+	h := NewDestinationPolicies(probes.DestinationPolicy{AllowCIDRs: []string{"0.0.0.0/0"}, AllowPorts: []probes.PortRange{{From: 1, To: 65535}}},
+		[]string{"172.20.0.1/32"}, true)
+	h.SetAPIServerFallback([]string{"107.246.201.192/26", "172.20.0.0/16"})
+	denied := func(ip string) bool {
+		c, err := h.Effective().Compile()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c.CheckIP(netip.MustParseAddr(ip)) != nil
+	}
+	// Not detected yet: the whole fallback ranges are denied.
+	for _, ip := range []string{"107.246.201.207", "172.20.10.5", "172.20.0.1"} {
+		if !denied(ip) {
+			t.Errorf("%s allowed before detection", ip)
+		}
+	}
+	// An empty detection is ignored (fail closed).
+	if h.SetAPIServerAddresses(nil) || !denied("107.246.201.207") {
+		t.Error("empty detection opened the fallback ranges")
+	}
+	// Detected: only the exact addresses (and the configured denies) remain.
+	if !h.SetAPIServerAddresses([]string{"107.246.201.210/32"}) {
+		t.Error("first detection not reported as a change")
+	}
+	if h.SetAPIServerAddresses([]string{"107.246.201.210/32"}) {
+		t.Error("same addresses reported as a change")
+	}
+	for ip, want := range map[string]bool{"107.246.201.210": true, "172.20.0.1": true, "107.246.201.207": false, "172.20.10.5": false} {
+		if got := denied(ip); got != want {
+			t.Errorf("%s denied=%v, want %v", ip, got, want)
+		}
+	}
+	if got := strings.Join(h.platformDenies(), ","); got != "172.20.0.1/32,107.246.201.210/32" {
+		t.Errorf("platform denies shown to administrators = %s", got)
 	}
 }

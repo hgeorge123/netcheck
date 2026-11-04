@@ -10,7 +10,7 @@
 | Probe binary | [cmd/probe](../cmd/probe), [internal/probes](../internal/probes) | Static Go binary in its own image, no shell |
 | Web interface | [web](../web) | React 18, TypeScript and Cloudscape; English and Spanish |
 | Persistence | [internal/store](../internal/store) | SQLite (`modernc.org/sqlite`, no CGO), embedded versioned migrations |
-| Kubernetes access | [internal/k8s](../internal/k8s) | client-go: Jobs, Pods, logs, namespaces, NetworkPolicies (read only) |
+| Kubernetes access | [internal/k8s](../internal/k8s) | client-go: Jobs, Pods, logs, namespaces, NetworkPolicies (read only), the API server addresses (EndpointSlice `default/kubernetes`, read only) |
 | Helm chart | [chart/netcheck](../chart/netcheck) | Values validation, preflight checks, RBAC, admission policies |
 
 NetCheck runs as **one replica** with the `Recreate` strategy, because SQLite lives on a `ReadWriteOnce` volume.

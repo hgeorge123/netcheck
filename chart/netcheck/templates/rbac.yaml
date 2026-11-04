@@ -119,3 +119,36 @@ subjects:
     namespace: {{ include "netcheck.namespace" $ }}
 {{- end }}
 {{- end }}
+{{- if .Values.protectPlatformDestinations }}
+---
+# Read-only, one object: the addresses of the Kubernetes API server, denied as
+# test destinations by their exact IPs (see kubeApiServerCidrs).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "netcheck.fullname" . }}-apiserver-endpoints
+  namespace: default
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    resourceNames: ["kubernetes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "netcheck.fullname" . }}-apiserver-endpoints
+  namespace: default
+  labels:
+    {{- include "netcheck.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "netcheck.fullname" . }}-apiserver-endpoints
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "netcheck.serviceAccountName" . }}
+    namespace: {{ include "netcheck.namespace" . }}
+{{- end }}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,47 @@ type DestinationPolicies struct {
 	editable  bool
 	updatedAt time.Time
 	updatedBy string
+	// API server addresses detected in the cluster (exact IPs). Until the
+	// first detection the fallback ranges are denied instead (fail closed).
+	apiServer         []string
+	apiServerFallback []string
+	apiServerDetected bool
+}
+
+// SetAPIServerFallback sets the ranges denied while the exact API server
+// addresses are unknown (networkPolicy.apiServer.cidrs in the chart).
+func (h *DestinationPolicies) SetAPIServerFallback(cidrs []string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.apiServerFallback = append([]string(nil), cidrs...)
+}
+
+// SetAPIServerAddresses replaces the detected API server addresses. An empty
+// list is ignored: the last known addresses (or the fallback) stay denied.
+// It reports whether the denied addresses changed.
+func (h *DestinationPolicies) SetAPIServerAddresses(addrs []string) bool {
+	if len(addrs) == 0 {
+		return false
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.apiServerDetected && slices.Equal(h.apiServer, addrs) {
+		return false
+	}
+	h.apiServer, h.apiServerDetected = append([]string(nil), addrs...), true
+	return true
+}
+
+// platformDenies is the configured platform denies plus the API server:
+// the detected addresses, or the fallback ranges until they are known.
+func (h *DestinationPolicies) platformDenies() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	out := append([]string{}, h.platform...)
+	if h.apiServerDetected {
+		return append(out, h.apiServer...)
+	}
+	return append(out, h.apiServerFallback...)
 }
 
 // NewDestinationPolicies builds a holder. editable=false means the policy is
@@ -73,9 +115,10 @@ func LoadDestinationPolicies(ctx context.Context, st *store.Store, seed probes.D
 
 // Effective is the policy applied to new runs (base + platform denies).
 func (h *DestinationPolicies) Effective() probes.DestinationPolicy {
+	denies := h.platformDenies()
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	return h.base.WithDenies(h.platform...)
+	return h.base.WithDenies(denies...)
 }
 
 func (h *DestinationPolicies) snapshot() (probes.DestinationPolicy, time.Time, string) {
@@ -135,7 +178,7 @@ func (s *Server) policyView() policyView {
 	if !s.Policies.editable {
 		managed = "helm"
 	}
-	platform := append([]string{}, s.Policies.platform...)
+	platform := s.Policies.platformDenies()
 	return policyView{Policy: base, PlatformDenies: platform, ProtectPlatformDestinations: len(platform) > 0, ManagedBy: managed,
 		Editable: s.Policies.editable, UpdatedAt: at, UpdatedBy: by}
 }
@@ -163,7 +206,7 @@ func (s *Server) adminSetPolicy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, err := p.WithDenies(s.Policies.platform...).Compile(); err != nil {
+	if _, err := p.WithDenies(s.Policies.platformDenies()...).Compile(); err != nil {
 		writeError(w, r, http.StatusBadRequest, "validation_failed", "the policy is not valid", []probes.FieldError{policyFieldError(err)})
 		return
 	}

@@ -91,6 +91,16 @@ expect_not "HTTPRoute mode has no Ingress" "${TMP}/eks.yaml" '^kind: Ingress'
 expect "opt-in NetworkPolicy admits only the ALB subnets" "${TMP}/alb-np.yaml" 'cidr: 10.0.64.0/20'
 "${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" --set networkPolicy.enabled=true --set 'networkPolicy.apiServer.cidrs[0]=10.0.0.0/20' > "${TMP}/np.yaml"
 expect "opt-in NetworkPolicy admits only the Gateway namespace" "${TMP}/np.yaml" 'kubernetes.io/metadata.name: nginx-gateway'
+# The API server egress ranges are only a fallback deny: the exact addresses
+# come from the EndpointSlice default/kubernetes, readable through one Role.
+expect "API server egress ranges are the fallback deny" "${TMP}/np.yaml" 'kubeApiServerFallbackCidrs:'
+if grep -A1 '^    kubeApiServerCidrs:$' "${TMP}/np.yaml" | grep -q '10.0.0.0/20'; then
+  echo "FAIL  API server ranges are not denied for good"; failures=$((failures + 1))
+else
+  echo "PASS  API server ranges are not denied for good"
+fi
+expect "Role reads only the kubernetes EndpointSlice" "${TMP}/np.yaml" 'resourceNames: \["kubernetes"\]'
+expect "that Role is bound to NetCheck" "${TMP}/np.yaml" 'name: netcheck-apiserver-endpoints'
 
 must_fail() {
   local name="$1" expect="$2" out

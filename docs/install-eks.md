@@ -562,7 +562,7 @@ multicast and the API server internal IP.
 | Destination | Why |
 |---|---|
 | EC2 metadata (`169.254.169.254`, `fd00:ec2::254`) | From a Pod it could expose the node IAM credentials and instance data |
-| Kubernetes API server (`kubernetes` Service IP and `kubeApiServerCidrs`) | Prevents using probes against the control plane |
+| Kubernetes API server (`kubernetes` Service IP, its exact addresses from the EndpointSlice `default/kubernetes`, and `kubeApiServerCidrs`) | Prevents using probes against the control plane. `networkPolicy.apiServer.cidrs` (often the cluster subnets) is denied only until those addresses are read, so load balancers and services in the same subnets can be tested |
 | Loopback, link-local, multicast and reserved ranges | Not real network destinations; they only open abuse paths |
 
 With `destinationsManagedBy: ui` (default) these values are only the **initial** policy: they are copied to the

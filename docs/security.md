@@ -73,6 +73,9 @@ uses Kyverno or Gatekeeper, you can port the same rules there as an extra layer.
 | `all` (default) | ClusterRole + ClusterRoleBinding | `jobs` create/get/list/watch/delete, `pods` get/list/watch, `pods/log` get, `networkpolicies` get/list, `namespaces` get/list/watch, `serviceaccounts` get/create, `resourcequotas` and `limitranges` list |
 | `list` | Role + RoleBinding per listed namespace | The same, without cluster-wide rights; probe ServiceAccounts are created by the chart |
 
+In both modes, with `protectPlatformDestinations` (default), a Role in `default` allows `get` on **one object**: the
+EndpointSlice `kubernetes` (`resourceNames`), to deny the exact API server addresses as test destinations.
+
 Never granted: `pods/create`, `pods/exec`, `secrets`, RBAC objects, NetworkPolicy or quota changes, or admission policies.
 Quotas and LimitRanges are only read, to tell before creating a Job whether the probe fits in the source namespace.
 Verify it after installing:
@@ -95,9 +98,14 @@ Residual risks, accepted and documented:
 The probe could otherwise be used as an SSRF proxy. Protections:
 
 - **Platform protections** (`protectPlatformDestinations: true`, set only in Helm and never stored in the database or
-  editable in the web): cloud metadata (`169.254.169.254`, `fd00:ec2::254`), the Kubernetes API server (the
-  `kubernetes` Service IP detected at startup plus `kubeApiServerCidrs`), loopback, link-local, multicast and reserved
-  ranges. Deny always wins over allow.
+  editable in the web): cloud metadata (`169.254.169.254`, `fd00:ec2::254`), the Kubernetes API server, loopback,
+  link-local, multicast and reserved ranges. Deny always wins over allow. The API server is denied by its **exact
+  addresses**: the `kubernetes` Service IP, `kubeApiServerCidrs`, and the addresses the API server publishes in the
+  EndpointSlice `default/kubernetes`, read every 30 s. Until they are first read, or if they cannot be read, the
+  ranges of `networkPolicy.apiServer.cidrs` are denied instead (fail closed). Those ranges are what NetCheck needs to
+  reach the API server and are often whole subnets, so other services in them stay testable once the exact addresses
+  are known. Right after the API server moves to a new address, that address can be testable for up to 30 s; the
+  API server still requires authentication and the probe has no Kubernetes token.
 - **Configurable policy:** allowed host name suffixes, allowed networks, denied networks and allowed ports. By default
   any name, IP and port is allowed, because NetCheck is a troubleshooting tool. Administrators can restrict it in the
   web (audited, effective for the next test) or manage it from Helm with `destinationsManagedBy: helm`.

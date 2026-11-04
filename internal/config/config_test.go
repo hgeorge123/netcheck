@@ -85,6 +85,7 @@ func TestRejectsUnsafeConfig(t *testing.T) {
 		"bad mode":             baseYAML("namespaceScope: {mode: everything}"),
 		"bad exclude":          baseYAML("namespaceScope: {exclude: [Bad_NS]}"),
 		"bad cidr":             strings.Replace(baseYAML(""), "10.0.0.0/8", "10.0.0.0/99", 1),
+		"bad fallback cidr":    baseYAML("kubeApiServerFallbackCidrs: [10.0.0.0/99]"),
 		"bad managedBy":        baseYAML("destinationsManagedBy: git"),
 		"huge job":             baseYAML("limits: {maxJobSeconds: 3600}"),
 		"bad log level":        baseYAML("logLevel: verbose"),

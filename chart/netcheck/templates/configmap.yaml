@@ -58,7 +58,11 @@ data:
     proxies:
       {{- toYaml .Values.proxies | nindent 6 }}
     kubeApiServerCidrs:
-      {{- toYaml (concat .Values.kubeApiServerCidrs .Values.networkPolicy.apiServer.cidrs | uniq) | nindent 6 }}
+      {{- toYaml .Values.kubeApiServerCidrs | nindent 6 }}
+    # Denied only until the exact API server addresses are read from the
+    # EndpointSlice default/kubernetes (or for good if they cannot be read).
+    kubeApiServerFallbackCidrs:
+      {{- toYaml .Values.networkPolicy.apiServer.cidrs | nindent 6 }}
     limits:
       {{- toYaml .Values.limits | nindent 6 }}
     probe:

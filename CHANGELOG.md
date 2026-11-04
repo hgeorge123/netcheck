@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/hgeorge123/netcheck/compare/v1.3.0...v1.3.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* deny the API server by its exact addresses, not whole subnets ([f97b16a](https://github.com/hgeorge123/netcheck/commit/f97b16ad322cb752d134fa416a58de3e60d09259))
+
 ## [1.3.0](https://github.com/hgeorge123/netcheck/compare/v1.2.1...v1.3.0) (2026-11-04)
 
 

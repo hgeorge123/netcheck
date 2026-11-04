@@ -385,6 +385,9 @@ export function App() {
     { type: 'link', text: t('nav.dashboard'), href: '#/' },
     { type: 'link', text: t('nav.newTest'), href: '#/new' },
     { type: 'link', text: t('nav.history'), href: '#/runs' },
+    // Also in the user menu: both places lead to the same pages.
+    { type: 'link', text: t('myProxies.title'), href: '#/account/proxies' },
+    { type: 'link', text: t('nav.myTokens'), href: '#/account/tokens' },
   ];
   if (isAdmin) {
     navItems.push(

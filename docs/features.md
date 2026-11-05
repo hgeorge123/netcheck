@@ -104,6 +104,7 @@ Changes apply at once, without redeploying, and are audited.
 | Proxies | Shared HTTP proxies for TCP, HTTP and HTTPS, for every user or administrators only, each with optional certificate authorities; optionally managed with Helm instead | [Admin guide §19](admin-guide.md#19-proxies) |
 | Check types | Switch DNS, TCP, UDP, HTTP, HTTPS, ping, traceroute or the firewall ticket mode on or off for everybody; the form, the API and the CLI follow at once; optionally managed with Helm instead | [Admin guide §20](admin-guide.md#20-check-types) |
 | Custom roles | Roles that choose the checks, whose tests are seen, proxies and API tokens, given to users or SSO groups per namespace, with an effective permissions view | [Admin guide §21](admin-guide.md#21-roles) |
+| Delegated administration | A custom role can manage only some parts of Administration (for example the destination policy and the shared proxies); users, groups, roles and access rules stay with Administrator | [Admin guide §21](admin-guide.md#21-roles) |
 | Local groups | Give a role with its namespaces to several people at once, administrators included; optionally see the tests of the people sharing a group | [Admin guide §22](admin-guide.md#22-groups) |
 | Data retention | Days of technical output and of history | [Admin guide §12](admin-guide.md#12-data-retention) |
 | System and versions | Running version, image digests, chart version and the history of every version deployed | [Admin guide §13](admin-guide.md#13-system-and-versions) |

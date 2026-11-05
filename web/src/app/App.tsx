@@ -38,7 +38,7 @@ import { RunDetailPage } from '../features/run-detail/RunDetailPage';
 import { isLanguage, LANGUAGES, useI18n, type Language, type Translate } from '../i18n';
 import { ApiError, api, setSessionListener } from '../services/api';
 import type { Catalog, Me } from '../types/api';
-import { hrefFor, isAdminRoute, type Route, useHashRoute } from './router';
+import { adminPermission, hrefFor, isAdminRoute, type Route, useHashRoute } from './router';
 
 // Stable call sets, so the pages do not reload on every render.
 const adminProxyCalls: ProxyCalls = {
@@ -277,6 +277,11 @@ export function App() {
   const isAdmin = me.role === 'admin';
   // Permissions of the roles that do not depend on a namespace (absent: all).
   const can = (p: string) => !me.permissions || me.permissions.includes(p);
+  // Administration pages: Administrator, or a custom role with that permission.
+  const canAdmin = (r: Route) => {
+    const perm = adminPermission(r);
+    return isAdmin || (perm !== undefined && perm !== 'admin' && !!me.permissions?.includes(perm));
+  };
   const logout = async () => {
     try {
       await api.logout();
@@ -302,7 +307,7 @@ export function App() {
   let content;
   if (me.mustChangePassword) {
     content = <ChangePasswordPage forced change={api.changePassword} onChanged={() => void load()} />;
-  } else if (isAdminRoute(route) && !isAdmin) {
+  } else if (isAdminRoute(route) && !canAdmin(route)) {
     content = (
       <Alert type="error" header={t('error.forbiddenTitle')}>
         {t('error.forbiddenBody')}
@@ -409,27 +414,29 @@ export function App() {
     ...(can('proxies.personal') ? [{ type: 'link' as const, text: t('myProxies.title'), href: '#/account/proxies' }] : []),
     { type: 'link', text: t('nav.myTokens'), href: '#/account/tokens' },
   ];
-  if (isAdmin) {
+  const allAdminLinks: { page: Route; text: string }[] = [
+    { page: { page: 'users' }, text: t('nav.users') },
+    { page: { page: 'groups' }, text: t('nav.groups') },
+    { page: { page: 'roles' }, text: t('nav.roles') },
+    { page: { page: 'access-rules' }, text: t('nav.accessRules') },
+    { page: { page: 'namespaces' }, text: t('nav.namespaces') },
+    { page: { page: 'policy' }, text: t('nav.policy') },
+    { page: { page: 'check-types' }, text: t('nav.checkTypes') },
+    { page: { page: 'trusted-cas' }, text: t('nav.trustedCas') },
+    { page: { page: 'proxies' }, text: t('nav.proxies') },
+    { page: { page: 'retention' }, text: t('nav.retention') },
+    { page: { page: 'sessions' }, text: t('nav.sessions') },
+    { page: { page: 'admin-tokens' }, text: t('tokens.title') },
+    { page: { page: 'system' }, text: t('nav.system') },
+  ];
+  const adminLinks = allAdminLinks.filter((l) => canAdmin(l.page));
+  if (adminLinks.length > 0) {
     navItems.push(
       { type: 'divider' },
       {
         type: 'section',
         text: t('nav.administration'),
-        items: [
-          { type: 'link', text: t('nav.users'), href: '#/admin/users' },
-          { type: 'link', text: t('nav.groups'), href: '#/admin/groups' },
-          { type: 'link', text: t('nav.roles'), href: '#/admin/roles' },
-          { type: 'link', text: t('nav.accessRules'), href: '#/admin/access-rules' },
-          { type: 'link', text: t('nav.namespaces'), href: '#/admin/namespaces' },
-          { type: 'link', text: t('nav.policy'), href: '#/admin/policy' },
-          { type: 'link', text: t('nav.checkTypes'), href: '#/admin/check-types' },
-          { type: 'link', text: t('nav.trustedCas'), href: '#/admin/trusted-cas' },
-          { type: 'link', text: t('nav.proxies'), href: '#/admin/proxies' },
-          { type: 'link', text: t('nav.retention'), href: '#/admin/retention' },
-          { type: 'link', text: t('nav.sessions'), href: '#/admin/sessions' },
-          { type: 'link', text: t('tokens.title'), href: '#/admin/tokens' },
-          { type: 'link', text: t('nav.system'), href: '#/admin/system' },
-        ],
+        items: adminLinks.map((l) => ({ type: 'link' as const, text: l.text, href: hrefFor(l.page) })),
       },
     );
   }
@@ -456,7 +463,7 @@ export function App() {
             {
               type: 'menu-dropdown',
               text: me.display || me.username,
-              description: `${me.username} · ${t(isAdmin ? 'nav.role.admin' : 'nav.role.user')}${me.version ? ` · v${me.version}` : ''}`,
+              description: `${me.username} · ${isAdmin ? t('nav.role.admin') : me.role === 'user' || !me.roleName ? t('nav.role.user') : me.roleName}${me.version ? ` · v${me.version}` : ''}`,
               iconName: 'user-profile',
               onItemClick: ({ detail }) => {
                 if (detail.id === 'prefs') {

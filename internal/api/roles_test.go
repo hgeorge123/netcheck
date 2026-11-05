@@ -141,3 +141,32 @@ func TestRunsAllShowsTheTestsOfItsNamespaces(t *testing.T) {
 		t.Errorf("permissions: %d %s", rec.Code, rec.Body)
 	}
 }
+
+// A custom role can be given parts of the administration, never users,
+// groups, roles or access rules (ADR 0005 phase 4).
+func TestDelegatedAdministration(t *testing.T) {
+	f := rolesFixture(t)
+	netops := f.createRole(`{"name":"Network admins","permissions":["check.tcp","admin.policy","admin.proxies","admin.system"]}`)
+	f.setRole("bob", netops, `["payments"]`)
+	for _, path := range []string{"/api/v1/admin/policy", "/api/v1/admin/proxies", "/api/v1/admin/system"} {
+		if rec := f.do(f.user, "GET", path, ""); rec.Code != http.StatusOK {
+			t.Errorf("delegated GET %s: %d %s", path, rec.Code, rec.Body)
+		}
+	}
+	if rec := f.do(f.user, "PUT", "/api/v1/admin/policy", `{"allowCidrs":["10.0.0.0/8"],"allowHostnameSuffixes":[".svc.cluster.local"],"allowPorts":[{"from":80,"to":443}]}`); rec.Code != http.StatusOK {
+		t.Errorf("delegated policy change: %d %s", rec.Code, rec.Body)
+	}
+	for _, path := range []string{"/api/v1/admin/users", "/api/v1/admin/roles", "/api/v1/admin/groups", "/api/v1/admin/access-rules",
+		"/api/v1/admin/sessions", "/api/v1/admin/tokens", "/api/v1/admin/trusted-cas", "/api/v1/admin/retention"} {
+		if rec := f.do(f.user, "GET", path, ""); rec.Code != http.StatusForbidden {
+			t.Errorf("GET %s without the permission: %d", path, rec.Code)
+		}
+	}
+	if rec := f.do(f.user, "GET", "/api/v1/me", ""); !strings.Contains(rec.Body.String(), `"admin.policy","admin.proxies","admin.system"`) || !strings.Contains(rec.Body.String(), `"role":"`+netops+`"`) {
+		t.Errorf("me: %s", rec.Body)
+	}
+	// Unknown administration permissions are refused.
+	if rec := f.do(f.admin, "POST", "/api/v1/admin/roles", `{"name":"x","permissions":["admin.users"]}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("admin.users accepted: %d", rec.Code)
+	}
+}

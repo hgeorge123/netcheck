@@ -30,6 +30,7 @@ const GROUPS: { key: string; match: (p: string) => boolean }[] = [
   { key: 'runs', match: (p) => p.startsWith('runs.') },
   { key: 'proxies', match: (p) => p.startsWith('proxies.') },
   { key: 'tokens', match: (p) => p.startsWith('tokens.') },
+  { key: 'admin', match: (p) => p.startsWith('admin.') },
 ];
 
 /** Translated name of a permission. */

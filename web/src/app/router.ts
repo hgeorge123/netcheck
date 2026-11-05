@@ -139,3 +139,38 @@ export function useHashRoute(): [Route, (r: Route) => void] {
   }, []);
   return [route, (r: Route) => (window.location.hash = hrefFor(r))];
 }
+
+/**
+ * Permission that opens an administration page: "admin" means the built-in
+ * Administrator only (users, groups, roles and access rules).
+ */
+export function adminPermission(r: Route): string | undefined {
+  switch (r.page) {
+    case 'users':
+    case 'user-new':
+    case 'user-edit':
+    case 'groups':
+    case 'roles':
+    case 'access-rules':
+      return 'admin';
+    case 'namespaces':
+      return 'admin.namespaces';
+    case 'policy':
+      return 'admin.policy';
+    case 'check-types':
+      return 'admin.checkTypes';
+    case 'trusted-cas':
+      return 'admin.trustedCas';
+    case 'proxies':
+      return 'admin.proxies';
+    case 'retention':
+      return 'admin.retention';
+    case 'sessions':
+      return 'admin.sessions';
+    case 'admin-tokens':
+      return 'admin.tokens';
+    case 'system':
+      return 'admin.system';
+  }
+  return undefined;
+}

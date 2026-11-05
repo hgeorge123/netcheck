@@ -104,42 +104,42 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("DELETE /api/v1/admin/roles/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteRole)))
 	api.Handle("POST /api/v1/admin/users/{id}/password", requireAdmin(http.HandlerFunc(s.adminResetPassword)))
 	api.Handle("POST /api/v1/admin/users/{id}/unlock", requireAdmin(http.HandlerFunc(s.adminUnlock)))
-	api.Handle("GET /api/v1/admin/namespaces", requireAdmin(http.HandlerFunc(s.adminNamespaces)))
+	api.Handle("GET /api/v1/admin/namespaces", s.requirePerm("admin.namespaces", http.HandlerFunc(s.adminNamespaces)))
 	api.HandleFunc("PUT /api/v1/me/preferences", s.setPreferences)
 	api.HandleFunc("GET /api/v1/me/tokens", s.myTokens)
 	api.HandleFunc("POST /api/v1/me/tokens", s.createToken)
 	api.HandleFunc("DELETE /api/v1/me/tokens/{id}", s.revokeMyToken)
-	api.Handle("GET /api/v1/admin/tokens", requireAdmin(http.HandlerFunc(s.adminTokens)))
-	api.Handle("DELETE /api/v1/admin/tokens/{id}", requireAdmin(http.HandlerFunc(s.adminRevokeToken)))
+	api.Handle("GET /api/v1/admin/tokens", s.requirePerm("admin.tokens", http.HandlerFunc(s.adminTokens)))
+	api.Handle("DELETE /api/v1/admin/tokens/{id}", s.requirePerm("admin.tokens", http.HandlerFunc(s.adminRevokeToken)))
 	api.HandleFunc("GET /api/v1/stats", s.stats)
-	api.Handle("GET /api/v1/admin/sessions", requireAdmin(http.HandlerFunc(s.adminSessions)))
-	api.Handle("DELETE /api/v1/admin/sessions/{id}", requireAdmin(http.HandlerFunc(s.adminRevokeSession)))
-	api.Handle("GET /api/v1/admin/system", requireAdmin(http.HandlerFunc(s.adminSystem)))
-	api.Handle("GET /api/v1/admin/namespace-exclusions", requireAdmin(http.HandlerFunc(s.adminNamespaceExclusions)))
-	api.Handle("POST /api/v1/admin/namespace-exclusions", requireAdmin(http.HandlerFunc(s.adminExcludeNamespace)))
-	api.Handle("DELETE /api/v1/admin/namespace-exclusions/{name}", requireAdmin(http.HandlerFunc(s.adminIncludeNamespace)))
-	api.Handle("GET /api/v1/admin/policy", requireAdmin(http.HandlerFunc(s.adminPolicy)))
-	api.Handle("PUT /api/v1/admin/policy", requireAdmin(http.HandlerFunc(s.adminSetPolicy)))
-	api.Handle("POST /api/v1/admin/policy/check", requireAdmin(http.HandlerFunc(s.adminCheckDestination)))
-	api.Handle("GET /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminTrustedCAs)))
-	api.Handle("PUT /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminSetTrustedCAs)))
-	api.Handle("GET /api/v1/admin/check-types", requireAdmin(http.HandlerFunc(s.adminCheckTypes)))
-	api.Handle("PUT /api/v1/admin/check-types", requireAdmin(http.HandlerFunc(s.adminSetCheckTypes)))
-	api.Handle("GET /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminProxies)))
-	api.Handle("POST /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminCreateProxy)))
-	api.Handle("PUT /api/v1/admin/proxies/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateProxy)))
-	api.Handle("DELETE /api/v1/admin/proxies/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteProxy)))
+	api.Handle("GET /api/v1/admin/sessions", s.requirePerm("admin.sessions", http.HandlerFunc(s.adminSessions)))
+	api.Handle("DELETE /api/v1/admin/sessions/{id}", s.requirePerm("admin.sessions", http.HandlerFunc(s.adminRevokeSession)))
+	api.Handle("GET /api/v1/admin/system", s.requirePerm("admin.system", http.HandlerFunc(s.adminSystem)))
+	api.Handle("GET /api/v1/admin/namespace-exclusions", s.requirePerm("admin.namespaces", http.HandlerFunc(s.adminNamespaceExclusions)))
+	api.Handle("POST /api/v1/admin/namespace-exclusions", s.requirePerm("admin.namespaces", http.HandlerFunc(s.adminExcludeNamespace)))
+	api.Handle("DELETE /api/v1/admin/namespace-exclusions/{name}", s.requirePerm("admin.namespaces", http.HandlerFunc(s.adminIncludeNamespace)))
+	api.Handle("GET /api/v1/admin/policy", s.requirePerm("admin.policy", http.HandlerFunc(s.adminPolicy)))
+	api.Handle("PUT /api/v1/admin/policy", s.requirePerm("admin.policy", http.HandlerFunc(s.adminSetPolicy)))
+	api.Handle("POST /api/v1/admin/policy/check", s.requirePerm("admin.policy", http.HandlerFunc(s.adminCheckDestination)))
+	api.Handle("GET /api/v1/admin/trusted-cas", s.requirePerm("admin.trustedCas", http.HandlerFunc(s.adminTrustedCAs)))
+	api.Handle("PUT /api/v1/admin/trusted-cas", s.requirePerm("admin.trustedCas", http.HandlerFunc(s.adminSetTrustedCAs)))
+	api.Handle("GET /api/v1/admin/check-types", s.requirePerm("admin.checkTypes", http.HandlerFunc(s.adminCheckTypes)))
+	api.Handle("PUT /api/v1/admin/check-types", s.requirePerm("admin.checkTypes", http.HandlerFunc(s.adminSetCheckTypes)))
+	api.Handle("GET /api/v1/admin/proxies", s.requirePerm("admin.proxies", http.HandlerFunc(s.adminProxies)))
+	api.Handle("POST /api/v1/admin/proxies", s.requirePerm("admin.proxies", http.HandlerFunc(s.adminCreateProxy)))
+	api.Handle("PUT /api/v1/admin/proxies/{id}", s.requirePerm("admin.proxies", http.HandlerFunc(s.adminUpdateProxy)))
+	api.Handle("DELETE /api/v1/admin/proxies/{id}", s.requirePerm("admin.proxies", http.HandlerFunc(s.adminDeleteProxy)))
 	// Personal proxies: only their owner sees, changes and uses them.
 	api.HandleFunc("GET /api/v1/proxies", s.myProxies)
 	api.HandleFunc("POST /api/v1/proxies", s.createMyProxy)
 	api.HandleFunc("PUT /api/v1/proxies/{id}", s.updateMyProxy)
 	api.HandleFunc("DELETE /api/v1/proxies/{id}", s.deleteMyProxy)
-	api.Handle("GET /api/v1/admin/retention", requireAdmin(http.HandlerFunc(s.adminRetention)))
+	api.Handle("GET /api/v1/admin/retention", s.requirePerm("admin.retention", http.HandlerFunc(s.adminRetention)))
 	api.Handle("GET /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminAccessRules)))
 	api.Handle("POST /api/v1/admin/access-rules", requireAdmin(http.HandlerFunc(s.adminSaveAccessRule)))
 	api.Handle("PUT /api/v1/admin/access-rules/{id}", requireAdmin(http.HandlerFunc(s.adminSaveAccessRule)))
 	api.Handle("DELETE /api/v1/admin/access-rules/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteAccessRule)))
-	api.Handle("PUT /api/v1/admin/retention", requireAdmin(http.HandlerFunc(s.adminSetRetention)))
+	api.Handle("PUT /api/v1/admin/retention", s.requirePerm("admin.retention", http.HandlerFunc(s.adminSetRetention)))
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "resource not found", nil)
 	})
@@ -426,6 +426,18 @@ func checksNotAllowed(req probes.RunRequest, g auth.NamespaceGrant) []probes.Fie
 		}
 	}
 	return errs
+}
+
+// requirePerm guards an administration route that a custom role can be given
+// (ADR 0005 phase 4); Administrator always passes.
+func (s *Server) requirePerm(perm string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.Authz.Has(identity(r), perm) {
+			writeError(w, r, http.StatusForbidden, "admin_required", "this operation requires the administrator role or the permission "+perm, nil)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // requirePermission answers 403 when no role of the caller grants perm.

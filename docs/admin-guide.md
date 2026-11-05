@@ -622,10 +622,15 @@ changed. A **custom role** chooses, one by one:
 | Tests it sees | Every test of its namespaces, or the tests of the people sharing a group (§22); otherwise only its own |
 | Proxies | Use the shared proxies; have personal proxies (**My proxies**) |
 | Command line | Create API tokens |
+| Administration | Destination policy, certificate authorities, shared proxies, check types, namespaces (exclusions), data retention, active sessions (see and end), everybody's API tokens (see and revoke), system and versions |
 
-The built-in **User** has every permission except seeing other people's tests. Administration (users, roles, policy,
-proxies, certificate authorities…) stays with **Administrator**: a custom role can narrow what a user does, never give
-administration.
+The built-in **User** has every permission except seeing other people's tests and the administration.
+
+**Delegating administration.** A custom role with administration permissions sees, in **Administration**, only those
+pages, for example a *Network team* role with the destination policy and the shared proxies. **Users, groups, roles and
+access rules always stay with Administrator**: whoever manages them could give themselves any permission. Keep in mind
+what each part allows: the destination policy decides what can be tested, active sessions can sign out anybody
+(administrators included) and API tokens can be revoked for anybody.
 
 1. Click **Create role**, give it a name (for example *Network on-call*) and an optional description, and tick its
    permissions. **Save**: it applies at once.

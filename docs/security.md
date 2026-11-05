@@ -159,7 +159,9 @@ NetCheck has its own user database (no external identity provider is required):
   every test, and a role with "every test of its namespaces" reads those of its namespaces); anyone else's test answers
   `404`, exactly like a test that does not exist.
 - Roles: the built-in `admin` and `user`, and custom roles that choose the checks, run visibility, proxies and API
-  tokens ([admin guide §21](admin-guide.md#21-roles)). Custom roles never grant administration. A person with several
+  tokens ([admin guide §21](admin-guide.md#21-roles)), and that can be given parts of the administration (policy,
+  certificate authorities, shared proxies, check types, namespaces, retention, sessions, tokens, system). Users,
+  groups, roles and access rules are never delegable, so no custom role can raise its own permissions. A person with several
   roles (several SSO access rules) gets, **per namespace**, only the roles given for that namespace: a role given for one
   namespace never extends another. Permissions are evaluated on every request, so API tokens follow the current roles
   of their owner. If the access rules cannot be read, SSO accounts get no permission until they can (fail closed). The

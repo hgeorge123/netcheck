@@ -18,6 +18,13 @@ const (
 	PermTokensCreate    = "tokens.create"
 )
 
+// AdminPermissions are the parts of the administration a custom role can be
+// given (ADR 0005 phase 4). Users, groups, roles and access rules stay with
+// the built-in Administrator: whoever manages them could give themselves any
+// permission.
+var AdminPermissions = []string{"admin.policy", "admin.trustedCas", "admin.proxies", "admin.checkTypes", "admin.namespaces",
+	"admin.retention", "admin.sessions", "admin.tokens", "admin.system"}
+
 // CheckMethods are the methods a role can allow, in display order.
 var CheckMethods = []string{"dns", "tcp", "udp", "http", "https", "ping", "traceroute"}
 
@@ -25,19 +32,22 @@ var CheckMethods = []string{"dns", "tcp", "udp", "http", "https", "ping", "trace
 func CheckPermission(method string) string { return "check." + method }
 
 // AllPermissions lists every permission a custom role can have, in display
-// order. Administration stays with the built-in Administrator role.
+// order, the delegable administration last.
 func AllPermissions() []string {
 	out := make([]string, 0, len(CheckMethods)+5)
 	for _, m := range CheckMethods {
 		out = append(out, CheckPermission(m))
 	}
-	return append(out, PermFirewall, PermRunsAll, PermRunsGroup, PermProxiesShared, PermProxiesPersonal, PermTokensCreate)
+	out = append(out, PermFirewall, PermRunsAll, PermRunsGroup, PermProxiesShared, PermProxiesPersonal, PermTokensCreate)
+	return append(out, AdminPermissions...)
 }
 
 // userPermissions are the built-in User role's: every check, the firewall
 // ticket, proxies and tokens; only their own tests.
 func userPermissions() []string {
-	return slices.DeleteFunc(AllPermissions(), func(p string) bool { return p == PermRunsAll || p == PermRunsGroup })
+	return slices.DeleteFunc(AllPermissions(), func(p string) bool {
+		return p == PermRunsAll || p == PermRunsGroup || slices.Contains(AdminPermissions, p)
+	})
 }
 
 // Roles holds the roles in memory for the authorization of every request.

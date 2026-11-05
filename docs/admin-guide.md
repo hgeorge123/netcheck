@@ -5,7 +5,7 @@ interface. For day-to-day use, see the [user guide](user-guide.md).
 
 - **Part I:** what gets deployed, how probes work and which NetworkPolicies are needed.
 - **Part II:** administration from the web (users, roles, namespaces, destination policy, certificate authorities,
-  proxies, check types, roles, sessions and versions).
+  proxies, check types, roles, groups, sessions and versions).
 - **Part III:** operations (upgrades, backups, recovery, uninstall and troubleshooting).
 
 Installation itself is covered step by step in [install.md](install.md) (any Kubernetes cluster) and
@@ -161,6 +161,7 @@ that come up most often:
 | Manage the shared proxies (§19) | — | ✔ |
 | Switch check types on or off for everybody (§20) | — | ✔ |
 | Create custom roles and give them to users or access rules (§21) | — | ✔ |
+| Create local groups that give a role to their members (§22) | — | ✔ |
 | Have personal proxies (**My proxies**), seen and used only by their owner | ✔ | ✔ |
 | Create API tokens for the CLI (their own) | ✔ | ✔ |
 | Define the access rules of single sign-on (§16) | — | ✔ |
@@ -618,7 +619,7 @@ changed. A **custom role** chooses, one by one:
 | Group | Permissions |
 |---|---|
 | Checks | DNS, TCP, UDP, HTTP, HTTPS, ping, traceroute, and the firewall ticket |
-| Tests it sees | Every test of its namespaces (otherwise only its own) |
+| Tests it sees | Every test of its namespaces, or the tests of the people sharing a group (§22); otherwise only its own |
 | Proxies | Use the shared proxies; have personal proxies (**My proxies**) |
 | Command line | Create API tokens |
 
@@ -628,8 +629,8 @@ administration.
 
 1. Click **Create role**, give it a name (for example *Network on-call*) and an optional description, and tick its
    permissions. **Save**: it applies at once.
-2. Give it to a person in **Users → Edit → Role**, or to a group of the identity provider in **Access rules** (§16),
-   each with its namespaces.
+2. Give it to a person in **Users → Edit → Role**, to a local group in **Groups** (§22), or to a group of the identity
+   provider in **Access rules** (§16), each with its namespaces.
 
 A role given to someone (users or access rules) cannot be deleted: the list says to how many. Every change is in the
 audit log (`role.create`, `role.update`, `role.delete`).
@@ -648,6 +649,30 @@ chosen namespace and says which ones it removed; the API, `netcheck-cli` and API
 check_not_allowed` naming the check; **My proxies** and the token creation are hidden without their permission.
 
 Roles are managed only in the web (not in the Helm values).
+
+## 22. Groups
+
+**Administration → Groups** gives a role with its namespaces to several people at once, for example a team:
+
+1. Click **Create group** and give it a name (for example *Payments team*) and an optional description.
+2. Choose the **members**: local accounts, or single sign-on accounts that already signed in once.
+3. Choose the **role** (User, Administrator or a custom role, §21) and, except for Administrator, its **namespaces**.
+4. **Save.** It applies at once.
+
+Members keep their own role and namespaces and get the group's **on top**, in the group's namespaces only, like any
+other role (§21, *Several roles*). Leaving the group removes what it gave. For the groups of your identity provider,
+use **Access rules** (§16) instead: they apply without adding anybody by hand.
+
+**Administrators through a group.** A group with the Administrator role makes its members administrators. NetCheck
+always keeps at least one enabled administrator, counting those of groups, and **nobody can take away their own
+administrator role**, by changing their account, changing a group or leaving it (`self_admin`).
+
+**Seeing the tests of the group.** A role with **The tests of the people sharing a group** lets its holders see, besides
+their own tests, those of the people who share a group with them (a local group or a group of the identity provider),
+only in the namespaces they can use themselves. Personal proxies stay private: the others see *Personal proxy of …*.
+
+Every change is in the audit log (`group.create`, `group.update`, `group.delete`, with the members). The effective
+permissions of a user (§21) name each group they get something from.
 
 ---
 

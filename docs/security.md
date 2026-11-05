@@ -163,7 +163,8 @@ NetCheck has its own user database (no external identity provider is required):
   roles (several SSO access rules) gets, **per namespace**, only the roles given for that namespace: a role given for one
   namespace never extends another. Permissions are evaluated on every request, so API tokens follow the current roles
   of their owner. If the access rules cannot be read, SSO accounts get no permission until they can (fail closed). The
-  last active administrator cannot be removed, disabled or demoted.
+  last active administrator cannot be removed, disabled or demoted, counting the members of administrator groups, and
+  nobody can take away their own administrator role, also through a group.
 - **No built-in MFA for local accounts.** Use single sign-on (below) so the MFA of your identity provider applies, or
   put NetCheck behind your SSO proxy. Mitigations for local accounts: lockout, rate limiting, mandatory HTTPS and
   sign-in auditing.

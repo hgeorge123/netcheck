@@ -17,6 +17,7 @@ import { roleLabel } from './roles';
 function sourceText(t: Translate, source: string): string {
   if (source === 'account') return t('perms.source.account');
   if (source === 'authenticated') return t('perms.source.authenticated');
+  if (source.startsWith('localgroup:')) return t('perms.source.localgroup', { name: source.slice('localgroup:'.length) });
   const [kind, name] = [source.slice(0, source.indexOf(':')), source.slice(source.indexOf(':') + 1)];
   return kind === 'group' ? t('perms.source.group', { name }) : t('perms.source.user', { name });
 }

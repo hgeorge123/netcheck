@@ -22,6 +22,7 @@ import { RetentionPage } from '../features/admin/RetentionPage';
 import { TrustedCAsPage } from '../features/admin/TrustedCAsPage';
 import { CheckTypesPage } from '../features/admin/CheckTypesPage';
 import { RolesPage } from '../features/admin/RolesPage';
+import { GroupsPage } from '../features/admin/GroupsPage';
 import { ProxiesPage, type ProxyCalls } from '../features/admin/ProxiesPage';
 import { SessionsPage } from '../features/admin/SessionsPage';
 import { SystemPage } from '../features/admin/SystemPage';
@@ -114,6 +115,9 @@ function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
       break;
     case 'trusted-cas':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.trustedCas'), href: '#/admin/trusted-cas' });
+      break;
+    case 'groups':
+      items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.groups'), href: '#/admin/groups' });
       break;
     case 'roles':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.roles'), href: '#/admin/roles' });
@@ -362,6 +366,8 @@ export function App() {
     content = <PolicyPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'retention') {
     content = <RetentionPage admin={api.admin} notify={notify} />;
+  } else if (route.page === 'groups') {
+    content = <GroupsPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'roles') {
     content = <RolesPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'check-types') {
@@ -411,6 +417,7 @@ export function App() {
         text: t('nav.administration'),
         items: [
           { type: 'link', text: t('nav.users'), href: '#/admin/users' },
+          { type: 'link', text: t('nav.groups'), href: '#/admin/groups' },
           { type: 'link', text: t('nav.roles'), href: '#/admin/roles' },
           { type: 'link', text: t('nav.accessRules'), href: '#/admin/access-rules' },
           { type: 'link', text: t('nav.namespaces'), href: '#/admin/namespaces' },

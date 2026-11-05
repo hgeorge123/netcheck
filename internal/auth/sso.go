@@ -111,9 +111,23 @@ func (l *LocalAuth) IdentityFor(ctx context.Context, u store.User) Identity {
 	return l.withGrants(ctx, identityOf(u, ""), u)
 }
 
-// withGrants adds the grants of an SSO identity, from the current rules.
-// Local accounts keep their own role and namespaces.
+// withGrants adds the grants of an identity: for SSO, one per matching access
+// rule (local accounts keep their own role and namespaces); for everybody,
+// one per local group they are a member of.
 func (l *LocalAuth) withGrants(ctx context.Context, id Identity, u store.User) Identity {
+	id = l.ssoGrants(ctx, id, u)
+	if groups := l.Groups.Of(u.ID); len(groups) > 0 {
+		grants := slices.Clone(id.EffectiveGrants())
+		for _, g := range groups {
+			grants = append(grants, groupGrant(g))
+		}
+		id.Grants = grants
+	}
+	return id
+}
+
+// ssoGrants sets the grants of an SSO identity from the current rules.
+func (l *LocalAuth) ssoGrants(ctx context.Context, id Identity, u store.User) Identity {
 	if sourceOf(u) != store.SourceOIDC {
 		return id
 	}

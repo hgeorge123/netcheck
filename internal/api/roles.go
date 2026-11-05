@@ -24,6 +24,7 @@ type RoleView struct {
 	Builtin     bool      `json:"builtin"`
 	Users       int       `json:"users"`
 	Rules       int       `json:"rules"`
+	Groups      int       `json:"groups"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 	UpdatedBy   string    `json:"updatedBy"`
 }
@@ -41,7 +42,7 @@ func (s *Server) roleView(r *http.Request, role store.Role) RoleView {
 		v.Permissions = []string{}
 	}
 	if !role.Builtin {
-		v.Users, v.Rules, _ = s.Store.RoleUsage(r.Context(), role.ID)
+		v.Users, v.Rules, v.Groups, _ = s.Store.RoleUsage(r.Context(), role.ID)
 	}
 	return v
 }
@@ -155,7 +156,7 @@ func (s *Server) adminDeleteRole(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusConflict, "builtin_role", "built-in roles cannot be deleted", nil)
 		return
 	case errors.Is(err, store.ErrRoleInUse):
-		writeError(w, r, http.StatusConflict, "role_in_use", "the role is still given to users or access rules: change them first", nil)
+		writeError(w, r, http.StatusConflict, "role_in_use", "the role is still given to users, access rules or groups: change them first", nil)
 		return
 	case err != nil:
 		s.Log.Error("delete role failed", "request_id", RequestID(r.Context()), "error", err)

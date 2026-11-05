@@ -140,6 +140,11 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 		return err
 	}
 	local.Roles = roles
+	groups, err := auth.LoadGroups(ctx, st)
+	if err != nil {
+		return err
+	}
+	local.Groups = groups
 	// The initial admin password comes from a Kubernetes Secret and is only
 	// used when no admin exists yet. It is never logged.
 	if os.Getenv("NETCHECK_RECOVER_BOOTSTRAP_ADMIN") == "true" {

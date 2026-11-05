@@ -54,6 +54,26 @@ export interface RoleView {
   builtin: boolean;
   users: number;
   rules: number;
+  groups: number;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+/** A local group: a role with its namespaces given to every member. */
+export interface GroupInput {
+  name: string;
+  description: string;
+  role: Role;
+  allNamespaces: boolean;
+  allowNetcheckNamespace: boolean;
+  namespaces: string[];
+  /** User ids. */
+  members: string[];
+}
+
+export interface GroupView extends GroupInput {
+  id: string;
+  roleName: string;
   updatedAt: string;
   updatedBy: string;
 }

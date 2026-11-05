@@ -124,13 +124,11 @@ func (s *Store) SaveRole(ctx context.Context, r Role, ev AuditEvent) error {
 	return err
 }
 
-// RoleUsage counts the users and access rules that give a role.
-func (s *Store) RoleUsage(ctx context.Context, id string) (users, rules int, err error) {
-	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role_id = ?`, id).Scan(&users); err != nil {
-		return 0, 0, err
-	}
-	err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM access_rules WHERE role_id = ?`, id).Scan(&rules)
-	return users, rules, err
+// RoleUsage counts the users, access rules and local groups that give a role.
+func (s *Store) RoleUsage(ctx context.Context, id string) (users, rules, groups int, err error) {
+	err = s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM users WHERE role_id = ?), (SELECT COUNT(*) FROM access_rules WHERE role_id = ?),
+		(SELECT COUNT(*) FROM local_groups WHERE role = ?)`, id, id, id).Scan(&users, &rules, &groups)
+	return users, rules, groups, err
 }
 
 // DeleteRole deletes a custom role nobody holds.
@@ -148,7 +146,8 @@ func (s *Store) DeleteRole(ctx context.Context, id string, ev AuditEvent) error 
 			return ErrBuiltinRole
 		}
 		var n int
-		if err := tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM users WHERE role_id = ?) + (SELECT COUNT(*) FROM access_rules WHERE role_id = ?)`, id, id).Scan(&n); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM users WHERE role_id = ?) + (SELECT COUNT(*) FROM access_rules WHERE role_id = ?) +
+			(SELECT COUNT(*) FROM local_groups WHERE role = ?)`, id, id, id).Scan(&n); err != nil {
 			return err
 		}
 		if n > 0 {

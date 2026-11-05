@@ -236,10 +236,10 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	return out, nil
 }
 
-// CountActiveAdmins returns enabled admins.
+// CountActiveAdmins returns enabled admins (own role or admin group).
 func (s *Store) CountActiveAdmins(ctx context.Context) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0`).Scan(&n)
+	err := s.db.QueryRowContext(ctx, adminCountSQL).Scan(&n)
 	return n, err
 }
 
@@ -248,7 +248,8 @@ func (s *Store) CountActiveAdmins(ctx context.Context) (int, error) {
 // the check and the write are atomic.
 func leavesNoAdmin(ctx context.Context, tx *sql.Tx, targetID string) (bool, error) {
 	var n int
-	err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0 AND id != ?`, targetID).Scan(&n)
+	// Any other enabled administrator counts, by its own role or a group.
+	err := tx.QueryRowContext(ctx, adminCountSQL+` AND u.id != ?`, targetID).Scan(&n)
 	return n == 0, err
 }
 

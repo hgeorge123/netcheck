@@ -390,11 +390,15 @@ type ListFilter struct {
 	AllNamespaces     bool
 	AllowedNamespaces []string
 	ActorID           string
-	Namespace         string
-	Status            string
-	From, To          *time.Time
-	PageSize          int
-	Cursor            string
+	// GroupActors and GroupNamespaces widen ActorID: the runs of these actors
+	// in these namespaces are also listed (visibility of a group).
+	GroupActors     []string
+	GroupNamespaces []string
+	Namespace       string
+	Status          string
+	From, To        *time.Time
+	PageSize        int
+	Cursor          string
 }
 
 // ErrInvalidCursor is returned for malformed cursors.
@@ -437,7 +441,8 @@ func (s *Store) ListRuns(ctx context.Context, f ListFilter) ([]Run, string, erro
 		}
 	}
 	if f.ActorID != "" {
-		where, args = append(where, "actor_id = ?"), append(args, f.ActorID)
+		cond, cargs := actorCondition("", f)
+		where, args = append(where, cond), append(args, cargs...)
 	}
 	if f.Namespace != "" {
 		where, args = append(where, "namespace = ?"), append(args, f.Namespace)
@@ -557,4 +562,21 @@ func (s *Store) Purge(ctx context.Context, outputsBefore, metadataBefore time.Ti
 		return err
 	})
 	return blanked, deleted, err
+}
+
+// actorCondition restricts runs to ActorID or, with GroupActors, also to the
+// runs of those actors in GroupNamespaces. prefix qualifies the columns.
+func actorCondition(prefix string, f ListFilter) (string, []any) {
+	if len(f.GroupActors) == 0 || len(f.GroupNamespaces) == 0 {
+		return prefix + "actor_id = ?", []any{f.ActorID}
+	}
+	args := []any{f.ActorID}
+	for _, a := range f.GroupActors {
+		args = append(args, a)
+	}
+	for _, n := range f.GroupNamespaces {
+		args = append(args, n)
+	}
+	return "(" + prefix + "actor_id = ? OR (" + prefix + "actor_id IN (" + placeholders(len(f.GroupActors)) + ") AND " +
+		prefix + "namespace IN (" + placeholders(len(f.GroupNamespaces)) + ")))", args
 }

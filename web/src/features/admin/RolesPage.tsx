@@ -170,7 +170,7 @@ export function RolesPage({ admin, notify }: Props) {
               id: 'usage',
               header: t('roles.col.usage'),
               width: 200,
-              cell: (r) => (r.builtin ? '—' : t('roles.usage', { users: r.users, rules: r.rules })),
+              cell: (r) => (r.builtin ? '—' : t('roles.usage', { users: r.users, rules: r.rules, groups: r.groups })),
             },
             { id: 'updated', header: t('roles.col.updated'), width: 200, cell: (r) => (r.builtin ? '—' : `${formatDate(r.updatedAt)} · ${r.updatedBy}`) },
           ]}
@@ -252,7 +252,7 @@ export function RolesPage({ admin, notify }: Props) {
         >
           <SpaceBetween size="m">
             {saveError !== null && <ErrorAlert error={saveError} />}
-            <Box variant="p">{removing.users + removing.rules > 0 ? t('roles.inUse', { users: removing.users, rules: removing.rules }) : t('roles.deleteBody', { name: removing.name })}</Box>
+            <Box variant="p">{removing.users + removing.rules + removing.groups > 0 ? t('roles.inUse', { users: removing.users, rules: removing.rules, groups: removing.groups }) : t('roles.deleteBody', { name: removing.name })}</Box>
           </SpaceBetween>
         </Modal>
       )}

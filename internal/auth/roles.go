@@ -12,6 +12,7 @@ import (
 const (
 	PermFirewall        = "mode.firewall"
 	PermRunsAll         = "runs.all"
+	PermRunsGroup       = "runs.group"
 	PermProxiesShared   = "proxies.useShared"
 	PermProxiesPersonal = "proxies.personal"
 	PermTokensCreate    = "tokens.create"
@@ -30,13 +31,13 @@ func AllPermissions() []string {
 	for _, m := range CheckMethods {
 		out = append(out, CheckPermission(m))
 	}
-	return append(out, PermFirewall, PermRunsAll, PermProxiesShared, PermProxiesPersonal, PermTokensCreate)
+	return append(out, PermFirewall, PermRunsAll, PermRunsGroup, PermProxiesShared, PermProxiesPersonal, PermTokensCreate)
 }
 
 // userPermissions are the built-in User role's: every check, the firewall
 // ticket, proxies and tokens; only their own tests.
 func userPermissions() []string {
-	return slices.DeleteFunc(AllPermissions(), func(p string) bool { return p == PermRunsAll })
+	return slices.DeleteFunc(AllPermissions(), func(p string) bool { return p == PermRunsAll || p == PermRunsGroup })
 }
 
 // Roles holds the roles in memory for the authorization of every request.

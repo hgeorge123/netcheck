@@ -4,9 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api } from '../../services/api';
 import { renderI18n } from '../../test/render';
-import type { CheckTypesView, RoleView, DestinationPolicy, PolicyView, ProxiesView, Proxy, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
+import type { CheckTypesView, GroupView, RoleView, DestinationPolicy, PolicyView, ProxiesView, Proxy, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
 import { CheckTypesPage } from './CheckTypesPage';
 import { RolesPage } from './RolesPage';
+import { GroupsPage } from './GroupsPage';
 import { AccessRulesPage } from './AccessRulesPage';
 import { NamespacesPage } from './NamespacesPage';
 import { ALLOW_ALL, PolicyPage } from './PolicyPage';
@@ -27,10 +28,15 @@ const users: UserView[] = [
 
 const ALL_PERMS = ['check.dns', 'check.tcp', 'check.udp', 'check.http', 'check.https', 'check.ping', 'check.traceroute', 'mode.firewall', 'runs.all', 'proxies.useShared', 'proxies.personal', 'tokens.create'];
 const builtinRoles: RoleView[] = [
-  { id: 'user', name: 'User', description: '', permissions: ALL_PERMS.filter((p) => p !== 'runs.all'), builtin: true, users: 0, rules: 0, updatedAt: common.createdAt, updatedBy: 'system' },
-  { id: 'admin', name: 'Administrator', description: '', permissions: ALL_PERMS, builtin: true, users: 0, rules: 0, updatedAt: common.createdAt, updatedBy: 'system' },
+  { id: 'user', name: 'User', description: '', permissions: ALL_PERMS.filter((p) => p !== 'runs.all'), builtin: true, users: 0, rules: 0, groups: 0, updatedAt: common.createdAt, updatedBy: 'system' },
+  { id: 'admin', name: 'Administrator', description: '', permissions: ALL_PERMS, builtin: true, users: 0, rules: 0, groups: 0, updatedAt: common.createdAt, updatedBy: 'system' },
 ];
-const oncall: RoleView = { id: 'oncall', name: 'On-call', description: 'Network on-call', permissions: ['check.tcp', 'check.ping', 'tokens.create'], builtin: false, users: 1, rules: 0, updatedAt: common.createdAt, updatedBy: 'admin' };
+const oncall: RoleView = { id: 'oncall', name: 'On-call', description: 'Network on-call', permissions: ['check.tcp', 'check.ping', 'tokens.create'], builtin: false, users: 1, rules: 0, groups: 0, updatedAt: common.createdAt, updatedBy: 'admin' };
+
+const platformGroup: GroupView = {
+  id: 'g1', name: 'Payments team', description: 'Squad de pagos', role: 'oncall', roleName: 'On-call', allNamespaces: false,
+  allowNetcheckNamespace: false, namespaces: ['payments'], members: ['u000000000000000000000002'], updatedAt: common.createdAt, updatedBy: 'admin',
+};
 
 function checkTypesView(editable = true): CheckTypesView {
   const types = ['dns', 'tcp', 'udp', 'http', 'https', 'ping', 'traceroute', 'firewall'] as const;
@@ -92,6 +98,10 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     trustedCAs: vi.fn().mockResolvedValue(trustedView()),
     checkTypes: vi.fn().mockResolvedValue(checkTypesView()),
     roles: vi.fn().mockResolvedValue({ roles: [...builtinRoles, oncall], permissions: ALL_PERMS }),
+    groups: vi.fn().mockResolvedValue({ items: [platformGroup] }),
+    createGroup: vi.fn().mockResolvedValue(platformGroup),
+    updateGroup: vi.fn().mockResolvedValue(platformGroup),
+    deleteGroup: vi.fn().mockResolvedValue(undefined),
     createRole: vi.fn().mockResolvedValue(oncall),
     updateRole: vi.fn().mockResolvedValue(oncall),
     deleteRole: vi.fn().mockResolvedValue(undefined),
@@ -726,7 +736,7 @@ describe('RolesPage', () => {
     renderI18n(<RolesPage admin={mockAdmin()} notify={vi.fn()} />);
     expect(await screen.findByText('On-call')).toBeInTheDocument();
     expect(screen.getByText('Everything, in every namespace, plus administration')).toBeInTheDocument();
-    expect(screen.getByText('1 users · 0 access rules')).toBeInTheDocument();
+    expect(screen.getByText('1 users · 0 access rules · 0 groups')).toBeInTheDocument();
     expect(screen.getByText('TCP connection, Ping (ICMP), Create API tokens')).toBeInTheDocument();
   });
 
@@ -750,6 +760,39 @@ describe('RolesPage', () => {
     await screen.findByText('On-call');
     createWrapper(container).findTable()!.findRowSelectionArea(3)!.click();
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(screen.getByText(/still given to 1 users and 0 access rules/)).toBeInTheDocument();
+    expect(screen.getByText(/still given to 1 users, 0 access rules and 0 groups/)).toBeInTheDocument();
+  });
+});
+
+describe('GroupsPage', () => {
+  it('lists the groups with their role, namespaces and members', async () => {
+    renderI18n(<GroupsPage admin={mockAdmin()} notify={vi.fn()} />);
+    expect(await screen.findByText('Payments team')).toBeInTheDocument();
+    expect(screen.getByText('On-call')).toBeInTheDocument();
+    expect(screen.getByText('bob')).toBeInTheDocument();
+  });
+
+  it('creates a group with members and a role', async () => {
+    const admin = mockAdmin();
+    renderI18n(<GroupsPage admin={admin} notify={vi.fn()} />);
+    await screen.findByText('Payments team');
+    await userEvent.click(screen.getByRole('button', { name: 'Create group' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Platform');
+    await userEvent.click(within(dialog).getByRole('radio', { name: /^Administrator/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(admin.createGroup).toHaveBeenCalledWith({ name: 'Platform', description: '', role: 'admin', allNamespaces: false, allowNetcheckNamespace: false, namespaces: [], members: [] }),
+    );
+  });
+
+  it('explains why the last administrator group cannot be deleted', async () => {
+    const admin = mockAdmin({ deleteGroup: vi.fn().mockRejectedValue(new ApiError(409, 'self_admin', 'x')) });
+    const { container } = renderI18n(<GroupsPage admin={admin} notify={vi.fn()} />);
+    await screen.findByText('Payments team');
+    createWrapper(container).findTable()!.findRowSelectionArea(1)!.click();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    expect(await screen.findByText('You cannot take away your own administrator role.')).toBeInTheDocument();
   });
 });

@@ -61,6 +61,8 @@ type LocalAuth struct {
 	Now            func() time.Time
 	// Roles gives the permissions of each role and validates role ids.
 	Roles *Roles
+	// Groups are the local groups: their members get their role.
+	Groups *Groups
 
 	// rules caches the access rules for the grants of SSO identities;
 	// ResyncSSO refreshes it after every change.
@@ -541,4 +543,17 @@ func (l *LocalAuth) BootstrapPasswordStale(ctx context.Context, username, passwo
 	}
 	ok, err := VerifyPassword(password, u.PasswordHash)
 	return !ok, err
+}
+
+// ValidateGrant validates the role and namespaces of a grant (a local group,
+// like a user or an access rule) and returns the namespaces to store.
+func (l *LocalAuth) ValidateGrant(ctx context.Context, role string, all, own bool, namespaces []string) ([]string, error) {
+	in := UserInput{Role: role, AllNamespaces: all, AllowNetcheckNamespace: own, Namespaces: namespaces}
+	if err := l.validateProfile(ctx, &in); err != nil {
+		return nil, err
+	}
+	if in.Namespaces == nil {
+		in.Namespaces = []string{}
+	}
+	return in.Namespaces, nil
 }

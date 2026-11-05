@@ -94,6 +94,10 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("PUT /api/v1/admin/users/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateUser)))
 	api.Handle("DELETE /api/v1/admin/users/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteUser)))
 	api.Handle("GET /api/v1/admin/users/{id}/permissions", requireAdmin(http.HandlerFunc(s.adminUserPermissions)))
+	api.Handle("GET /api/v1/admin/groups", requireAdmin(http.HandlerFunc(s.adminGroups)))
+	api.Handle("POST /api/v1/admin/groups", requireAdmin(http.HandlerFunc(s.adminCreateGroup)))
+	api.Handle("PUT /api/v1/admin/groups/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateGroup)))
+	api.Handle("DELETE /api/v1/admin/groups/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteGroup)))
 	api.Handle("GET /api/v1/admin/roles", requireAdmin(http.HandlerFunc(s.adminRoles)))
 	api.Handle("POST /api/v1/admin/roles", requireAdmin(http.HandlerFunc(s.adminCreateRole)))
 	api.Handle("PUT /api/v1/admin/roles/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateRole)))
@@ -379,7 +383,32 @@ func (s *Server) runFilter(ctx context.Context, id auth.Identity) (store.ListFil
 	case namespaces != nil:
 		return store.ListFilter{AllowedNamespaces: namespaces}, nil
 	}
-	return store.ListFilter{AllNamespaces: true, ActorID: own}, nil
+	f := store.ListFilter{AllNamespaces: true, ActorID: own}
+	// runs.group: also the tests of the people sharing a group, in the
+	// namespaces the identity can use.
+	if s.Authz.Has(id, auth.PermRunsGroup) {
+		peers, ns, err := s.groupScope(ctx, id)
+		if err != nil {
+			return store.ListFilter{}, err
+		}
+		f.GroupActors, f.GroupNamespaces = peers, ns
+	}
+	return f, nil
+}
+
+// groupScope returns the group peers of the identity and its namespaces.
+func (s *Server) groupScope(ctx context.Context, id auth.Identity) (peers, namespaces []string, err error) {
+	if peers, err = s.groupPeers(ctx, id); err != nil {
+		return nil, nil, err
+	}
+	grants, err := s.Authz.Grants(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, g := range grants {
+		namespaces = append(namespaces, g.Name)
+	}
+	return peers, namespaces, nil
 }
 
 // checksNotAllowed returns one error per check (and the firewall ticket mode)
@@ -477,7 +506,13 @@ func (s *Server) getRun(w http.ResponseWriter, r *http.Request) {
 	// Unauthorized and missing runs are indistinguishable to the caller.
 	if err == nil {
 		var ok bool
-		if ok, err = s.Authz.CanViewRun(r.Context(), identity(r), run.ActorID, run.Namespace); err == nil && !ok {
+		if ok, err = s.Authz.CanViewRun(r.Context(), identity(r), run.ActorID, run.Namespace); err == nil && !ok && s.Authz.Has(identity(r), auth.PermRunsGroup) {
+			var peers, ns []string
+			if peers, ns, err = s.groupScope(r.Context(), identity(r)); err == nil {
+				ok = slices.Contains(peers, run.ActorID) && slices.Contains(ns, run.Namespace)
+			}
+		}
+		if err == nil && !ok {
 			err = store.ErrNotFound
 		}
 	}

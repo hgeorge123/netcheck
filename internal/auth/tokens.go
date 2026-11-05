@@ -86,7 +86,7 @@ func (l *LocalAuth) AuthenticateToken(ctx context.Context, raw string) (Identity
 	if tk.LastUsedAt == nil || now.Sub(*tk.LastUsedAt) > time.Minute {
 		_ = l.Store.TouchAPIToken(ctx, tk.ID, now)
 	}
-	id := identityOf(u, "")
+	id := l.withGrants(ctx, identityOf(u, ""), u)
 	id.TokenID = tk.ID
 	return id, nil
 }

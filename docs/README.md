@@ -7,7 +7,7 @@
 | [install-eks.md](install-eks.md) | Step-by-step installation on Amazon EKS |
 | [install-aks.md](install-aks.md) | Step-by-step installation on Azure Kubernetes Service (AKS) |
 | [user-guide.md](user-guide.md) | Creating tests, firewall ticket mode and reading the results |
-| [admin-guide.md](admin-guide.md) | What gets deployed, users, namespaces, destination policy, certificate authorities, proxies, check types, data retention, operations and troubleshooting |
+| [admin-guide.md](admin-guide.md) | What gets deployed, users, namespaces, destination policy, certificate authorities, proxies, check types, roles, data retention, operations and troubleshooting |
 | [sso.md](sso.md) | Single sign-on with an OIDC provider or with GitHub, GitLab, LDAP and SAML through Dex; access rules |
 | [cli.md](cli.md) | API tokens and `netcheck-cli` to run tests from pipelines |
 | [security.md](security.md) | Security model and residual risks |

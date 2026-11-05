@@ -16,6 +16,7 @@ import { ErrorAlert, errorText, fieldErrors } from '../../components/errors';
 import { useI18n, type Translate } from '../../i18n';
 import { ApiError, type Api } from '../../services/api';
 import type { AccessRule, AccessRuleInput, AdminNamespaces, Role, RuleSubject } from '../../types/api';
+import { roleLabel, roleSummary, useCustomRoles } from './roles';
 
 interface Props {
   admin: Api['admin'];
@@ -46,6 +47,7 @@ export function AccessRulesPage({ admin, notify }: Props) {
   const { t, formatDate } = useI18n();
   const [rules, setRules] = useState<AccessRule[] | null>(null);
   const [ssoEnabled, setSsoEnabled] = useState(true);
+  const customRoles = useCustomRoles(admin);
   const [ns, setNs] = useState<AdminNamespaces | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [editing, setEditing] = useState<{ id?: string; input: AccessRuleInput } | null>(null);
@@ -165,7 +167,7 @@ export function AccessRulesPage({ admin, notify }: Props) {
           }
           columnDefinitions={[
             { id: 'subject', header: t('rules.col.subject'), cell: (r) => subjectText(t, r) },
-            { id: 'role', header: t('rules.col.role'), cell: (r) => t(`users.form.role.${r.role}`) },
+            { id: 'role', header: t('rules.col.role'), cell: (r) => roleLabel(t, r.role, r.roleName) },
             { id: 'access', header: t('rules.col.access'), cell: (r) => accessText(t, r) },
             { id: 'updated', header: t('rules.col.updated'), cell: (r) => `${formatDate(r.updatedAt)} · ${r.updatedBy}` },
           ]}
@@ -222,10 +224,11 @@ export function AccessRulesPage({ admin, notify }: Props) {
                 items={[
                   { value: 'user', label: t('users.form.role.user'), description: t('users.form.role.user.desc') },
                   { value: 'admin', label: t('users.form.role.admin'), description: t('users.form.role.admin.desc') },
+                  ...customRoles.map((x) => ({ value: x.id, label: x.name, description: roleSummary(t, x) })),
                 ]}
               />
             </FormField>
-            {input.role === 'user' && (
+            {input.role !== 'admin' && (
               <FormField label={t('users.form.namespaces')} errorText={errs.namespaces}>
                 <SpaceBetween size="s">
                   <RadioGroup

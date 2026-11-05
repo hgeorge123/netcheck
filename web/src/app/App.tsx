@@ -21,6 +21,7 @@ import { PolicyPage } from '../features/admin/PolicyPage';
 import { RetentionPage } from '../features/admin/RetentionPage';
 import { TrustedCAsPage } from '../features/admin/TrustedCAsPage';
 import { CheckTypesPage } from '../features/admin/CheckTypesPage';
+import { RolesPage } from '../features/admin/RolesPage';
 import { ProxiesPage, type ProxyCalls } from '../features/admin/ProxiesPage';
 import { SessionsPage } from '../features/admin/SessionsPage';
 import { SystemPage } from '../features/admin/SystemPage';
@@ -113,6 +114,9 @@ function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
       break;
     case 'trusted-cas':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.trustedCas'), href: '#/admin/trusted-cas' });
+      break;
+    case 'roles':
+      items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.roles'), href: '#/admin/roles' });
       break;
     case 'check-types':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.checkTypes'), href: '#/admin/check-types' });
@@ -267,6 +271,8 @@ export function App() {
 
   const { me, catalog } = session;
   const isAdmin = me.role === 'admin';
+  // Permissions of the roles that do not depend on a namespace (absent: all).
+  const can = (p: string) => !me.permissions || me.permissions.includes(p);
   const logout = async () => {
     try {
       await api.logout();
@@ -356,6 +362,8 @@ export function App() {
     content = <PolicyPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'retention') {
     content = <RetentionPage admin={api.admin} notify={notify} />;
+  } else if (route.page === 'roles') {
+    content = <RolesPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'check-types') {
     content = <CheckTypesPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'trusted-cas') {
@@ -365,7 +373,7 @@ export function App() {
   } else if (route.page === 'my-proxies') {
     content = <ProxiesPage scope="personal" calls={myProxyCalls} notify={notify} />;
   } else if (route.page === 'tokens') {
-    content = <TokensPage scope="mine" list={api.tokens.list} create={api.tokens.create} revoke={api.tokens.revoke} notify={notify} />;
+    content = <TokensPage scope="mine" list={api.tokens.list} create={can('tokens.create') ? api.tokens.create : undefined} revoke={api.tokens.revoke} notify={notify} />;
   } else if (route.page === 'admin-tokens') {
     content = <TokensPage scope="all" list={api.admin.tokens} revoke={api.admin.revokeToken} notify={notify} />;
   } else if (route.page === 'access-rules') {
@@ -392,7 +400,7 @@ export function App() {
     { type: 'link', text: t('nav.newTest'), href: '#/new' },
     { type: 'link', text: t('nav.history'), href: '#/runs' },
     // Also in the user menu: both places lead to the same pages.
-    { type: 'link', text: t('myProxies.title'), href: '#/account/proxies' },
+    ...(can('proxies.personal') ? [{ type: 'link' as const, text: t('myProxies.title'), href: '#/account/proxies' }] : []),
     { type: 'link', text: t('nav.myTokens'), href: '#/account/tokens' },
   ];
   if (isAdmin) {
@@ -403,6 +411,7 @@ export function App() {
         text: t('nav.administration'),
         items: [
           { type: 'link', text: t('nav.users'), href: '#/admin/users' },
+          { type: 'link', text: t('nav.roles'), href: '#/admin/roles' },
           { type: 'link', text: t('nav.accessRules'), href: '#/admin/access-rules' },
           { type: 'link', text: t('nav.namespaces'), href: '#/admin/namespaces' },
           { type: 'link', text: t('nav.policy'), href: '#/admin/policy' },
@@ -458,7 +467,7 @@ export function App() {
                 // SSO accounts have no NetCheck password.
                 ...(me.source === 'oidc' ? [] : [{ id: 'password', text: t('nav.userMenu.password'), disabled: me.mustChangePassword }]),
                 { id: 'tokens', text: t('tokens.title'), disabled: me.mustChangePassword },
-                { id: 'proxies', text: t('myProxies.title'), disabled: me.mustChangePassword },
+                ...(can('proxies.personal') ? [{ id: 'proxies', text: t('myProxies.title'), disabled: me.mustChangePassword }] : []),
                 { id: 'logout', text: t('nav.userMenu.signOut') },
               ],
             },

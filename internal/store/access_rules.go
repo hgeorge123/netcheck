@@ -38,15 +38,16 @@ func jsonList(v []string) string {
 	return string(b)
 }
 
-const ruleColumns = `id, subject_type, subject, role, all_namespaces, allow_netcheck_namespace, namespaces, created_at, updated_at, updated_by`
+const ruleColumns = `id, subject_type, subject, role, all_namespaces, allow_netcheck_namespace, namespaces, created_at, updated_at, updated_by, role_id`
 
 func scanRule(sc interface{ Scan(...any) error }) (AccessRule, error) {
 	var r AccessRule
 	var all, own int
-	var ns, created, updated string
-	if err := sc.Scan(&r.ID, &r.SubjectType, &r.Subject, &r.Role, &all, &own, &ns, &created, &updated, &r.UpdatedBy); err != nil {
+	var ns, created, updated, roleID string
+	if err := sc.Scan(&r.ID, &r.SubjectType, &r.Subject, &r.Role, &all, &own, &ns, &created, &updated, &r.UpdatedBy, &roleID); err != nil {
 		return AccessRule{}, err
 	}
+	r.Role = joinRole(r.Role, roleID)
 	r.AllNamespaces, r.AllowNetcheckNamespace = all == 1, own == 1
 	r.Namespaces = []string{}
 	_ = json.Unmarshal([]byte(ns), &r.Namespaces)
@@ -91,12 +92,13 @@ func (s *Store) GetAccessRule(ctx context.Context, id string) (AccessRule, error
 // SaveAccessRule inserts or replaces a rule with an audit event.
 func (s *Store) SaveAccessRule(ctx context.Context, r AccessRule, ev AuditEvent) error {
 	err := s.tx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO access_rules (`+ruleColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?)
-			ON CONFLICT (id) DO UPDATE SET subject_type = excluded.subject_type, subject = excluded.subject, role = excluded.role,
+		base, custom := splitRole(r.Role)
+		_, err := tx.ExecContext(ctx, `INSERT INTO access_rules (`+ruleColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+			ON CONFLICT (id) DO UPDATE SET subject_type = excluded.subject_type, subject = excluded.subject, role = excluded.role, role_id = excluded.role_id,
 			all_namespaces = excluded.all_namespaces, allow_netcheck_namespace = excluded.allow_netcheck_namespace,
 			namespaces = excluded.namespaces, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
-			r.ID, r.SubjectType, r.Subject, r.Role, b2i(r.AllNamespaces), b2i(r.AllowNetcheckNamespace), jsonList(r.Namespaces),
-			ts(r.CreatedAt), ts(r.UpdatedAt), r.UpdatedBy)
+			r.ID, r.SubjectType, r.Subject, base, b2i(r.AllNamespaces), b2i(r.AllowNetcheckNamespace), jsonList(r.Namespaces),
+			ts(r.CreatedAt), ts(r.UpdatedAt), r.UpdatedBy, custom)
 		if err != nil {
 			return err
 		}
@@ -129,9 +131,10 @@ func (s *Store) DeleteAccessRule(ctx context.Context, id string, ev AuditEvent) 
 // its sessions and API tokens are deleted.
 func (s *Store) SyncSSOUser(ctx context.Context, u User, access bool, now time.Time) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `UPDATE users SET display_name = ?, role = ?, all_namespaces = ?, allow_netcheck_namespace = ?,
+		base, custom := splitRole(u.Role)
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET display_name = ?, role = ?, role_id = ?, all_namespaces = ?, allow_netcheck_namespace = ?,
 			external_groups = ?, updated_at = ? WHERE id = ? AND source = 'oidc'`,
-			u.DisplayName, u.Role, b2i(u.AllNamespaces), b2i(u.AllowNetcheckNamespace), jsonList(u.ExternalGroups), ts(now), u.ID); err != nil {
+			u.DisplayName, base, custom, b2i(u.AllNamespaces), b2i(u.AllowNetcheckNamespace), jsonList(u.ExternalGroups), ts(now), u.ID); err != nil {
 			return err
 		}
 		if err := writeNamespaces(ctx, tx, u.ID, u.Namespaces); err != nil {

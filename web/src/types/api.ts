@@ -11,13 +11,18 @@ export type RunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancell
 export const RUN_STATUSES: RunStatus[] = ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'infra_error'];
 export type CheckStatus = RunStatus | 'timed_out';
 export type Severity = 'success' | 'info' | 'warning' | 'error';
-export type Role = 'admin' | 'user';
+/** A role id: the built-in 'admin' and 'user', or a custom role. */
+export type Role = 'admin' | 'user' | (string & {});
 export type ScopeMode = 'all' | 'list';
 export type Language = 'en' | 'es';
 
 export interface NamespaceGrant {
   name: string;
   canRun: boolean;
+  /** Methods the roles of the caller allow here (absent: every method). */
+  checks?: Method[];
+  /** Whether the firewall ticket mode is allowed here (absent: allowed). */
+  firewallMode?: boolean;
 }
 
 export interface Me {
@@ -35,6 +40,42 @@ export interface Me {
   version: string;
   /** 'oidc': single sign-on account, without a NetCheck password. */
   source: AccountSource;
+  /** Permissions that do not depend on the namespace (absent: all). */
+  permissions?: string[];
+  roleName?: string;
+}
+
+/** A role: built-in (User, Administrator) or custom. */
+export interface RoleView {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  builtin: boolean;
+  users: number;
+  rules: number;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface RolesView {
+  roles: RoleView[];
+  /** Every permission a custom role can have, in display order. */
+  permissions: string[];
+}
+
+export interface RoleInput {
+  name: string;
+  description: string;
+  permissions: string[];
+}
+
+/** What a user can do and where it comes from. */
+export interface UserPermissionsView {
+  admin: boolean;
+  grants: { role: string; roleName: string; allNamespaces: boolean; allowNetcheckNamespace: boolean; namespaces: string[]; source: string }[];
+  namespaces: NamespaceGrant[];
+  permissions: string[];
 }
 
 export type AccountSource = 'local' | 'oidc';
@@ -67,6 +108,8 @@ export interface AccessRuleInput {
 
 export interface AccessRule extends AccessRuleInput {
   id: string;
+  /** Display name of the role (custom roles). */
+  roleName?: string;
   updatedAt: string;
   updatedBy: string;
 }
@@ -76,6 +119,8 @@ export interface UserView {
   username: string;
   displayName: string;
   role: Role;
+  /** Display name of the role (custom roles). */
+  roleName?: string;
   allNamespaces: boolean;
   namespaces: string[];
   disabled: boolean;

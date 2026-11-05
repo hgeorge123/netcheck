@@ -85,7 +85,7 @@ func isUnique(err error) bool {
 
 const userColumns = `id, username, display_name, role, password_hash, must_change_password, disabled, all_namespaces,
 	failed_attempts, locked_until, created_at, updated_at, last_login_at, password_changed_at, language, allow_netcheck_namespace,
-	source, external_subject, external_groups`
+	source, external_subject, external_groups, role_id`
 
 func scanUser(sc interface{ Scan(...any) error }) (User, error) {
 	var u User
@@ -93,11 +93,13 @@ func scanUser(sc interface{ Scan(...any) error }) (User, error) {
 	var locked, lastLogin sql.NullString
 	var created, updated, pwChanged, groups string
 	var subject sql.NullString
+	var roleID string
 	if err := sc.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.PasswordHash, &must, &disabled, &all,
 		&u.FailedAttempts, &locked, &created, &updated, &lastLogin, &pwChanged, &u.Language, &own,
-		&u.Source, &subject, &groups); err != nil {
+		&u.Source, &subject, &groups, &roleID); err != nil {
 		return User{}, err
 	}
+	u.Role = joinRole(u.Role, roleID)
 	u.ExternalSubject = subject.String
 	u.ExternalGroups = []string{}
 	_ = json.Unmarshal([]byte(groups), &u.ExternalGroups)
@@ -160,10 +162,11 @@ func (s *Store) CreateUser(ctx context.Context, u User, ev AuditEvent) error {
 		if u.ExternalSubject != "" {
 			subject = u.ExternalSubject
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO users (`+userColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			u.ID, u.Username, u.DisplayName, u.Role, u.PasswordHash, b2i(u.MustChangePassword), b2i(u.Disabled), b2i(u.AllNamespaces),
+		base, custom := splitRole(u.Role)
+		_, err := tx.ExecContext(ctx, `INSERT INTO users (`+userColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			u.ID, u.Username, u.DisplayName, base, u.PasswordHash, b2i(u.MustChangePassword), b2i(u.Disabled), b2i(u.AllNamespaces),
 			0, nil, ts(u.CreatedAt), ts(u.UpdatedAt), nil, ts(u.PasswordChangedAt), u.Language, b2i(u.AllowNetcheckNamespace),
-			u.Source, subject, jsonList(u.ExternalGroups))
+			u.Source, subject, jsonList(u.ExternalGroups), custom)
 		if err != nil {
 			return err
 		}
@@ -270,8 +273,9 @@ func (s *Store) UpdateUser(ctx context.Context, u User, now time.Time, ev AuditE
 				return ErrLastAdmin
 			}
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE users SET display_name = ?, role = ?, disabled = ?, all_namespaces = ?, allow_netcheck_namespace = ?, updated_at = ? WHERE id = ?`,
-			u.DisplayName, u.Role, b2i(u.Disabled), b2i(u.AllNamespaces), b2i(u.AllowNetcheckNamespace), ts(now), u.ID); err != nil {
+		base, custom := splitRole(u.Role)
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET display_name = ?, role = ?, role_id = ?, disabled = ?, all_namespaces = ?, allow_netcheck_namespace = ?, updated_at = ? WHERE id = ?`,
+			u.DisplayName, base, custom, b2i(u.Disabled), b2i(u.AllNamespaces), b2i(u.AllowNetcheckNamespace), ts(now), u.ID); err != nil {
 			return err
 		}
 		if err := writeNamespaces(ctx, tx, u.ID, u.Namespaces); err != nil {

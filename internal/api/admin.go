@@ -37,7 +37,12 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 		}
 		hours = n
 	}
-	st, err := s.Store.Stats(r.Context(), runFilter(identity(r)), time.Now().Add(-time.Duration(hours)*time.Hour))
+	f, err := s.runFilter(r.Context(), identity(r))
+	if err != nil {
+		writeError(w, r, http.StatusServiceUnavailable, "namespaces_unavailable", "could not list the cluster namespaces", nil)
+		return
+	}
+	st, err := s.Store.Stats(r.Context(), f, time.Now().Add(-time.Duration(hours)*time.Hour))
 	if err != nil {
 		s.Log.Error("stats failed", "request_id", RequestID(r.Context()), "error", err)
 		writeError(w, r, http.StatusInternalServerError, "internal", "internal error", nil)

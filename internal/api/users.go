@@ -15,6 +15,7 @@ type UserView struct {
 	Username           string     `json:"username"`
 	DisplayName        string     `json:"displayName"`
 	Role               string     `json:"role"`
+	RoleName           string     `json:"roleName"`
 	AllNamespaces      bool       `json:"allNamespaces"`
 	Namespaces         []string   `json:"namespaces"`
 	Disabled           bool       `json:"disabled"`
@@ -146,7 +147,7 @@ func (s *Server) adminListUsers(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	items := make([]UserView, len(users))
 	for i, u := range users {
-		items[i] = userView(u, now)
+		items[i] = s.withRoleName(userView(u, now))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -157,7 +158,7 @@ func (s *Server) adminGetUser(w http.ResponseWriter, r *http.Request) {
 		s.writeUserError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, userView(u, time.Now()))
+	writeJSON(w, http.StatusOK, s.withRoleName(userView(u, time.Now())))
 }
 
 func (s *Server) adminCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +172,7 @@ func (s *Server) adminCreateUser(w http.ResponseWriter, r *http.Request) {
 		s.writeUserError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, userView(u, time.Now()))
+	writeJSON(w, http.StatusCreated, s.withRoleName(userView(u, time.Now())))
 }
 
 func (s *Server) adminUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +190,7 @@ func (s *Server) adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 		s.writeUserError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, userView(u, time.Now()))
+	writeJSON(w, http.StatusOK, s.withRoleName(userView(u, time.Now())))
 }
 
 func (s *Server) adminDeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -235,4 +236,10 @@ func (s *Server) adminNamespaces(w http.ResponseWriter, r *http.Request) {
 		list = []string{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": list, "mode": s.ScopeMode, "netcheckNamespace": s.Authz.OwnNamespace})
+}
+
+// withRoleName adds the display name of the role (custom roles have one).
+func (s *Server) withRoleName(v UserView) UserView {
+	v.RoleName = s.Authz.Roles.Name(v.Role)
+	return v
 }

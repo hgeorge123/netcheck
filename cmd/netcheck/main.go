@@ -134,6 +134,12 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 		LoginLimiter:   auth.NewRateLimiter(cfg.Auth.LoginAttemptsPerIPMin, time.Minute),
 		TrustedProxies: cfg.TrustedProxies(),
 	}
+	// Roles (built-in and custom) for every authorization decision.
+	roles, err := auth.LoadRoles(ctx, st)
+	if err != nil {
+		return err
+	}
+	local.Roles = roles
 	// The initial admin password comes from a Kubernetes Secret and is only
 	// used when no admin exists yet. It is never logged.
 	if os.Getenv("NETCHECK_RECOVER_BOOTSTRAP_ADMIN") == "true" {
@@ -281,7 +287,7 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 		Store:   st,
 		Authn:   local,
 		Local:   local,
-		Authz:   &auth.Authorizer{Source: visible, OwnNamespace: cfg.OwnNamespace},
+		Authz:   &auth.Authorizer{Source: visible, OwnNamespace: cfg.OwnNamespace, Roles: roles},
 		NSAdmin: &api.NamespaceAdmin{All: nsAll, Web: visible, HelmExcluded: cfg.NamespaceScope.Exclude,
 			System: config.SystemNamespaces},
 		ScopeMode:  cfg.NamespaceScope.Mode,

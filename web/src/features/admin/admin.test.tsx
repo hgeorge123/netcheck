@@ -4,8 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api } from '../../services/api';
 import { renderI18n } from '../../test/render';
-import type { CheckTypesView, DestinationPolicy, PolicyView, ProxiesView, Proxy, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
+import type { CheckTypesView, RoleView, DestinationPolicy, PolicyView, ProxiesView, Proxy, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
 import { CheckTypesPage } from './CheckTypesPage';
+import { RolesPage } from './RolesPage';
 import { AccessRulesPage } from './AccessRulesPage';
 import { NamespacesPage } from './NamespacesPage';
 import { ALLOW_ALL, PolicyPage } from './PolicyPage';
@@ -23,6 +24,13 @@ const users: UserView[] = [
   { ...common, id: 'u000000000000000000000002', username: 'bob', displayName: 'Bob', role: 'user', allNamespaces: false, namespaces: ['payments'], disabled: false, locked: true, mustChangePassword: false, allowNetcheckNamespace: true },
   { ...common, id: 'u000000000000000000000003', username: 'carol', displayName: '', role: 'user', allNamespaces: true, namespaces: [], disabled: true, locked: false, mustChangePassword: true },
 ];
+
+const ALL_PERMS = ['check.dns', 'check.tcp', 'check.udp', 'check.http', 'check.https', 'check.ping', 'check.traceroute', 'mode.firewall', 'runs.all', 'proxies.useShared', 'proxies.personal', 'tokens.create'];
+const builtinRoles: RoleView[] = [
+  { id: 'user', name: 'User', description: '', permissions: ALL_PERMS.filter((p) => p !== 'runs.all'), builtin: true, users: 0, rules: 0, updatedAt: common.createdAt, updatedBy: 'system' },
+  { id: 'admin', name: 'Administrator', description: '', permissions: ALL_PERMS, builtin: true, users: 0, rules: 0, updatedAt: common.createdAt, updatedBy: 'system' },
+];
+const oncall: RoleView = { id: 'oncall', name: 'On-call', description: 'Network on-call', permissions: ['check.tcp', 'check.ping', 'tokens.create'], builtin: false, users: 1, rules: 0, updatedAt: common.createdAt, updatedBy: 'admin' };
 
 function checkTypesView(editable = true): CheckTypesView {
   const types = ['dns', 'tcp', 'udp', 'http', 'https', 'ping', 'traceroute', 'firewall'] as const;
@@ -83,6 +91,16 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     saveRetention: vi.fn().mockImplementation((r: { outputDays: number; metadataDays: number }) => Promise.resolve({ ...r, updatedAt: common.createdAt, updatedBy: 'admin' })),
     trustedCAs: vi.fn().mockResolvedValue(trustedView()),
     checkTypes: vi.fn().mockResolvedValue(checkTypesView()),
+    roles: vi.fn().mockResolvedValue({ roles: [...builtinRoles, oncall], permissions: ALL_PERMS }),
+    createRole: vi.fn().mockResolvedValue(oncall),
+    updateRole: vi.fn().mockResolvedValue(oncall),
+    deleteRole: vi.fn().mockResolvedValue(undefined),
+    userPermissions: vi.fn().mockResolvedValue({
+      admin: false,
+      grants: [{ role: 'oncall', roleName: 'On-call', allNamespaces: false, allowNetcheckNamespace: false, namespaces: ['payments'], source: 'account' }],
+      namespaces: [{ name: 'payments', canRun: true, checks: ['tcp', 'ping'], firewallMode: false }],
+      permissions: ['check.tcp', 'check.ping', 'tokens.create'],
+    }),
     saveCheckTypes: vi.fn().mockImplementation((disabled: string[]) =>
       Promise.resolve({ ...checkTypesView(), types: checkTypesView().types.map((x) => ({ ...x, enabled: !disabled.includes(x.type) })), updatedBy: 'admin' }),
     ),
@@ -700,5 +718,38 @@ describe('CheckTypesPage', () => {
     expect(await screen.findByText(/checkTypesManagedBy is helm/)).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'UDP' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+});
+
+describe('RolesPage', () => {
+  it('lists the built-in and custom roles with what they allow', async () => {
+    renderI18n(<RolesPage admin={mockAdmin()} notify={vi.fn()} />);
+    expect(await screen.findByText('On-call')).toBeInTheDocument();
+    expect(screen.getByText('Everything, in every namespace, plus administration')).toBeInTheDocument();
+    expect(screen.getByText('1 users · 0 access rules')).toBeInTheDocument();
+    expect(screen.getByText('TCP connection, Ping (ICMP), Create API tokens')).toBeInTheDocument();
+  });
+
+  it('creates a role with the ticked permissions', async () => {
+    const admin = mockAdmin();
+    const notify = vi.fn();
+    renderI18n(<RolesPage admin={admin} notify={notify} />);
+    await screen.findByText('On-call');
+    await userEvent.click(screen.getByRole('button', { name: 'Create role' }));
+    await userEvent.type(screen.getByLabelText('Name'), 'Auditors');
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: /^TCP connection/ }));
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: /^Every test of its namespaces/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(admin.createRole).toHaveBeenCalledWith({ name: 'Auditors', description: '', permissions: ['check.tcp', 'runs.all'] }));
+    expect(notify).toHaveBeenCalledWith('success', 'Role Auditors saved. It applies at once.');
+  });
+
+  it('explains why a role in use cannot be deleted', async () => {
+    const { container } = renderI18n(<RolesPage admin={mockAdmin()} notify={vi.fn()} />);
+    await screen.findByText('On-call');
+    createWrapper(container).findTable()!.findRowSelectionArea(3)!.click();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.getByText(/still given to 1 users and 0 access rules/)).toBeInTheDocument();
   });
 });

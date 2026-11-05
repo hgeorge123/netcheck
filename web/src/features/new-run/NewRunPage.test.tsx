@@ -224,6 +224,37 @@ describe('NewRunPage with check types disabled by an administrator', () => {
 
   it('drops disabled checks when running a test again', async () => {
     run(() => Promise.resolve({ ...emptyForm('payments'), target: '10.1.2.3', methods: ['tcp', 'ping'], tcpPort: '443' }));
-    expect(await screen.findByText('Disabled by an administrator, so removed from this test: Ping (ICMP).')).toBeInTheDocument();
+    expect(await screen.findByText(/so removed from this test: Ping \(ICMP\)\./)).toBeInTheDocument();
+  });
+});
+
+describe('NewRunPage with roles per namespace', () => {
+  const limitedNs = [
+    { name: 'payments', canRun: true, checks: ['tcp' as const, 'ping' as const], firewallMode: false },
+    { name: 'orders', canRun: true },
+  ];
+
+  it('offers only the checks the role allows in the chosen namespace', async () => {
+    const { container } = renderI18n(<NewRunPage namespaces={limitedNs} catalog={catalog} submit={vi.fn()} onCreated={vi.fn()} />);
+    const w = createWrapper(container);
+    expect(w.findCards()!.findItems()).toHaveLength(7);
+    const sel = w.findSelect()!;
+    sel.openDropdown();
+    sel.selectOptionByValue('payments');
+    await waitFor(() => expect(w.findCards()!.findItems()).toHaveLength(2));
+    expect(w.findTiles()!.findItemByValue('firewall')!.findNativeInput().getElement()).toBeDisabled();
+  });
+
+  it('drops checks the new namespace does not allow and says so', async () => {
+    renderI18n(
+      <NewRunPage
+        namespaces={limitedNs}
+        catalog={catalog}
+        submit={vi.fn()}
+        onCreated={vi.fn()}
+        prefill={() => Promise.resolve({ ...emptyForm('payments'), target: '10.1.2.3', methods: ['tcp', 'https'], tcpPort: '443' })}
+      />,
+    );
+    expect(await screen.findByText(/so removed from this test: HTTPS\./)).toBeInTheDocument();
   });
 });

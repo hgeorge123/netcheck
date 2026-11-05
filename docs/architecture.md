@@ -95,6 +95,7 @@ which one the firewall is likely to see (SNAT).
 | `trusted_cas` | Certificate authorities trusted by every HTTPS check (`trustedCasManagedBy: ui`) |
 | `http_proxies`, `proxy_seed` | Shared proxies of the administrators and personal proxies of each user, with their own certificate authorities; whether the Helm values already seeded them |
 | `check_types` | Check types switched off for everybody (`checkTypesManagedBy: ui`) |
+| `roles` | Built-in and custom roles with their permissions (`users.role_id` and `access_rules.role_id` name a custom role) |
 | `namespace_exclusions` | Exclusions added in the web |
 | `retention_settings` | Retention periods edited in the web |
 | `app_versions` | Every version, commit, image and chart that has started |

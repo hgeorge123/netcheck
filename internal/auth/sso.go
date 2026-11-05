@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -26,12 +27,16 @@ type SSOProfile struct {
 	Groups      []string
 }
 
-// Grant is the union of the permissions of every matching access rule.
+// Grant is a role with the namespaces where it applies: one access rule, the
+// account of a local user, or (EvaluateRules) the union of matching rules.
 type Grant struct {
-	Role                   string
-	AllNamespaces          bool
-	AllowNetcheckNamespace bool
-	Namespaces             []string
+	Role                   string   `json:"role"`
+	AllNamespaces          bool     `json:"allNamespaces"`
+	AllowNetcheckNamespace bool     `json:"allowNetcheckNamespace"`
+	Namespaces             []string `json:"namespaces"`
+	// Source says where the grant comes from: "account" (the user itself) or
+	// the access rule ("group:<name>", "user:<name>", "authenticated").
+	Source string `json:"source"`
 }
 
 // EvaluateRules returns the permissions an SSO identity gets and whether any
@@ -69,6 +74,65 @@ func EvaluateRules(rules []store.AccessRule, username string, groups []string) (
 		g.Namespaces = []string{}
 	}
 	return g, matched
+}
+
+// EvaluateGrants returns one grant per access rule matching an SSO identity,
+// so the permissions of each role stay within the namespaces of its rule
+// (ADR 0005 §5). Identical grants are kept once.
+func EvaluateGrants(rules []store.AccessRule, username string, groups []string) []Grant {
+	out := []Grant{}
+	for _, r := range rules {
+		if _, ok := EvaluateRules([]store.AccessRule{r}, username, groups); !ok {
+			continue
+		}
+		g := Grant{Role: r.Role, AllNamespaces: r.AllNamespaces, AllowNetcheckNamespace: r.AllowNetcheckNamespace, Namespaces: slices.Clone(r.Namespaces),
+			Source: ruleSource(r)}
+		if g.Namespaces == nil {
+			g.Namespaces = []string{}
+		}
+		if !slices.ContainsFunc(out, func(x Grant) bool { return reflect.DeepEqual(x, g) }) {
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// ruleSource names the subject of a rule for the effective permissions view.
+func ruleSource(r store.AccessRule) string {
+	if r.SubjectType == store.SubjectAuthenticated {
+		return "authenticated"
+	}
+	return r.SubjectType + ":" + r.Subject
+}
+
+// IdentityFor returns the identity of an account as a request would see it,
+// with its grants (for the effective permissions of a user).
+func (l *LocalAuth) IdentityFor(ctx context.Context, u store.User) Identity {
+	return l.withGrants(ctx, identityOf(u, ""), u)
+}
+
+// withGrants adds the grants of an SSO identity, from the current rules.
+// Local accounts keep their own role and namespaces.
+func (l *LocalAuth) withGrants(ctx context.Context, id Identity, u store.User) Identity {
+	if sourceOf(u) != store.SourceOIDC {
+		return id
+	}
+	rules := l.rules.Load()
+	if rules == nil {
+		list, err := l.Store.ListAccessRules(ctx)
+		if err != nil {
+			// Fail closed: the permissions stored at the last sign-in can be
+			// broader than a custom role (they are a union of the rules).
+			id.Grants = []Grant{{Role: "", Namespaces: []string{}, Source: "unavailable"}}
+			return id
+		}
+		rules = &list
+		l.rules.Store(rules)
+	}
+	if g := EvaluateGrants(*rules, u.Username, u.ExternalGroups); len(g) > 0 {
+		id.Grants = g
+	}
+	return id
 }
 
 func apply(u *store.User, g Grant) {
@@ -139,6 +203,7 @@ func (l *LocalAuth) ResyncSSO(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	l.rules.Store(&rules)
 	users, err := l.Store.ListUsers(ctx)
 	if err != nil {
 		return err

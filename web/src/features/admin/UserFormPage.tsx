@@ -20,6 +20,8 @@ import { useI18n } from "../../i18n";
 import { ApiError, type Api } from "../../services/api";
 import type { Role, ScopeMode, UserInput, UserView } from "../../types/api";
 import { generatePassword, MIN_PASSWORD_LENGTH } from "../auth/password";
+import { roleSummary, useCustomRoles } from "./roles";
+import { UserPermissions } from "./UserPermissions";
 
 interface Props {
   admin: Api["admin"];
@@ -60,6 +62,7 @@ export function UserFormPage({
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<Role>("user");
+  const customRoles = useCustomRoles(admin);
   const [password, setPassword] = useState("");
   const [allNamespaces, setAllNamespaces] = useState(false);
   const [namespaces, setNamespaces] = useState<string[]>([]);
@@ -111,7 +114,7 @@ export function UserFormPage({
       e.password = t("password.tooShort", { n: MIN_PASSWORD_LENGTH });
     if (
       !sso &&
-      role === "user" &&
+      role !== "admin" &&
       !allNamespaces &&
       namespaces.length === 0 &&
       !allowOwn
@@ -319,6 +322,12 @@ export function UserFormPage({
                         label: t("users.form.role.admin"),
                         description: t("users.form.role.admin.desc"),
                       },
+                      ...customRoles.map((r) => ({
+                        value: r.id,
+                        label: r.name,
+                        description: roleSummary(t, r),
+                        disabled: self,
+                      })),
                     ]}
                   />
                 </FormField>
@@ -404,6 +413,9 @@ export function UserFormPage({
                   )}
                 </SpaceBetween>
               </Container>
+            )}
+            {editing && userId && (
+              <UserPermissions admin={admin} userId={userId} reload={0} />
             )}
           </SpaceBetween>
         </Form>

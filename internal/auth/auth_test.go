@@ -337,23 +337,32 @@ func TestNetcheckNamespaceOnlyWithFlag(t *testing.T) {
 }
 
 func TestRunVisibilityIsPerAuthor(t *testing.T) {
+	ctx := context.Background()
+	a := &Authorizer{Source: &mutableNS{list: []string{"orders", "payments"}}}
 	ann := Identity{ID: "u-ann", Role: RoleUser, AllNamespaces: true}
 	bob := Identity{ID: "u-bob", Role: RoleUser, Namespaces: []string{"payments"}}
 	admin := Identity{ID: "u-admin", Role: RoleAdmin}
+	can := func(id Identity, actor string) bool {
+		ok, err := a.CanViewRun(ctx, id, actor, "payments")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
 	// Even with every namespace, a user only reads the tests they started.
-	if !CanViewRun(ann, "u-ann") || CanViewRun(ann, "u-bob") || CanViewRun(bob, "u-ann") {
+	if !can(ann, "u-ann") || can(ann, "u-bob") || can(bob, "u-ann") {
 		t.Error("users must only read their own tests")
 	}
-	if !CanViewRun(admin, "u-ann") || !CanViewRun(admin, "u-bob") {
+	if !can(admin, "u-ann") || !can(admin, "u-bob") {
 		t.Error("administrators read every test")
 	}
-	if all, own := RunScope(bob); all || own != "u-bob" {
-		t.Errorf("user scope = %v %q", all, own)
+	if all, ns, own, _ := a.RunScope(ctx, bob); all || ns != nil || own != "u-bob" {
+		t.Errorf("user scope = %v %v %q", all, ns, own)
 	}
-	if all, own := RunScope(admin); !all || own != "" {
+	if all, _, own, _ := a.RunScope(ctx, admin); !all || own != "" {
 		t.Errorf("admin scope = %v %q", all, own)
 	}
-	if CanViewRun(Identity{Role: RoleUser}, "") {
+	if can(Identity{Role: RoleUser}, "") {
 		t.Error("an identity without ID must read nothing")
 	}
 }

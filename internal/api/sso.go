@@ -61,6 +61,7 @@ type AccessRuleView struct {
 	SubjectType            string    `json:"subjectType"`
 	Subject                string    `json:"subject"`
 	Role                   string    `json:"role"`
+	RoleName               string    `json:"roleName"`
 	AllNamespaces          bool      `json:"allNamespaces"`
 	AllowNetcheckNamespace bool      `json:"allowNetcheckNamespace"`
 	Namespaces             []string  `json:"namespaces"`
@@ -86,6 +87,7 @@ func (s *Server) adminAccessRules(w http.ResponseWriter, r *http.Request) {
 	items := make([]AccessRuleView, len(rules))
 	for i, x := range rules {
 		items[i] = ruleView(x)
+		items[i].RoleName = s.Authz.Roles.Name(x.Role)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "ssoEnabled": s.OIDC != nil})
 }
@@ -105,7 +107,9 @@ func (s *Server) adminSaveAccessRule(w http.ResponseWriter, r *http.Request) {
 	if r.PathValue("id") == "" {
 		status = http.StatusCreated
 	}
-	writeJSON(w, status, ruleView(rule))
+	v := ruleView(rule)
+	v.RoleName = s.Authz.Roles.Name(rule.Role)
+	writeJSON(w, status, v)
 }
 
 func (s *Server) adminDeleteAccessRule(w http.ResponseWriter, r *http.Request) {

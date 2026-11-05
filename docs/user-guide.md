@@ -11,7 +11,8 @@ With the **User** role you can:
 - Sign in with a NetCheck account or, if your organization enabled it, with single sign-on; choose the interface
   language (English or Spanish) and change your password.
 - Run **DNS**, **TCP connection**, **UDP**, **HTTP**, **HTTPS**, **ping** and **traceroute** checks from the namespaces an
-  administrator assigned to you.
+  administrator assigned to you. Your administrators can give you a custom role that allows only some of them, or only
+  in some namespaces.
 - Produce, in one click, the **troubleshooting output for a firewall ticket** (date, hostname, ping, traceroute,
   telnet and curl) as a single block ready to paste.
 - See each result with an indicative diagnosis, the technical output and an equivalent command to reproduce it by
@@ -100,8 +101,9 @@ your most recent tests.
 
 ## 4. Creating a test
 
-Click **Create test** in the side navigation (or on the dashboard). Only the check types your administrators left
-enabled are offered; **Run again** of an older test leaves out the ones disabled since then and says so.
+Click **Create test** in the side navigation (or on the dashboard). Only the checks available in the chosen namespace
+are offered: those your administrators left enabled and that your role allows there. Choosing another namespace, or
+**Run again** of an older test, leaves out the ones not available and says so.
 
 ![Create test](images/user-04-create-test.png)
 

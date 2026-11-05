@@ -67,11 +67,31 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
   const [submitting, setSubmitting] = useState(false);
   const set = <K extends keyof RunForm>(k: K, v: RunForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
-  // Check types administrators left enabled; "Run again" drops the others.
-  const enabled = useMemo(() => catalog.items.map((c) => c.method), [catalog.items]);
+  // Checks available in the chosen namespace: the types administrators left
+  // enabled, and those the roles of the user allow there.
+  const grant = namespaces.find((n) => n.name === form.namespace);
+  const enabled = useMemo(
+    () => catalog.items.map((c) => c.method).filter((m) => !grant?.checks || grant.checks.includes(m)),
+    [catalog.items, grant],
+  );
+  const items = catalog.items.filter((c) => enabled.includes(c.method));
   const fwParts = firewallMethods(form).filter((m) => enabled.includes(m));
-  const firewallOn = catalog.firewallMode !== false;
+  const firewallOn = catalog.firewallMode !== false && grant?.firewallMode !== false;
   const [dropped, setDropped] = useState<Method[]>([]);
+
+  // Choosing another namespace, or running a test again, drops the checks
+  // that are not available there and says so.
+  useEffect(() => {
+    const removed = form.methods.filter((m) => !enabled.includes(m));
+    if (removed.length === 0) return;
+    setDropped(removed);
+    setForm((f) => ({ ...f, methods: f.methods.filter((m) => enabled.includes(m)) }));
+  }, [enabled, form.methods]);
+
+  // The firewall ticket is not available in this namespace: back to custom checks.
+  useEffect(() => {
+    if (form.mode === 'firewall' && (!firewallOn || fwParts.length === 0)) setForm((f) => ({ ...f, mode: 'custom' }));
+  }, [form.mode, firewallOn, fwParts.length]);
 
   useEffect(() => {
     if (!prefill) return;
@@ -79,15 +99,14 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
     prefill()
       .then((f) => {
         if (!alive) return;
-        const removed = f.mode === 'custom' ? f.methods.filter((m) => !enabled.includes(m)) : [];
-        setDropped(f.mode === 'firewall' && !firewallOn ? [] : removed);
-        setForm(f.mode === 'firewall' && !firewallOn ? { ...f, mode: 'custom' } : { ...f, methods: f.methods.filter((m) => enabled.includes(m)) });
+        // A firewall ticket switched off for everybody becomes custom checks.
+        setForm(f.mode === 'firewall' && catalog.firewallMode === false ? { ...f, mode: 'custom' } : f);
       })
       .catch((e: unknown) => alive && setServerError(e));
     return () => {
       alive = false;
     };
-    // enabled and firewallOn come from the catalog loaded with the page.
+    // The catalog is the one loaded with the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill]);
 
@@ -97,7 +116,7 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
   const preview = useMemo(() => buildRequest(form, enabled), [form, enabled]);
   const { limits } = catalog;
   const targetIsIP = isIPLiteral(form.target.trim());
-  const selected = catalog.items.filter((c) => form.methods.includes(c.method));
+  const selected = items.filter((c) => form.methods.includes(c.method));
   const familyOptions: SelectProps.Option[] = [
     { value: 'ip', label: t('newTest.family.ip') },
     { value: 'ip4', label: t('newTest.family.ip4') },
@@ -133,7 +152,7 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
   );
 
   const selectAll = () => {
-    const all = catalog.items.filter((c) => !(c.hostnameOnly && targetIsIP)).map((c) => c.method);
+    const all = items.filter((c) => !(c.hostnameOnly && targetIsIP)).map((c) => c.method);
     set('methods', all.slice(0, limits.maxChecks));
   };
 
@@ -394,7 +413,7 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
             {form.mode === 'custom' && (
               <FormField stretch errorText={err('methods')}>
                 <Cards<CatalogEntry>
-                  items={catalog.items}
+                  items={items}
                   trackBy="method"
                   selectionType="multi"
                   selectedItems={selected}

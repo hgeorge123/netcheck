@@ -196,7 +196,7 @@ export function UsersPage({ admin, currentUserId, onCreate, onEdit, notify }: Pr
             id: 'role',
             header: t('users.col.role'),
             sortingField: 'role',
-            cell: (u) => <Badge color={u.role === 'admin' ? 'blue' : 'grey'}>{t(u.role === 'admin' ? 'nav.role.admin' : 'nav.role.user')}</Badge>,
+            cell: (u) => <Badge color={u.role === 'admin' ? 'blue' : u.role === 'user' ? 'grey' : 'green'}>{u.role === 'admin' || u.role === 'user' ? t(u.role === 'admin' ? 'nav.role.admin' : 'nav.role.user') : u.roleName || u.role}</Badge>,
           },
           {
             id: 'namespaces',

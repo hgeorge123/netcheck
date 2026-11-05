@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hgeorge123/netcheck/internal/store"
@@ -58,6 +59,12 @@ type LocalAuth struct {
 	LoginLimiter   *RateLimiter
 	TrustedProxies []netip.Prefix
 	Now            func() time.Time
+	// Roles gives the permissions of each role and validates role ids.
+	Roles *Roles
+
+	// rules caches the access rules for the grants of SSO identities;
+	// ResyncSSO refreshes it after every change.
+	rules atomic.Pointer[[]store.AccessRule]
 
 	dummyOnce sync.Once
 	dummyHash string
@@ -193,7 +200,7 @@ func (l *LocalAuth) Authenticate(r *http.Request) (Identity, error) {
 	if now.Sub(sess.LastSeenAt) > time.Minute {
 		_ = l.Store.TouchSession(ctx, h, now)
 	}
-	return identityOf(u, h), nil
+	return l.withGrants(ctx, identityOf(u, h), u), nil
 }
 
 // Login verifies credentials and creates a session. It returns the raw
@@ -258,7 +265,7 @@ func (l *LocalAuth) newSession(ctx context.Context, u store.User, clientIP, user
 	if err != nil {
 		return "", Identity{}, err
 	}
-	return token, identityOf(u, h), nil
+	return token, l.withGrants(ctx, identityOf(u, h), u), nil
 }
 
 // Logout deletes the current session.
@@ -334,14 +341,14 @@ func (l *LocalAuth) validateProfile(ctx context.Context, in *UserInput) error {
 			return InputError{"displayName", "display_name_invalid", "the display name contains characters that are not allowed"}
 		}
 	}
-	if in.Role != store.RoleAdmin && in.Role != store.RoleUser {
-		return InputError{"role", "role_invalid", "the role must be admin or user"}
+	if !l.Roles.Exists(in.Role) {
+		return InputError{"role", "role_invalid", "the role does not exist"}
 	}
 	if in.AllNamespaces {
 		in.Namespaces = nil
 		return nil
 	}
-	if in.Role == store.RoleUser && len(in.Namespaces) == 0 && !in.AllowNetcheckNamespace {
+	if in.Role != store.RoleAdmin && len(in.Namespaces) == 0 && !in.AllowNetcheckNamespace {
 		return InputError{"namespaces", "namespaces_required", "select at least one namespace or all namespaces"}
 	}
 	avail, err := l.Namespaces.Available(ctx)

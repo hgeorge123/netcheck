@@ -5,7 +5,7 @@ interface. For day-to-day use, see the [user guide](user-guide.md).
 
 - **Part I:** what gets deployed, how probes work and which NetworkPolicies are needed.
 - **Part II:** administration from the web (users, roles, namespaces, destination policy, certificate authorities,
-  proxies, check types, sessions and versions).
+  proxies, check types, roles, sessions and versions).
 - **Part III:** operations (upgrades, backups, recovery, uninstall and troubleshooting).
 
 Installation itself is covered step by step in [install.md](install.md) (any Kubernetes cluster) and
@@ -160,6 +160,7 @@ that come up most often:
 | Manage the trusted certificate authorities (§18) | — | ✔ |
 | Manage the shared proxies (§19) | — | ✔ |
 | Switch check types on or off for everybody (§20) | — | ✔ |
+| Create custom roles and give them to users or access rules (§21) | — | ✔ |
 | Have personal proxies (**My proxies**), seen and used only by their owner | ✔ | ✔ |
 | Create API tokens for the CLI (their own) | ✔ | ✔ |
 | Define the access rules of single sign-on (§16) | — | ✔ |
@@ -419,11 +420,12 @@ identity provider and with which permissions, **before** they sign in for the fi
 1. Click **Create rule**.
 2. **Applies to:** a **Group** of the provider (for GitHub through Dex, `my-org:my-team`), one **User** (the username
    the provider sends, usually the e-mail or the GitHub login) or **Any authenticated user**.
-3. Choose the **role** and, for the User role, the **namespaces** (a list or all, including future ones) and whether
-   the NetCheck namespace is allowed. It is the same as for a local user.
+3. Choose the **role** (User, Administrator or a custom role, §21) and, except for Administrator, the
+   **namespaces** (a list or all, including future ones) and whether the NetCheck namespace is allowed. It is the same
+   as for a local user.
 4. **Save.** The rule applies at once to the existing SSO accounts.
 
-A person gets the union of every rule that matches. Without a matching rule they cannot sign in with SSO, and an SSO
+A person gets every rule that matches, each with its own namespaces (§21, *Several roles*). Without a matching rule they cannot sign in with SSO, and an SSO
 account left without rules by a change is signed out and loses its API tokens. The rules can be prepared before SSO
 is enabled. Every change is in the audit log.
 
@@ -607,6 +609,45 @@ checkTypesManagedBy: helm
 checkTypes:
   disabled: [traceroute, udp]   # dns, tcp, udp, http, https, ping, traceroute, firewall
 ```
+
+## 21. Roles
+
+**Administration → Roles** defines what each role allows. **User** and **Administrator** are built in and cannot be
+changed. A **custom role** chooses, one by one:
+
+| Group | Permissions |
+|---|---|
+| Checks | DNS, TCP, UDP, HTTP, HTTPS, ping, traceroute, and the firewall ticket |
+| Tests it sees | Every test of its namespaces (otherwise only its own) |
+| Proxies | Use the shared proxies; have personal proxies (**My proxies**) |
+| Command line | Create API tokens |
+
+The built-in **User** has every permission except seeing other people's tests. Administration (users, roles, policy,
+proxies, certificate authorities…) stays with **Administrator**: a custom role can narrow what a user does, never give
+administration.
+
+1. Click **Create role**, give it a name (for example *Network on-call*) and an optional description, and tick its
+   permissions. **Save**: it applies at once.
+2. Give it to a person in **Users → Edit → Role**, or to a group of the identity provider in **Access rules** (§16),
+   each with its namespaces.
+
+A role given to someone (users or access rules) cannot be deleted: the list says to how many. Every change is in the
+audit log (`role.create`, `role.update`, `role.delete`).
+
+**Several roles.** A person can have several roles, for example through several access rules. In **each namespace**
+they get the permissions of the roles given **for that namespace** only: "Network on-call in `orders`" plus "User in
+`payments`" allows only the on-call checks in `orders`. The check types switched off in **Check types** (§20) stay
+off whatever the role.
+
+**Effective permissions.** **Users → Edit** shows what the person can do now: their roles and **where each one comes
+from** (the account itself or an access rule), the checks allowed in each namespace and the other permissions. Use it
+to answer "why can't I…?".
+
+What a user sees when the role does not allow something: the new-test form only offers the checks allowed in the
+chosen namespace and says which ones it removed; the API, `netcheck-cli` and API tokens answer `403
+check_not_allowed` naming the check; **My proxies** and the token creation are hidden without their permission.
+
+Roles are managed only in the web (not in the Helm values).
 
 ---
 

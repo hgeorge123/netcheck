@@ -102,7 +102,9 @@ func (h *Proxies) all(ctx context.Context) ([]store.ProxyRecord, error) {
 
 // visible returns the proxies the identity may see and use: shared ones,
 // administrators-only ones for administrators, and its own personal ones.
-func (h *Proxies) visible(ctx context.Context, id auth.Identity) ([]store.ProxyRecord, error) {
+// shared and personal say whether the roles of the identity let it use
+// shared proxies and its personal ones.
+func (h *Proxies) visible(ctx context.Context, id auth.Identity, shared, personal bool) ([]store.ProxyRecord, error) {
 	if h == nil {
 		return nil, nil
 	}
@@ -112,7 +114,7 @@ func (h *Proxies) visible(ctx context.Context, id auth.Identity) ([]store.ProxyR
 	}
 	out := []store.ProxyRecord{}
 	for _, r := range rows {
-		if (r.OwnerID == "" && (r.Shared || id.IsAdmin())) || (r.OwnerID != "" && r.OwnerID == id.ID) {
+		if (shared && r.OwnerID == "" && (r.Shared || id.IsAdmin())) || (personal && r.OwnerID != "" && r.OwnerID == id.ID) {
 			out = append(out, r)
 		}
 	}
@@ -129,8 +131,8 @@ var errProxyAmbiguous = errors.New("ambiguous proxy name")
 // resolve finds the proxy a check names, among those the identity may use:
 // by ID, otherwise by name (personal first). A name of both a personal and a
 // shared proxy is ambiguous. ok=false means no such proxy.
-func (h *Proxies) resolve(ctx context.Context, id auth.Identity, ref string) (probes.Proxy, bool, error) {
-	rows, err := h.visible(ctx, id)
+func (h *Proxies) resolve(ctx context.Context, id auth.Identity, ref string, canShared, canPersonal bool) (probes.Proxy, bool, error) {
+	rows, err := h.visible(ctx, id, canShared, canPersonal)
 	if err != nil {
 		return probes.Proxy{}, false, err
 	}
@@ -169,7 +171,7 @@ func (s *Server) resolveRunProxies(ctx context.Context, id auth.Identity, req *p
 		if ref == "" || s.Proxies == nil {
 			continue
 		}
-		p, ok, err := s.Proxies.resolve(ctx, id, ref)
+		p, ok, err := s.Proxies.resolve(ctx, id, ref, s.Authz.Has(id, auth.PermProxiesShared), s.Authz.Has(id, auth.PermProxiesPersonal))
 		switch {
 		case errors.Is(err, errProxyAmbiguous):
 			errs = append(errs, probes.FieldError{Field: fmt.Sprintf("checks[%d].proxy", i), Code: "proxy_ambiguous",
@@ -218,7 +220,7 @@ func proxyView(r store.ProxyRecord, withCerts bool, now time.Time) ProxyView {
 
 // catalogProxies lists the proxies the identity may choose for its checks.
 func (s *Server) catalogProxies(ctx context.Context, id auth.Identity) []ProxyView {
-	rows, err := s.Proxies.visible(ctx, id)
+	rows, err := s.Proxies.visible(ctx, id, s.Authz.Has(id, auth.PermProxiesShared), s.Authz.Has(id, auth.PermProxiesPersonal))
 	if err != nil {
 		s.Log.Error("list proxies failed", "error", err)
 	}
@@ -296,10 +298,14 @@ func (s *Server) adminDeleteProxy(w http.ResponseWriter, r *http.Request) {
 	s.deleteProxy(w, r, "", r.PathValue("id"))
 }
 func (s *Server) createMyProxy(w http.ResponseWriter, r *http.Request) {
-	s.saveProxy(w, r, identity(r).ID, "")
+	if s.requirePermission(w, r, auth.PermProxiesPersonal) {
+		s.saveProxy(w, r, identity(r).ID, "")
+	}
 }
 func (s *Server) updateMyProxy(w http.ResponseWriter, r *http.Request) {
-	s.saveProxy(w, r, identity(r).ID, r.PathValue("id"))
+	if s.requirePermission(w, r, auth.PermProxiesPersonal) {
+		s.saveProxy(w, r, identity(r).ID, r.PathValue("id"))
+	}
 }
 func (s *Server) deleteMyProxy(w http.ResponseWriter, r *http.Request) {
 	s.deleteProxy(w, r, identity(r).ID, r.PathValue("id"))

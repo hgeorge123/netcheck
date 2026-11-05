@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -91,6 +93,11 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("GET /api/v1/admin/users/{id}", requireAdmin(http.HandlerFunc(s.adminGetUser)))
 	api.Handle("PUT /api/v1/admin/users/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateUser)))
 	api.Handle("DELETE /api/v1/admin/users/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteUser)))
+	api.Handle("GET /api/v1/admin/users/{id}/permissions", requireAdmin(http.HandlerFunc(s.adminUserPermissions)))
+	api.Handle("GET /api/v1/admin/roles", requireAdmin(http.HandlerFunc(s.adminRoles)))
+	api.Handle("POST /api/v1/admin/roles", requireAdmin(http.HandlerFunc(s.adminCreateRole)))
+	api.Handle("PUT /api/v1/admin/roles/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateRole)))
+	api.Handle("DELETE /api/v1/admin/roles/{id}", requireAdmin(http.HandlerFunc(s.adminDeleteRole)))
 	api.Handle("POST /api/v1/admin/users/{id}/password", requireAdmin(http.HandlerFunc(s.adminResetPassword)))
 	api.Handle("POST /api/v1/admin/users/{id}/unlock", requireAdmin(http.HandlerFunc(s.adminUnlock)))
 	api.Handle("GET /api/v1/admin/namespaces", requireAdmin(http.HandlerFunc(s.adminNamespaces)))
@@ -236,7 +243,8 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	body := map[string]any{"id": id.ID, "username": id.Username, "display": id.Display, "role": id.Role,
 		"allNamespaces": id.AllNamespaces, "mustChangePassword": id.MustChangePassword, "clusterId": s.ClusterID,
 		"namespaceScope": s.ScopeMode, "namespaces": []auth.NamespaceGrant{}, "language": id.Language,
-		"allowNetcheckNamespace": id.AllowNetcheckNamespace, "version": s.Version.Version, "source": id.Source}
+		"allowNetcheckNamespace": id.AllowNetcheckNamespace, "version": s.Version.Version, "source": id.Source,
+		"permissions": s.Authz.Permissions(id), "roleName": s.Authz.Roles.Name(id.Role)}
 	if !id.MustChangePassword {
 		g, ok := s.grants(w, r)
 		if !ok {
@@ -286,7 +294,7 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", err.Error(), nil)
 		return
 	}
-	canRun, err := s.Authz.CanRun(r.Context(), id, req.Namespace)
+	grant, canRun, err := s.Authz.Grant(r.Context(), id, req.Namespace)
 	if err != nil {
 		s.Log.Error("namespace listing failed", "request_id", RequestID(r.Context()), "error", err)
 		writeError(w, r, http.StatusServiceUnavailable, "namespaces_unavailable", "could not list the cluster namespaces", nil)
@@ -295,6 +303,11 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 	if !canRun {
 		s.audit(r, "run.create", req.Namespace, "", "forbidden", map[string]any{"reason": "namespace not authorized"})
 		writeError(w, r, http.StatusForbidden, "namespace_forbidden", "you are not allowed to run checks in that namespace", nil)
+		return
+	}
+	if errs := checksNotAllowed(req, grant); len(errs) > 0 {
+		s.audit(r, "run.create", req.Namespace, "", "forbidden", map[string]any{"reason": "check not allowed by the role", "errors": errs})
+		writeError(w, r, http.StatusForbidden, "check_not_allowed", "your role does not allow some of these checks in this namespace", errs)
 		return
 	}
 	if errs := s.CheckTypes.Check(req); len(errs) > 0 {
@@ -355,18 +368,54 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 
 // runFilter restricts history and statistics to what the identity may read:
 // every test for administrators, otherwise only the tests it started.
-func runFilter(id auth.Identity) store.ListFilter {
-	all, own := auth.RunScope(id)
-	if all {
-		return store.ListFilter{AllNamespaces: true}
+// With runs.all, every test of the namespaces the identity can use.
+func (s *Server) runFilter(ctx context.Context, id auth.Identity) (store.ListFilter, error) {
+	all, namespaces, own, err := s.Authz.RunScope(ctx, id)
+	switch {
+	case err != nil:
+		return store.ListFilter{}, err
+	case all:
+		return store.ListFilter{AllNamespaces: true}, nil
+	case namespaces != nil:
+		return store.ListFilter{AllowedNamespaces: namespaces}, nil
 	}
-	return store.ListFilter{AllNamespaces: true, ActorID: own}
+	return store.ListFilter{AllNamespaces: true, ActorID: own}, nil
+}
+
+// checksNotAllowed returns one error per check (and the firewall ticket mode)
+// the roles of the caller do not allow in the namespace of the request.
+func checksNotAllowed(req probes.RunRequest, g auth.NamespaceGrant) []probes.FieldError {
+	var errs []probes.FieldError
+	if req.Mode == probes.ModeFirewall && !g.FirewallMode {
+		errs = append(errs, probes.FieldError{Field: "mode", Code: "check_not_allowed", Message: "your role does not allow the firewall ticket mode in this namespace"})
+	}
+	for i, c := range req.Checks {
+		// Unknown methods are reported by the validation of the request.
+		if slices.Contains(auth.CheckMethods, string(c.Method)) && !slices.Contains(g.Checks, string(c.Method)) {
+			errs = append(errs, probes.FieldError{Field: fmt.Sprintf("checks[%d]", i), Code: "check_not_allowed",
+				Message: fmt.Sprintf("your role does not allow the %s check in this namespace", c.Method)})
+		}
+	}
+	return errs
+}
+
+// requirePermission answers 403 when no role of the caller grants perm.
+func (s *Server) requirePermission(w http.ResponseWriter, r *http.Request, perm string) bool {
+	if s.Authz.Has(identity(r), perm) {
+		return true
+	}
+	writeError(w, r, http.StatusForbidden, "permission_required", "your role does not allow this ("+perm+")", nil)
+	return false
 }
 
 func (s *Server) listRuns(w http.ResponseWriter, r *http.Request) {
 	id := identity(r)
 	q := r.URL.Query()
-	f := runFilter(id)
+	f, err := s.runFilter(r.Context(), id)
+	if err != nil {
+		writeError(w, r, http.StatusServiceUnavailable, "namespaces_unavailable", "could not list the cluster namespaces", nil)
+		return
+	}
 	f.Namespace, f.Status, f.Cursor = q.Get("namespace"), q.Get("status"), q.Get("cursor")
 	if v := q.Get("pageSize"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -426,7 +475,13 @@ func (s *Server) getRun(w http.ResponseWriter, r *http.Request) {
 	}
 	run, execs, err := s.Store.GetRun(r.Context(), runID)
 	// Unauthorized and missing runs are indistinguishable to the caller.
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !auth.CanViewRun(identity(r), run.ActorID)) {
+	if err == nil {
+		var ok bool
+		if ok, err = s.Authz.CanViewRun(r.Context(), identity(r), run.ActorID, run.Namespace); err == nil && !ok {
+			err = store.ErrNotFound
+		}
+	}
+	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, r, http.StatusNotFound, "not_found", "run not found", nil)
 		return
 	}

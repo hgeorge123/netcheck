@@ -57,6 +57,9 @@ func (s *Server) myTokens(w http.ResponseWriter, r *http.Request) { s.listTokens
 func (s *Server) adminTokens(w http.ResponseWriter, r *http.Request) { s.listTokens(w, r, "") }
 
 func (s *Server) createToken(w http.ResponseWriter, r *http.Request) {
+	if !s.requirePermission(w, r, auth.PermTokensCreate) {
+		return
+	}
 	var in auth.TokenInput
 	if err := decodeJSON(w, r, &in); err != nil {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", err.Error(), nil)

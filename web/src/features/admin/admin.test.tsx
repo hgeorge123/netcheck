@@ -224,6 +224,41 @@ describe('UsersPage', () => {
     expect(notify).toHaveBeenCalledWith('success', 'User bob deleted.');
   });
 
+  it('disables a user after confirming and enables a disabled one', async () => {
+    const admin = mockAdmin();
+    const notify = vi.fn();
+    const { container } = renderI18n(<UsersPage admin={admin} currentUserId={users[0]!.id} onCreate={vi.fn()} onEdit={vi.fn()} notify={notify} />);
+    await screen.findByText('bob');
+    const w = createWrapper(container);
+    const actions = w.findButtonDropdown()!;
+    w.findTable()!.findRowSelectionArea(2)!.click();
+    actions.openDropdown();
+    actions.findItemById('disable')!.click();
+    expect(await screen.findByText(/its API tokens stop working/)).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('dialog', { name: /Disable user bob/ })).getByRole('button', { name: 'Disable' }));
+    await waitFor(() => expect(admin.updateUser).toHaveBeenCalledWith(users[1]!.id, expect.objectContaining({ disabled: true, role: 'user', namespaces: ['payments'] })));
+    expect(notify).toHaveBeenCalledWith('success', 'User bob disabled.');
+
+    w.findTable()!.findRowSelectionArea(3)!.click();
+    actions.openDropdown();
+    expect(actions.findItemById('disable')).toBeNull();
+    actions.findItemById('enable')!.click();
+    await waitFor(() => expect(admin.updateUser).toHaveBeenCalledWith(users[2]!.id, expect.objectContaining({ disabled: false })));
+  });
+
+  it('explains that a disabled SSO account does not come back', async () => {
+    const sso = { ...users[1]!, source: 'oidc' as const };
+    const { container } = renderI18n(
+      <UsersPage admin={mockAdmin({ listUsers: vi.fn().mockResolvedValue({ items: [users[0]!, sso] }) })} currentUserId={users[0]!.id} onCreate={vi.fn()} onEdit={vi.fn()} notify={vi.fn()} />,
+    );
+    await screen.findByText('bob');
+    const w = createWrapper(container);
+    w.findTable()!.findRowSelectionArea(2)!.click();
+    w.findButtonDropdown()!.openDropdown();
+    w.findButtonDropdown()!.findItemById('disable')!.click();
+    expect(await screen.findByText(/does not come back at the next sign-in/)).toBeInTheDocument();
+  });
+
   it('cannot delete yourself', async () => {
     const { container } = renderI18n(<UsersPage admin={mockAdmin()} currentUserId={users[0]!.id} onCreate={vi.fn()} onEdit={vi.fn()} notify={vi.fn()} />);
     await screen.findByText('bob');

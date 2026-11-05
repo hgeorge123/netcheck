@@ -171,6 +171,28 @@ func TestOIDCSignInWithGroupRule(t *testing.T) {
 	if strings.Join(u.Namespaces, ",") != "orders,payments" {
 		t.Fatalf("namespaces after the new rule = %v", u.Namespaces)
 	}
+
+	// Disabled by an administrator: refused although its rules still match,
+	// and neither a rule change nor a new sign-in enables it again.
+	if _, err := o.Local.UpdateUser(ctx, admin, u.ID, UserInput{Disabled: true}, "r"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := signIn(t, o, p, claims, nil); !errors.Is(err, ErrNoAccess) {
+		t.Fatalf("disabled SSO account signed in: %v", err)
+	}
+	if _, err := o.Local.SaveAccessRule(ctx, admin, "", AccessRuleInput{SubjectType: store.SubjectUser, Subject: "ana@acme.com", Role: store.RoleUser,
+		AllNamespaces: true}, "r"); err != nil {
+		t.Fatal(err)
+	}
+	if u, _ = o.Local.Store.GetUser(ctx, u.ID); !u.Disabled {
+		t.Fatal("a rule change enabled the disabled account")
+	}
+	if _, err := o.Local.UpdateUser(ctx, admin, u.ID, UserInput{Disabled: false}, "r"); err != nil {
+		t.Fatal(err)
+	}
+	if token, err := signIn(t, o, p, claims, nil); err != nil || token == "" {
+		t.Fatalf("enabled again: %q %v", token, err)
+	}
 }
 
 func TestOIDCSignInRefusals(t *testing.T) {

@@ -47,6 +47,7 @@ export function UsersPage({ admin, currentUserId, onCreate, onEdit, notify }: Pr
   const [resetPassword, setResetPassword] = useState('');
   const [resetError, setResetError] = useState<string | null>(null);
   const [deleteFor, setDeleteFor] = useState<UserView | null>(null);
+  const [disableFor, setDisableFor] = useState<UserView | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -111,7 +112,27 @@ export function UsersPage({ admin, currentUserId, onCreate, onEdit, notify }: Pr
     }
     if (id === 'unlock') void run(() => admin.unlock(sel.id), t('users.unlocked', { name: name(sel) }));
     if (id === 'delete') setDeleteFor(sel);
+    if (id === 'disable') setDisableFor(sel);
+    if (id === 'enable') void setDisabled(sel, false);
   };
+
+  // Disabling keeps the account (and, for single sign-on, stops it from
+  // coming back at the next sign-in, which deleting would not).
+  const setDisabled = (u: UserView, disabled: boolean) =>
+    run(
+      () =>
+        admin
+          .updateUser(u.id, {
+            displayName: u.displayName,
+            role: u.role,
+            allNamespaces: u.allNamespaces,
+            namespaces: u.namespaces,
+            allowNetcheckNamespace: !!u.allowNetcheckNamespace,
+            disabled,
+          })
+          .then(() => undefined),
+      t(disabled ? 'users.disabledDone' : 'users.enabledDone', { name: name(u) }),
+    );
 
   return (
     <SpaceBetween size="m">
@@ -141,6 +162,9 @@ export function UsersPage({ admin, currentUserId, onCreate, onEdit, notify }: Pr
                     { id: 'edit', text: t('users.action.edit') },
                     { id: 'reset', text: t('users.action.reset'), disabled: sel?.source === 'oidc' },
                     { id: 'unlock', text: t('users.action.unlock'), disabled: !sel?.locked },
+                    sel?.disabled
+                      ? { id: 'enable', text: t('users.action.enable') }
+                      : { id: 'disable', text: t('users.action.disable'), disabled: sel?.id === currentUserId },
                     { id: 'delete', text: t('users.action.delete'), disabled: sel?.id === currentUserId },
                   ]}
                 >
@@ -293,6 +317,33 @@ export function UsersPage({ admin, currentUserId, onCreate, onEdit, notify }: Pr
         }
       >
         {t('users.delete.body')}
+      </Modal>
+
+      <Modal
+        visible={disableFor !== null}
+        onDismiss={() => setDisableFor(null)}
+        header={t('users.disable.title', { name: disableFor?.username ?? '' })}
+        footer={
+          <Box float="right">
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button variant="link" onClick={() => setDisableFor(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                loading={busy}
+                onClick={() => {
+                  if (!disableFor) return;
+                  void setDisabled(disableFor, true).then(() => setDisableFor(null));
+                }}
+              >
+                {t('users.action.disable')}
+              </Button>
+            </SpaceBetween>
+          </Box>
+        }
+      >
+        {disableFor?.source === 'oidc' ? t('users.disable.bodySso') : t('users.disable.body')}
       </Modal>
     </SpaceBetween>
   );

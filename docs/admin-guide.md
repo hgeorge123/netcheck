@@ -205,7 +205,8 @@ Statuses:
 
 Single sign-on accounts appear the first time someone signs in with the identity provider. Their role and namespaces
 come from the access rules (§16): editing one shows the groups of its last sign-in and only lets you enable or disable
-it, and *Reset password* does not apply.
+it, and *Reset password* does not apply. To cut the access of an SSO account, **disable** it (below): a deleted SSO
+account is created again at its next sign-in if a rule still matches, a disabled one stays out.
 
 To act on an account, **select it** with the radio button on the left and open **Actions**:
 
@@ -247,7 +248,9 @@ to the field.
 ## 5. Editing a user
 
 **Actions → Edit** changes the display name, role, namespaces, the NetCheck namespace checkbox and the status (enabled
-or disabled). Disabling an account ends all its sessions immediately.
+or disabled). **Actions → Disable** (after a confirmation) and **Actions → Enable** do the same in one step, for local
+and single sign-on accounts alike. A disabled account cannot sign in, even if an access rule matches it; its sessions
+end at once and its API tokens stop working; its tests stay in the history. You cannot disable your own account.
 
 ![Edit user](images/admin-11-edit-user.png)
 

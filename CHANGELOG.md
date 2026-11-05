@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.0](https://github.com/hgeorge123/netcheck/compare/v1.3.1...v1.4.0) (2026-11-05)
+
+
+### Features
+
+* custom roles with permissions per namespace ([c6f7515](https://github.com/hgeorge123/netcheck/commit/c6f7515d5961877af5146adaff0f261ee2da2c73))
+* delegate parts of the administration to custom roles ([e14d127](https://github.com/hgeorge123/netcheck/commit/e14d127922e577e129d8ba5f4f1f84ce0e5e21bf))
+* disable or enable any account from the Users list ([ace8ed1](https://github.com/hgeorge123/netcheck/commit/ace8ed1bb8fcdbe59e65a755c1660488b63b3f21))
+* local groups and seeing the tests of the group ([582c348](https://github.com/hgeorge123/netcheck/commit/582c348b85faf9b28554cf8cfa28f45c339b3ec1))
+* switch check types on or off for everybody ([4fae89b](https://github.com/hgeorge123/netcheck/commit/4fae89bfd49292c2a8956671933a24987a675339))
+
+
+### Documentation
+
+* bring older passages in line with roles, groups and check types ([b9f1527](https://github.com/hgeorge123/netcheck/commit/b9f1527bb57f45dbef8e9c437c433a71207984d7))
+
 ## [1.3.1](https://github.com/hgeorge123/netcheck/compare/v1.3.0...v1.3.1) (2026-11-04)
 
 

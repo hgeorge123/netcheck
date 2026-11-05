@@ -153,6 +153,22 @@ system:serviceaccount:{{ include "netcheck.namespace" . }}:{{ include "netcheck.
 {{- if not (has $v.proxiesManagedBy (list "ui" "helm")) -}}
 {{- fail "proxiesManagedBy must be ui (managed in the web) or helm (proxies is authoritative)" -}}
 {{- end -}}
+{{- if not (has $v.checkTypesManagedBy (list "ui" "helm")) -}}
+{{- fail "checkTypesManagedBy must be ui (managed in the web) or helm (checkTypes is authoritative)" -}}
+{{- end -}}
+{{- $checks := list "dns" "tcp" "udp" "http" "https" "ping" "traceroute" -}}
+{{- range $v.checkTypes.disabled -}}
+{{- if not (has . (append $checks "firewall")) -}}
+{{- fail (printf "checkTypes.disabled: unknown check type %q (use dns, tcp, udp, http, https, ping, traceroute or firewall)" .) -}}
+{{- end -}}
+{{- end -}}
+{{- $enabled := dict "any" false -}}
+{{- range $checks -}}
+{{- if not (has . $v.checkTypes.disabled) -}}{{- $_ := set $enabled "any" true -}}{{- end -}}
+{{- end -}}
+{{- if not $enabled.any -}}
+{{- fail "checkTypes.disabled: at least one check type (dns, tcp, udp, http, https, ping or traceroute) must stay enabled" -}}
+{{- end -}}
 {{- if and $v.httpRoute.enabled $v.ingress.enabled -}}
 {{- fail "httpRoute.enabled and ingress.enabled are mutually exclusive: choose a Gateway API route (httpRoute) or an Ingress (ingress). To use an Ingress set httpRoute.enabled=false" -}}
 {{- end -}}

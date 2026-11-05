@@ -100,7 +100,8 @@ your most recent tests.
 
 ## 4. Creating a test
 
-Click **Create test** in the side navigation (or on the dashboard).
+Click **Create test** in the side navigation (or on the dashboard). Only the check types your administrators left
+enabled are offered; **Run again** of an older test leaves out the ones disabled since then and says so.
 
 ![Create test](images/user-04-create-test.png)
 

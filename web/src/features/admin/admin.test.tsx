@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api } from '../../services/api';
 import { renderI18n } from '../../test/render';
-import type { DestinationPolicy, PolicyView, ProxiesView, Proxy, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
+import type { CheckTypesView, DestinationPolicy, PolicyView, ProxiesView, Proxy, TrustedCAsView, TrustedCertificate, UserView } from '../../types/api';
+import { CheckTypesPage } from './CheckTypesPage';
 import { AccessRulesPage } from './AccessRulesPage';
 import { NamespacesPage } from './NamespacesPage';
 import { ALLOW_ALL, PolicyPage } from './PolicyPage';
@@ -22,6 +23,11 @@ const users: UserView[] = [
   { ...common, id: 'u000000000000000000000002', username: 'bob', displayName: 'Bob', role: 'user', allNamespaces: false, namespaces: ['payments'], disabled: false, locked: true, mustChangePassword: false, allowNetcheckNamespace: true },
   { ...common, id: 'u000000000000000000000003', username: 'carol', displayName: '', role: 'user', allNamespaces: true, namespaces: [], disabled: true, locked: false, mustChangePassword: true },
 ];
+
+function checkTypesView(editable = true): CheckTypesView {
+  const types = ['dns', 'tcp', 'udp', 'http', 'https', 'ping', 'traceroute', 'firewall'] as const;
+  return { types: types.map((type) => ({ type, enabled: true })), managedBy: editable ? 'ui' : 'helm', editable, updatedAt: common.createdAt, updatedBy: 'helm (initial values)' };
+}
 
 function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
   return {
@@ -76,6 +82,10 @@ function mockAdmin(over: Partial<Api['admin']> = {}): Api['admin'] {
     retention: vi.fn().mockResolvedValue({ outputDays: 15, metadataDays: 45, updatedAt: common.createdAt, updatedBy: 'helm (initial values)' }),
     saveRetention: vi.fn().mockImplementation((r: { outputDays: number; metadataDays: number }) => Promise.resolve({ ...r, updatedAt: common.createdAt, updatedBy: 'admin' })),
     trustedCAs: vi.fn().mockResolvedValue(trustedView()),
+    checkTypes: vi.fn().mockResolvedValue(checkTypesView()),
+    saveCheckTypes: vi.fn().mockImplementation((disabled: string[]) =>
+      Promise.resolve({ ...checkTypesView(), types: checkTypesView().types.map((x) => ({ ...x, enabled: !disabled.includes(x.type) })), updatedBy: 'admin' }),
+    ),
     proxies: vi.fn().mockResolvedValue(proxiesView()),
     createProxy: vi.fn().mockResolvedValue(corpProxy),
     updateProxy: vi.fn().mockResolvedValue(corpProxy),
@@ -658,5 +668,37 @@ describe('UserFormPage for an SSO account', () => {
     expect(await screen.findByText('Single sign-on account')).toBeInTheDocument();
     expect(screen.getByText(/Groups of the last sign-in: acme:payments/)).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /Administrator/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('CheckTypesPage', () => {
+  it('switches a check type off for everybody', async () => {
+    const admin = mockAdmin();
+    const notify = vi.fn();
+    renderI18n(<CheckTypesPage admin={admin} notify={notify} />);
+    const traceroute = await screen.findByRole('checkbox', { name: 'Traceroute (ICMP)' });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.click(traceroute);
+    expect(screen.getByText('You have unsaved changes.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(admin.saveCheckTypes).toHaveBeenCalledWith(['traceroute']));
+    expect(notify).toHaveBeenCalledWith('success', 'Check types saved. They apply to new tests at once.');
+  });
+
+  it('keeps at least one check enabled', async () => {
+    renderI18n(<CheckTypesPage admin={mockAdmin()} notify={vi.fn()} />);
+    await screen.findByRole('checkbox', { name: 'DNS resolution' });
+    for (const name of ['DNS resolution', 'TCP connection', 'UDP', 'HTTP', 'HTTPS', 'Ping (ICMP)', 'Traceroute (ICMP)']) {
+      await userEvent.click(screen.getByRole('checkbox', { name }));
+    }
+    expect(screen.getByText('At least one check type must stay enabled.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('is read-only when managed in Helm', async () => {
+    renderI18n(<CheckTypesPage admin={mockAdmin({ checkTypes: vi.fn().mockResolvedValue(checkTypesView(false)) })} notify={vi.fn()} />);
+    expect(await screen.findByText(/checkTypesManagedBy is helm/)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'UDP' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
   });
 });

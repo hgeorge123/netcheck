@@ -102,6 +102,7 @@ Changes apply at once, without redeploying, and are audited.
 | Destination policy | Allowed names, networks and ports, denied networks, presets, and a check that sends no traffic; optionally managed with Helm instead | [Admin guide §11](admin-guide.md#11-destination-policy) |
 | Certificate authorities | Add or remove trusted authorities (PEM) with subject, expiry and fingerprint; optionally managed with Helm instead | [Admin guide §18](admin-guide.md#18-certificate-authorities) |
 | Proxies | Shared HTTP proxies for TCP, HTTP and HTTPS, for every user or administrators only, each with optional certificate authorities; optionally managed with Helm instead | [Admin guide §19](admin-guide.md#19-proxies) |
+| Check types | Switch DNS, TCP, UDP, HTTP, HTTPS, ping, traceroute or the firewall ticket mode on or off for everybody; the form, the API and the CLI follow at once; optionally managed with Helm instead | [Admin guide §20](admin-guide.md#20-check-types) |
 | Data retention | Days of technical output and of history | [Admin guide §12](admin-guide.md#12-data-retention) |
 | System and versions | Running version, image digests, chart version and the history of every version deployed | [Admin guide §13](admin-guide.md#13-system-and-versions) |
 | Audit log | Sign-ins, user, policy, namespace, retention, rule and token changes | [Admin guide, audit and logs](admin-guide.md#6-audit-and-logs) |

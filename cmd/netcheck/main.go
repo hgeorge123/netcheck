@@ -260,6 +260,11 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
+	// Check types switched off for everybody, managed the same way.
+	checkTypes, err := api.LoadCheckTypes(ctx, st, cfg.CheckTypes.Disabled, cfg.CheckTypesManagedBy == config.DestinationsManagedByUI, time.Now())
+	if err != nil {
+		return err
+	}
 	seedProxies := make([]api.SharedProxy, len(cfg.Proxies))
 	for i, p := range config.ProxyList(cfg.Proxies) {
 		seedProxies[i] = api.SharedProxy{Proxy: p, Shared: cfg.Proxies[i].IsShared()}
@@ -284,6 +289,7 @@ func run(configPath string, log *slog.Logger, level *slog.LevelVar) error {
 		Limiter:    limiter,
 		Policies:   policies,
 		TrustedCAs: trustedCAs,
+		CheckTypes: checkTypes,
 		Proxies:    proxies,
 		Retention:  retention,
 		Limits:     cfg.ProbeLimits(),

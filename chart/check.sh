@@ -219,6 +219,13 @@ expect "trusted authority rendered as PEM" "${TMP}/cm-cas.yaml" 'BEGIN CERTIFICA
 must_fail "unknown trusted authorities manager" "trustedCasManagedBy must be ui" "${EKS[@]}" "${GW[@]}" --set trustedCasManagedBy=git
 expect "proxy rendered" "${TMP}/cm-cas.yaml" "host: proxy.example.com"
 must_fail "unknown proxies manager" "proxiesManagedBy must be ui" "${EKS[@]}" "${GW[@]}" --set proxiesManagedBy=git
+expect "check types managed in the web by default" "${TMP}/cm-kind.yaml" 'checkTypesManagedBy: "ui"'
+"${HELM}" template netcheck "${CHART}" --namespace netcheck "${EKS[@]}" "${GW[@]}" --set 'checkTypes.disabled={traceroute,firewall}' \
+  --show-only templates/configmap.yaml > "${TMP}/cm-checks.yaml"
+expect "disabled check types rendered" "${TMP}/cm-checks.yaml" '^        - firewall$'
+must_fail "unknown check types manager" "checkTypesManagedBy must be ui" "${EKS[@]}" "${GW[@]}" --set checkTypesManagedBy=git
+must_fail "unknown check type" "unknown check type" "${EKS[@]}" "${GW[@]}" --set 'checkTypes.disabled={telnet}'
+must_fail "every check type disabled" "must stay enabled" "${EKS[@]}" "${GW[@]}" --set 'checkTypes.disabled={dns,tcp,udp,http,https,ping,traceroute}'
 
 [ "${failures}" -eq 0 ] || { echo "${failures} chart check(s) failed"; exit 1; }
 echo "All chart checks passed."

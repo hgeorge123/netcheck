@@ -98,6 +98,13 @@ describe('buildFirewallReport', () => {
     expect(r).toContain('telnet: could not resolve api.example.com/443: Name or service not known');
     expect(r).toContain('curl: not executed: destination denied by the NetCheck policy (169.254.169.254 is in denied range)');
   });
+
+  it('says which parts an administrator disabled', () => {
+    const r = buildFirewallReport({ ...base, checks: base.checks.filter((c) => c.method !== 'ping' && c.method !== 'traceroute') }, t, fmt);
+    expect(r).toContain('# ping: not run (disabled by an administrator)');
+    expect(r).toContain('# traceroute: not run (disabled by an administrator)');
+    expect(r).toContain('Connected to api.example.com');
+  });
 });
 
 it('formats date like date(1) and chooses the curl protocol by port', () => {

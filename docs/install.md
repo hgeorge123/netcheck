@@ -266,6 +266,9 @@ Settings you usually keep:
   ([admin guide §19](admin-guide.md#19-proxies)), shared with every user or kept for administrators, with the
   authority of the proxy if it inspects TLS. Users may also add their own in **My proxies**; any proxy is optional
   for TCP, HTTP and HTTPS checks.
+- **Check types:** every type (DNS, TCP, UDP, HTTP, HTTPS, ping, traceroute and the firewall ticket mode) is enabled.
+  To forbid some for everybody, list them in `checkTypes.disabled` or switch them off later in **Administration →
+  Check types** ([admin guide §20](admin-guide.md#20-check-types)).
 - **`probe.settleSeconds`:** 3 s wait so the CNI applies policies to the new probe Pod before measuring (step 12).
 
 Keep `values.yaml` in your configuration repository. It holds no secrets: the initial password lives only in the cluster.

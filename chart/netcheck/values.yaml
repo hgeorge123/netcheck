@@ -174,6 +174,19 @@ proxiesManagedBy: ui
 #     trustedCas: []
 proxies: []
 
+# -- Who manages the check types: "ui" (default) = checkTypes is only the INITIAL
+# setting, copied to the database on the first start; afterwards administrators
+# manage it in Administration > Check types. "helm" = checkTypes is
+# authoritative and that page is read-only.
+checkTypesManagedBy: ui
+
+# -- Check types switched off for everybody, administrators included: any of
+# dns, tcp, udp, http, https, ping, traceroute, and firewall (the firewall
+# ticket mode). Empty (default) enables every type; at least one check must
+# stay enabled. Example: disabled: [traceroute, udp]
+checkTypes:
+  disabled: []
+
 # -- Keep true. Always denies cloud metadata (169.254.169.254, fd00:ec2::254,
 # where a Pod could read the node IAM credentials), the Kubernetes API server,
 # loopback, link-local, multicast and reserved ranges, whatever destinations

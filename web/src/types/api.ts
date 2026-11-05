@@ -157,7 +157,10 @@ export interface ProxiesView {
 }
 
 export interface Catalog {
+  /** Only the check types administrators left enabled. */
   items: CatalogEntry[];
+  /** Whether the firewall ticket mode is enabled (absent: enabled). */
+  firewallMode?: boolean;
   limits: Limits;
   /** Proxies users may choose; none hides the option. */
   proxies?: Proxy[] | null;
@@ -424,6 +427,17 @@ export interface TrustedCertificate {
   notAfter: string;
   fingerprintSha256: string;
   expired: boolean;
+}
+
+/** A check type (a method, or "firewall" for the firewall ticket mode). */
+export type CheckType = Method | 'firewall';
+
+export interface CheckTypesView {
+  types: { type: CheckType; enabled: boolean }[];
+  managedBy: 'ui' | 'helm';
+  editable: boolean;
+  updatedAt: string;
+  updatedBy: string;
 }
 
 export interface TrustedCAsView {

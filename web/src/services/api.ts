@@ -26,6 +26,7 @@ import type {
   Stats,
   SystemInfo,
   TrustedCAsView,
+  CheckTypesView,
   UserInput,
   UserView,
 } from '../types/api';
@@ -149,6 +150,8 @@ export const api = {
     checkDestination: (target: string, port?: number) => post<PolicyCheck>('/api/v1/admin/policy/check', port ? { target, port } : { target }),
     trustedCAs: () => request<TrustedCAsView>('/api/v1/admin/trusted-cas'),
     saveTrustedCAs: (certificates: string[]) => put<TrustedCAsView>('/api/v1/admin/trusted-cas', { certificates }),
+    checkTypes: () => request<CheckTypesView>('/api/v1/admin/check-types'),
+    saveCheckTypes: (disabled: string[]) => put<CheckTypesView>('/api/v1/admin/check-types', { disabled }),
     proxies: () => request<ProxiesView>('/api/v1/admin/proxies'),
     createProxy: (p: ProxyInput) => post<Proxy>('/api/v1/admin/proxies', p),
     updateProxy: (proxyId: string, p: ProxyInput) => put<Proxy>(`/api/v1/admin/proxies/${id(proxyId)}`, p),

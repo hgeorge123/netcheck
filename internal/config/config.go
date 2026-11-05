@@ -68,12 +68,16 @@ type Config struct {
 	// checks may go through, always optional per check. ProxiesManagedBy
 	// works like DestinationsManagedBy (users' personal proxies always live
 	// in the database).
-	Proxies           []ProxyConfig `json:"proxies"`
-	ProxiesManagedBy  string        `json:"proxiesManagedBy"`
-	Limits            Limits        `json:"limits"`
-	Probe             Probe         `json:"probe"`
-	Retention         Retention     `json:"retention"`
-	NetworkPolicyRead bool          `json:"networkPolicyRead"`
+	Proxies          []ProxyConfig `json:"proxies"`
+	ProxiesManagedBy string        `json:"proxiesManagedBy"`
+	// CheckTypes are the check types switched off for everybody (Administration
+	// > Check types). CheckTypesManagedBy works like DestinationsManagedBy.
+	CheckTypes          CheckTypesConfig `json:"checkTypes"`
+	CheckTypesManagedBy string           `json:"checkTypesManagedBy"`
+	Limits              Limits           `json:"limits"`
+	Probe               Probe            `json:"probe"`
+	Retention           Retention        `json:"retention"`
+	NetworkPolicyRead   bool             `json:"networkPolicyRead"`
 
 	// OwnNamespace is where NetCheck runs (POD_NAMESPACE); always excluded.
 	OwnNamespace string `json:"-"`
@@ -205,6 +209,7 @@ func Defaults() Config {
 		DestinationsManagedBy:       DestinationsManagedByUI,
 		TrustedCAsManagedBy:         DestinationsManagedByUI,
 		ProxiesManagedBy:            DestinationsManagedByUI,
+		CheckTypesManagedBy:         DestinationsManagedByUI,
 		Limits: Limits{
 			MaxChecksPerRun:            7,
 			DefaultCheckTimeoutSeconds: 5,
@@ -405,6 +410,14 @@ func (c *Config) validate(getenv func(string) string) error {
 	if _, err := probes.NormalizeProxies(ProxyList(c.Proxies)); err != nil {
 		add("%v", err)
 	}
+	if c.CheckTypesManagedBy != DestinationsManagedByUI && c.CheckTypesManagedBy != DestinationsManagedByHelm {
+		add("checkTypesManagedBy must be ui or helm")
+	}
+	if disabled, err := probes.NormalizeDisabledChecks(c.CheckTypes.Disabled); err != nil {
+		add("checkTypes.disabled: %v", err)
+	} else if !slices.ContainsFunc(probes.Catalog, func(e probes.CatalogEntry) bool { return !slices.Contains(disabled, string(e.Method)) }) {
+		add("checkTypes.disabled: at least one check type must stay enabled")
+	}
 	if !digestImageRef.MatchString(c.Probe.Image) {
 		add("probe.image must be pinned by digest (repo@sha256:<64 hex>)")
 	}
@@ -496,4 +509,11 @@ func ProxyList(in []ProxyConfig) []probes.Proxy {
 		out[i] = probes.Proxy{Name: p.Name, Host: p.Host, Port: p.Port, TrustedCAs: p.TrustedCAs}
 	}
 	return out
+}
+
+// CheckTypesConfig lists the check types switched off for everybody: dns,
+// tcp, udp, http, https, ping, traceroute, and firewall for the firewall
+// ticket mode. Empty (default) enables every type.
+type CheckTypesConfig struct {
+	Disabled []string `json:"disabled"`
 }

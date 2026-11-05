@@ -28,6 +28,7 @@ import {
   buildRequest,
   DEFAULT_UDP_PORTS,
   emptyForm,
+  firewallMethods,
   firewallScheme,
   isIPLiteral,
   mapServerErrors,
@@ -66,21 +67,34 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
   const [submitting, setSubmitting] = useState(false);
   const set = <K extends keyof RunForm>(k: K, v: RunForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Check types administrators left enabled; "Run again" drops the others.
+  const enabled = useMemo(() => catalog.items.map((c) => c.method), [catalog.items]);
+  const fwParts = firewallMethods(form).filter((m) => enabled.includes(m));
+  const firewallOn = catalog.firewallMode !== false;
+  const [dropped, setDropped] = useState<Method[]>([]);
+
   useEffect(() => {
     if (!prefill) return;
     let alive = true;
     prefill()
-      .then((f) => alive && setForm(f))
+      .then((f) => {
+        if (!alive) return;
+        const removed = f.mode === 'custom' ? f.methods.filter((m) => !enabled.includes(m)) : [];
+        setDropped(f.mode === 'firewall' && !firewallOn ? [] : removed);
+        setForm(f.mode === 'firewall' && !firewallOn ? { ...f, mode: 'custom' } : { ...f, methods: f.methods.filter((m) => enabled.includes(m)) });
+      })
       .catch((e: unknown) => alive && setServerError(e));
     return () => {
       alive = false;
     };
+    // enabled and firewallOn come from the catalog loaded with the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill]);
 
   const msg = (e?: FormError) => (e ? ('text' in e ? e.text : t(e.key, e.params)) : undefined);
   const err = (f: Field) => msg(errors[f]);
   const nsOptions: SelectProps.Option[] = runnable.map((n) => ({ value: n.name, label: n.name }));
-  const preview = useMemo(() => buildRequest(form), [form]);
+  const preview = useMemo(() => buildRequest(form, enabled), [form, enabled]);
   const { limits } = catalog;
   const targetIsIP = isIPLiteral(form.target.trim());
   const selected = catalog.items.filter((c) => form.methods.includes(c.method));
@@ -128,7 +142,7 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
     const e = validateForm(form, limits.maxCheckTimeoutSeconds);
     setErrors(e);
     if (Object.keys(e).length > 0) return;
-    const req = buildRequest(form);
+    const req = buildRequest(form, enabled);
     setSubmitting(true);
     try {
       const { id } = await submit(req);
@@ -306,7 +320,12 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
                 columns={2}
                 items={[
                   { value: 'custom', label: t('newTest.mode.custom'), description: t('newTest.mode.customDesc') },
-                  { value: 'firewall', label: t('newTest.mode.firewall'), description: t('newTest.mode.firewallDesc') },
+                  {
+                    value: 'firewall',
+                    label: t('newTest.mode.firewall'),
+                    description: firewallOn && fwParts.length > 0 ? t('newTest.mode.firewallDesc') : t('newTest.mode.firewallOff'),
+                    disabled: !firewallOn || fwParts.length === 0,
+                  },
                 ]}
               />
             </Container>
@@ -358,10 +377,20 @@ export function NewRunPage({ namespaces, catalog, submit, onCreated, prefill, on
                   <Box variant="small" color="text-body-secondary">
                     {t('newTest.fwIncludes', { port: form.fwPort || '<port>', scheme: firewallScheme(form) })}
                   </Box>
+                  {fwParts.length < firewallMethods(form).length && (
+                    <Alert type="info">
+                      {t('newTest.fwOmitted', { checks: firewallMethods(form).filter((m) => !enabled.includes(m)).map((m) => t(methodKey(m))).join(', ') })}
+                    </Alert>
+                  )}
                 </SpaceBetween>
               </Container>
             )}
 
+            {form.mode === 'custom' && dropped.length > 0 && (
+              <Alert type="info" dismissible onDismiss={() => setDropped([])}>
+                {t('newTest.dropped', { checks: dropped.map((m) => t(methodKey(m))).join(', ') })}
+              </Alert>
+            )}
             {form.mode === 'custom' && (
               <FormField stretch errorText={err('methods')}>
                 <Cards<CatalogEntry>

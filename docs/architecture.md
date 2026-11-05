@@ -94,6 +94,7 @@ which one the firewall is likely to see (SNAT).
 | `destination_policy` | The policy edited in the web (`destinationsManagedBy: ui`) |
 | `trusted_cas` | Certificate authorities trusted by every HTTPS check (`trustedCasManagedBy: ui`) |
 | `http_proxies`, `proxy_seed` | Shared proxies of the administrators and personal proxies of each user, with their own certificate authorities; whether the Helm values already seeded them |
+| `check_types` | Check types switched off for everybody (`checkTypesManagedBy: ui`) |
 | `namespace_exclusions` | Exclusions added in the web |
 | `retention_settings` | Retention periods edited in the web |
 | `app_versions` | Every version, commit, image and chart that has started |

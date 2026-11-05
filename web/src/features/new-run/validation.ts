@@ -174,19 +174,31 @@ export function firewallScheme(f: Pick<RunForm, 'fwPort' | 'fwScheme'>): 'http' 
   return p === 443 || p === 8443 ? 'https' : 'http';
 }
 
-export function buildRequest(f: RunForm): RunRequest {
+/** Methods of the firewall bundle, in report order. */
+export function firewallMethods(f: Pick<RunForm, 'fwPort' | 'fwScheme'>): Method[] {
+  return ['ping', 'traceroute', 'tcp', firewallScheme(f)];
+}
+
+/**
+ * Builds the API request. enabled lists the check types administrators left
+ * enabled (all when omitted): the firewall bundle leaves out the others, and
+ * the report says they were not run.
+ */
+export function buildRequest(f: RunForm, enabled?: readonly Method[]): RunRequest {
+  const on = (m: Method) => !enabled || enabled.includes(m);
   if (f.mode === 'firewall') {
     const port = Number(f.fwPort);
+    const bundle: CheckRequest[] = [
+      { method: 'ping', ping: { count: FIREWALL_PING_COUNT } },
+      { method: 'traceroute', traceroute: { maxHops: FIREWALL_MAX_HOPS } },
+      { method: 'tcp', port },
+      { method: firewallScheme(f), port, http: { method: 'GET', path: '/' } },
+    ];
     const req: RunRequest = {
       mode: 'firewall',
       namespace: f.namespace,
       target: f.target.trim(),
-      checks: [
-        { method: 'ping', ping: { count: FIREWALL_PING_COUNT } },
-        { method: 'traceroute', traceroute: { maxHops: FIREWALL_MAX_HOPS } },
-        { method: 'tcp', port },
-        { method: firewallScheme(f), port, http: { method: 'GET', path: '/' } },
-      ],
+      checks: bundle.filter((c) => on(c.method)),
     };
     if (f.timeoutSeconds.trim() !== '') req.timeoutSeconds = Number(f.timeoutSeconds);
     return req;

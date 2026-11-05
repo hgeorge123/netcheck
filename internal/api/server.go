@@ -56,6 +56,9 @@ type Server struct {
 	// Proxies are the HTTP proxies TCP and HTTPS checks may go through
 	// (editable by admins; nil means none).
 	Proxies *Proxies
+	// CheckTypes are the check types switched off for everybody (editable
+	// by admins; nil allows every type).
+	CheckTypes *CheckTypes
 	// Retention is how long test data is kept (editable by admins).
 	Retention *RetentionSettings
 	Limits    probes.Limits
@@ -109,6 +112,8 @@ func (s *Server) Handler() http.Handler {
 	api.Handle("POST /api/v1/admin/policy/check", requireAdmin(http.HandlerFunc(s.adminCheckDestination)))
 	api.Handle("GET /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminTrustedCAs)))
 	api.Handle("PUT /api/v1/admin/trusted-cas", requireAdmin(http.HandlerFunc(s.adminSetTrustedCAs)))
+	api.Handle("GET /api/v1/admin/check-types", requireAdmin(http.HandlerFunc(s.adminCheckTypes)))
+	api.Handle("PUT /api/v1/admin/check-types", requireAdmin(http.HandlerFunc(s.adminSetCheckTypes)))
 	api.Handle("GET /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminProxies)))
 	api.Handle("POST /api/v1/admin/proxies", requireAdmin(http.HandlerFunc(s.adminCreateProxy)))
 	api.Handle("PUT /api/v1/admin/proxies/{id}", requireAdmin(http.HandlerFunc(s.adminUpdateProxy)))
@@ -250,7 +255,9 @@ func (s *Server) namespaces(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) catalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"items": probes.Catalog,
+		// Only the check types administrators left enabled.
+		"items":        s.CheckTypes.catalog(),
+		"firewallMode": s.CheckTypes.Enabled(probes.CheckTypeFirewall),
 		// Proxies the caller may choose for TCP, HTTP and HTTPS checks (optional).
 		"proxies": s.catalogProxies(r.Context(), identity(r)),
 		"limits": map[string]any{
@@ -288,6 +295,11 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 	if !canRun {
 		s.audit(r, "run.create", req.Namespace, "", "forbidden", map[string]any{"reason": "namespace not authorized"})
 		writeError(w, r, http.StatusForbidden, "namespace_forbidden", "you are not allowed to run checks in that namespace", nil)
+		return
+	}
+	if errs := s.CheckTypes.Check(req); len(errs) > 0 {
+		s.audit(r, "run.create", req.Namespace, "", "forbidden", map[string]any{"reason": "check type disabled", "errors": errs})
+		writeError(w, r, http.StatusForbidden, "check_type_disabled", "an administrator disabled some of these check types", errs)
 		return
 	}
 	runID := newID(16)

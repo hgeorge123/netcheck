@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRequest, emptyForm, formFromRun, isIPLiteral, mapServerErrors, type RunForm, validateForm, validateTarget } from './validation';
+import { buildRequest, emptyForm, firewallMethods, formFromRun, isIPLiteral, mapServerErrors, type RunForm, validateForm, validateTarget } from './validation';
 
 const base: RunForm = { ...emptyForm('payments'), target: '10.20.30.40', methods: ['tcp'], tcpPort: '5432' };
 const key = (e: unknown) => (e && typeof e === 'object' && 'key' in e ? (e as { key: string }).key : undefined);
@@ -163,6 +163,12 @@ describe('firewall ticket mode', () => {
     });
     expect(buildRequest({ ...fw, fwPort: '8080' }).checks[3]).toEqual({ method: 'http', port: 8080, http: { method: 'GET', path: '/' } });
     expect(buildRequest({ ...fw, fwPort: '8080', fwScheme: 'https' }).checks[3]?.method).toBe('https');
+  });
+
+  it('leaves out the checks an administrator disabled', () => {
+    expect(buildRequest(fw, ['dns', 'tcp', 'https']).checks.map((c) => c.method)).toEqual(['tcp', 'https']);
+    expect(buildRequest(fw, ['dns', 'tcp', 'udp', 'http', 'https', 'ping', 'traceroute']).checks).toHaveLength(4);
+    expect(firewallMethods({ fwPort: '8080', fwScheme: 'auto' })).toEqual(['ping', 'traceroute', 'tcp', 'http']);
   });
 
   it('round-trips through formFromRun and maps port errors', () => {

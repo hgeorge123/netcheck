@@ -185,14 +185,15 @@ export function buildFirewallReport(run: RunDetail, t: Translate, formatDate: (i
     '$ hostname',
     any?.podName || '—',
   ];
-  const blocks: [ExecutionView | undefined, (c: ExecutionView) => string[]][] = [
-    [find('ping'), (c) => ping(target, c)],
-    [find('traceroute'), (c) => traceroute(target, c)],
-    [tcp, (c) => telnet(target, port, c)],
-    [web, (c) => curl(target, port, c.method, c, path)],
+  // A part missing from the run was disabled by an administrator.
+  const blocks: [string, ExecutionView | undefined, (c: ExecutionView) => string[]][] = [
+    ['ping', find('ping'), (c) => ping(target, c)],
+    ['traceroute', find('traceroute'), (c) => traceroute(target, c)],
+    ['telnet', tcp, (c) => telnet(target, port, c)],
+    ['curl', web, (c) => curl(target, port, c.method, c, path)],
   ];
-  for (const [c, render] of blocks) {
-    if (c) lines.push('', ...render(c));
+  for (const [tool, c, render] of blocks) {
+    lines.push('', ...(c ? render(c) : [`# ${tool}: ${t('fw.notRun')}`]));
   }
   return lines.join('\n') + '\n';
 }

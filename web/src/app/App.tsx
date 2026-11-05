@@ -20,6 +20,7 @@ import { NamespacesPage } from '../features/admin/NamespacesPage';
 import { PolicyPage } from '../features/admin/PolicyPage';
 import { RetentionPage } from '../features/admin/RetentionPage';
 import { TrustedCAsPage } from '../features/admin/TrustedCAsPage';
+import { CheckTypesPage } from '../features/admin/CheckTypesPage';
 import { ProxiesPage, type ProxyCalls } from '../features/admin/ProxiesPage';
 import { SessionsPage } from '../features/admin/SessionsPage';
 import { SystemPage } from '../features/admin/SystemPage';
@@ -112,6 +113,9 @@ function breadcrumbs(route: Route, t: Translate): BreadcrumbGroupProps.Item[] {
       break;
     case 'trusted-cas':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.trustedCas'), href: '#/admin/trusted-cas' });
+      break;
+    case 'check-types':
+      items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.checkTypes'), href: '#/admin/check-types' });
       break;
     case 'proxies':
       items.push({ text: t('nav.administration'), href: '#/admin/users' }, { text: t('nav.proxies'), href: '#/admin/proxies' });
@@ -352,6 +356,8 @@ export function App() {
     content = <PolicyPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'retention') {
     content = <RetentionPage admin={api.admin} notify={notify} />;
+  } else if (route.page === 'check-types') {
+    content = <CheckTypesPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'trusted-cas') {
     content = <TrustedCAsPage admin={api.admin} notify={notify} />;
   } else if (route.page === 'proxies') {
@@ -400,6 +406,7 @@ export function App() {
           { type: 'link', text: t('nav.accessRules'), href: '#/admin/access-rules' },
           { type: 'link', text: t('nav.namespaces'), href: '#/admin/namespaces' },
           { type: 'link', text: t('nav.policy'), href: '#/admin/policy' },
+          { type: 'link', text: t('nav.checkTypes'), href: '#/admin/check-types' },
           { type: 'link', text: t('nav.trustedCas'), href: '#/admin/trusted-cas' },
           { type: 'link', text: t('nav.proxies'), href: '#/admin/proxies' },
           { type: 'link', text: t('nav.retention'), href: '#/admin/retention' },

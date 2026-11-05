@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../services/api';
 import { renderI18n } from '../../test/render';
 import type { Catalog, RunRequest } from '../../types/api';
+import { emptyForm, type RunForm } from './validation';
 import { NewRunPage } from './NewRunPage';
 
 const catalog: Catalog = {
@@ -206,5 +207,23 @@ describe('NewRunPage', () => {
     setup(undefined, 'es');
     expect(screen.getByRole('button', { name: 'Ejecutar prueba' })).toBeInTheDocument();
     expect(screen.getByText('Conexión TCP')).toBeInTheDocument();
+  });
+});
+
+describe('NewRunPage with check types disabled by an administrator', () => {
+  const limited: Catalog = { ...catalog, items: catalog.items.filter((c) => c.method !== 'ping'), firewallMode: false };
+  const run = (prefill: () => Promise<RunForm>) =>
+    renderI18n(<NewRunPage namespaces={namespaces} catalog={limited} submit={vi.fn()} onCreated={vi.fn()} prefill={prefill} />);
+
+  it('does not offer the firewall ticket mode', () => {
+    const { container } = renderI18n(<NewRunPage namespaces={namespaces} catalog={limited} submit={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.getByText('Disabled by an administrator.')).toBeInTheDocument();
+    const tiles = createWrapper(container).findTiles()!;
+    expect(tiles.findItemByValue('firewall')!.findNativeInput().getElement()).toBeDisabled();
+  });
+
+  it('drops disabled checks when running a test again', async () => {
+    run(() => Promise.resolve({ ...emptyForm('payments'), target: '10.1.2.3', methods: ['tcp', 'ping'], tcpPort: '443' }));
+    expect(await screen.findByText('Disabled by an administrator, so removed from this test: Ping (ICMP).')).toBeInTheDocument();
   });
 });

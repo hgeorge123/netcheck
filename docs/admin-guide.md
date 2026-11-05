@@ -5,7 +5,7 @@ interface. For day-to-day use, see the [user guide](user-guide.md).
 
 - **Part I:** what gets deployed, how probes work and which NetworkPolicies are needed.
 - **Part II:** administration from the web (users, roles, namespaces, destination policy, certificate authorities,
-  proxies, sessions and versions).
+  proxies, check types, sessions and versions).
 - **Part III:** operations (upgrades, backups, recovery, uninstall and troubleshooting).
 
 Installation itself is covered step by step in [install.md](install.md) (any Kubernetes cluster) and
@@ -159,6 +159,7 @@ that come up most often:
 | Change how long test data and the audit log are kept | — | ✔ |
 | Manage the trusted certificate authorities (§18) | — | ✔ |
 | Manage the shared proxies (§19) | — | ✔ |
+| Switch check types on or off for everybody (§20) | — | ✔ |
 | Have personal proxies (**My proxies**), seen and used only by their owner | ✔ | ✔ |
 | Create API tokens for the CLI (their own) | ✔ | ✔ |
 | Define the access rules of single sign-on (§16) | — | ✔ |
@@ -575,6 +576,38 @@ proxies:
     trustedCas: []      # PEM authorities trusted only through this proxy
 ```
 
+## 20. Check types
+
+**Administration → Check types** switches each kind of test on or off for **everybody, administrators included**:
+DNS, TCP (telnet), UDP, HTTP, HTTPS, ping, traceroute, and the **firewall ticket** mode. Everything is on by default.
+Use it when your organisation does not want a kind of test at all, for example no traceroute or no UDP.
+
+1. Switch off the types you do not want. The page warns about unsaved changes.
+2. Click **Save**. It applies to new tests at once: there is nothing to redeploy.
+
+What happens with a disabled type:
+
+- It **disappears from the new-test form**. **Run again** of an older test leaves it out and says so.
+- The **API, `netcheck-cli` and API tokens** refuse it with `403 check_type_disabled`, naming the check. The CLI exits
+  with code 3.
+- **Firewall ticket:** switching off the mode removes it from the form. Switching off some of its checks (for example
+  ping and traceroute) leaves them out of the ticket, and the report says `not run (disabled by an administrator)`
+  for each.
+- Tests already run keep their results.
+
+At least one check must stay enabled. Every change is in the audit log (`check_types.update`) with the types disabled
+before and after.
+
+**With Helm or Argo CD.** `checkTypes.disabled` in the values is the initial setting; like the other settings,
+`checkTypesManagedBy: ui` (default) copies it to the database on the first start and the web manages it afterwards,
+and `checkTypesManagedBy: helm` makes the values authoritative and the page read-only:
+
+```yaml
+checkTypesManagedBy: helm
+checkTypes:
+  disabled: [traceroute, udp]   # dns, tcp, udp, http, https, ping, traceroute, firewall
+```
+
 ---
 
 # Part III — Operations
@@ -646,8 +679,8 @@ the cluster can do it.
 - **Audit** (`audit_events` table in SQLite): successful and failed sign-ins, sign-outs, password changes, user
   creation, deletion, changes, unlocks and recovery, ended sessions, API tokens, access rules, tests started or
   rejected, destination policy, retention and namespace changes, trusted certificate authorities (subject and
-  fingerprint), shared and personal proxies (name and address), and probe security events. It never contains
-  passwords, tokens or certificate PEM.
+  fingerprint), shared and personal proxies (name and address), check types switched on or off, and probe security
+  events. It never contains passwords, tokens or certificate PEM.
 - **Logs** of the Pod in JSON, with a `request_id` on every request: `kubectl -n netcheck logs deploy/netcheck`.
 - **Log level** (`logLevel` in the chart values, `info` by default), validated at startup:
 

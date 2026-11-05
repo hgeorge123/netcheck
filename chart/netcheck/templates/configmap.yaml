@@ -57,6 +57,10 @@ data:
     proxiesManagedBy: {{ .Values.proxiesManagedBy | quote }}
     proxies:
       {{- toYaml .Values.proxies | nindent 6 }}
+    checkTypesManagedBy: {{ .Values.checkTypesManagedBy | quote }}
+    checkTypes:
+      disabled:
+        {{- toYaml .Values.checkTypes.disabled | nindent 8 }}
     kubeApiServerCidrs:
       {{- toYaml .Values.kubeApiServerCidrs | nindent 6 }}
     # Denied only until the exact API server addresses are read from the

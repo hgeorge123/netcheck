@@ -118,7 +118,7 @@ version.
 | `0` | Every check passed | Continue |
 | `1` | Connectivity failures: the network blocked or did not answer | Stop the deployment |
 | `2` | NetCheck could not run the test (infrastructure error, for example a full namespace quota), or `--wait` ran out | Retry or alert the platform team; it is not a network result |
-| `3` | Usage, configuration, authentication or API error (bad flag, revoked token, destination denied by the policy, a check type disabled by an administrator…) | Fix the pipeline |
+| `3` | Usage, configuration, authentication or API error (bad flag, revoked token, destination denied by the policy, a check type disabled by an administrator or not allowed by your role in that namespace…) | Fix the pipeline |
 
 ## 6. Examples
 

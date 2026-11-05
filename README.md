@@ -32,14 +32,15 @@ Pod, measures, collects the result through the Kubernetes API and deletes the Po
   suggested NetworkPolicy, or a ready-to-send request for the firewall team.
 - **Fidelity notice:** tells you whether the namespace's egress policies apply to the probe exactly as to your
   workloads.
-- **Users and roles:** built-in accounts with `admin` and `user` roles, per-user namespaces (a fixed list or "all",
-  including future namespaces), private test history (each user sees only their own tests; administrators see all),
-  active sessions, audit log.
+- **Users and roles:** built-in accounts with `admin` and `user` roles, custom roles that choose the checks, the
+  visibility of tests, proxies, tokens and parts of the administration, local groups, per-namespace grants (a fixed
+  list or "all", including future namespaces), private test history (each user sees only their own tests unless a
+  role shows their namespace's or team's), effective permissions per user, active sessions, audit log.
 - **Single sign-on:** any OpenID Connect provider, or GitHub, GitLab, LDAP and SAML through the bundled Dex, with
   access rules per group or user defined before anyone signs in ([docs/sso.md](docs/sso.md)).
 - **Pipelines:** API tokens and `netcheck-cli` to check connectivity before a deployment ([docs/cli.md](docs/cli.md)).
-- **Administration from the web:** destination policy, namespace exclusions, trusted certificate authorities, proxies
-  and data retention, applied immediately without redeploying.
+- **Administration from the web:** destination policy, check types, namespace exclusions, trusted certificate
+  authorities, proxies, roles, groups and data retention, applied immediately without redeploying.
 - **Secure by default:** probes run a shell-less Go binary pinned by digest, as non-root with no capabilities, no
   token and no cloud credentials. Native `ValidatingAdmissionPolicies` restrict what the controller can create even if
   its token leaks. Cloud metadata and the API server are never reachable from a test.
@@ -100,7 +101,7 @@ a local cluster with Calico and sample namespaces in a few minutes.
 | [Installation on Amazon EKS](docs/install-eks.md) | EKS specifics: VPC CNI network policy, EBS and zones, ALB or Gateway API |
 | [Installation on Azure AKS](docs/install-aks.md) | AKS specifics: network policy engine, Azure Disk and ZRS, Gateway API or Ingress |
 | [User guide](docs/user-guide.md) | Running tests and reading the results |
-| [Administrator guide](docs/admin-guide.md) | Users, namespaces, destination policy, retention, upgrades, backups, troubleshooting |
+| [Administrator guide](docs/admin-guide.md) | Users, roles, groups, namespaces, destination policy, check types, retention, upgrades, backups, troubleshooting |
 | [Security model](docs/security.md) | Probe sandbox, RBAC, admission policies, destination protections, authentication |
 | [Architecture](docs/architecture.md) | Components, life of a test, data and design choices |
 

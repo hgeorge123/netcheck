@@ -150,7 +150,7 @@ that come up most often:
 |---|:---:|:---:|
 | Sign in, choose the language and change their own password | ✔ | ✔ |
 | Run tests | From assigned namespaces | From every available namespace |
-| See the dashboard and history | Only their own tests | Every test of every user |
+| See the dashboard and history | Only their own tests (a custom role can show more, §21-22) | Every test of every user |
 | Create, edit, disable, unlock and delete users; reset passwords | — | ✔ |
 | See signed-in users and end their sessions | — | ✔ |
 | See the running version, version history and platform settings | — | ✔ |
@@ -173,8 +173,10 @@ the "Allow tests in the NetCheck namespace" checkbox (§4). System namespaces (`
 ## 2. Home page and language
 
 The interface follows the layout of the AWS console. Administrators see the same pages as users plus the
-**Administration** section of the side navigation: **Users**, **Namespaces**, **Destination policy**, **Data
-retention**, **Active sessions** and **System and versions**. The **Dashboard** summarizes the tests of the last 24 hours across every
+**Administration** section of the side navigation: **Users**, **Groups**, **Roles**, **Access rules**, **Namespaces**,
+**Destination policy**, **Check types**, **Certificate authorities**, **Proxies**, **Data retention**, **Active
+sessions**, **API tokens** and **System and versions**. A custom role with administration permissions (§21) sees only
+its pages. The **Dashboard** summarizes the tests of the last 24 hours across every
 namespace.
 
 ![Administrator dashboard](images/admin-01-dashboard.png)
@@ -410,6 +412,8 @@ change under the control of whoever operates the cluster and in your configurati
 Administrators see in **Test history** the tests of every namespace and every user, with filters by namespace and
 status. Other users only see the tests they started (from the web or with their API tokens), even in namespaces they
 share with others: the namespaces assigned to a user decide where they may run tests, not whose results they see.
+Two permissions of a custom role (§21) widen it: every test of its namespaces, or the tests of the people sharing a
+group with them, only in their namespaces (§22).
 
 ![Administrator history](images/admin-14-full-history.png)
 
@@ -750,8 +754,8 @@ the cluster can do it.
 - **Audit** (`audit_events` table in SQLite): successful and failed sign-ins, sign-outs, password changes, user
   creation, deletion, changes, unlocks and recovery, ended sessions, API tokens, access rules, tests started or
   rejected, destination policy, retention and namespace changes, trusted certificate authorities (subject and
-  fingerprint), shared and personal proxies (name and address), check types switched on or off, and probe security
-  events. It never contains passwords, tokens or certificate PEM.
+  fingerprint), shared and personal proxies (name and address), check types switched on or off, roles and local
+  groups (with their permissions and members), and probe security events. It never contains passwords, tokens or certificate PEM.
 - **Logs** of the Pod in JSON, with a `request_id` on every request: `kubectl -n netcheck logs deploy/netcheck`.
 - **Log level** (`logLevel` in the chart values, `info` by default), validated at startup:
 

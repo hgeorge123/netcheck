@@ -266,13 +266,17 @@ rules as in section 2.4.
 | **User** | One username, as the provider sends it (not case-sensitive) | `octocat`, `ana@example.com` |
 | **Any authenticated user** | Everybody the provider signs in | Read access to a sandbox namespace for the whole company |
 
-And grants a role (**User** or **Administrator**), namespaces (a list or **all namespaces**, including future ones) and
-optionally the NetCheck namespace, exactly like a local user.
+And grants a role (**User**, **Administrator** or a custom role, [admin guide §21](admin-guide.md#21-roles)),
+namespaces (a list or **all namespaces**, including future ones) and optionally the NetCheck namespace, exactly like a
+local user.
 
 How they combine:
 
-- A person gets the **union** of every rule that matches: an administrator rule wins over user rules; the namespaces of
-  all matching rules add up.
+- A person gets **every** rule that matches, each with its own namespaces: in each namespace they have the permissions
+  of the rules given for that namespace only (a custom role given for `orders` never applies to `payments`). An
+  administrator rule makes them administrator everywhere.
+- An administrator can also add an SSO account to a local group ([admin guide §22](admin-guide.md#22-groups)) once it
+  has signed in; the group's role adds up the same way.
 - **No matching rule, no access.** Without any rule nobody can sign in with SSO, so you decide explicitly whether
   "anyone in the company" gets in (rule *Any authenticated user*) or only some groups.
 - Changes apply **at once** to existing SSO accounts, using the groups of their last sign-in. If a change leaves an

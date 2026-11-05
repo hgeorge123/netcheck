@@ -21,7 +21,8 @@ Each test runs in a short-lived probe Pod that uses the
 - Firewall ticket mode: one block of `date`, `hostname`, `ping`, `traceroute`, `telnet` and `curl -v` output.
 - Readable diagnosis, equivalent command and NetworkPolicy fidelity notice for every result, plus what is missing:
   nothing, a suggested NetworkPolicy or a request for the firewall team.
-- Local users with `admin` and `user` roles, per-user namespaces, private test history and audit log; single sign-on
+- Local users with `admin`, `user` and custom roles, local groups, per-namespace permissions, check types that can be
+  switched off, private test history and audit log; single sign-on
   with OpenID Connect or, through the bundled Dex, GitHub, LDAP and SAML.
 - API tokens and `netcheck-cli` to check connectivity from pipelines.
 - Destination policy, namespace exclusions, certificate authorities, proxies and data retention managed from the web.

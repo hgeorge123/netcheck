@@ -18,7 +18,8 @@ With the **User** role you can:
 - See each result with an indicative diagnosis, the technical output and an equivalent command to reproduce it by
   hand.
 - Browse the dashboard and the history of your own tests. Each user sees only the tests they started, from the web or
-  with their API tokens; administrators see every test.
+  with their API tokens; administrators see every test, and your administrators can give you a role that also shows
+  the tests of your namespaces or of your team.
 - See where the traffic stops (**Path**) and **what is missing** for it to flow: nothing, a suggested NetworkPolicy or
   a ready-to-send request for the firewall team.
 - Run tests from pipelines with an **API token** and `netcheck-cli`.
@@ -53,7 +54,8 @@ account** when you sign in, so NetCheck opens in Spanish in any browser from the
 
 **Single sign-on.** If your organization enabled it, the page also shows **Sign in with &lt;provider&gt;** (for example
 *Sign in with GitHub*). Use it with the account of your organization: you have no NetCheck password and skip the
-password change below. What you can do depends on the *access rules* your administrators defined for your groups; if no
+password change below. What you can do depends on the *access rules* your administrators defined for your groups (and
+on the local groups they added you to); if no
 rule matches you, the page says so and you need to ask a NetCheck administrator for access.
 
 ### 2.2 First sign-in: mandatory password change
@@ -80,7 +82,8 @@ NetCheck follows the layout of the AWS console:
 
 The menu with your name opens **Preferences**, **Change password** (not shown for single sign-on accounts), **API
 tokens** (section 8), **My proxies** (your own proxies, section 4.2.2) and **Sign out**. **API tokens** and **My
-proxies** are also in the side navigation. Its description shows your username, your role and the NetCheck version.
+proxies** are also in the side navigation (**My proxies** and creating tokens only appear if your role allows them).
+Its description shows your username, your role and the NetCheck version.
 
 ![User menu](images/user-20-user-menu.png)
 
@@ -365,7 +368,8 @@ whoever owns the change what to do. ICMP cannot be allowed with a NetworkPolicy,
 
 **Test history** lists the tests you started, from the web or with your API tokens, newest first, with filters by
 namespace and status. Other users' tests are private: they do not appear, and their links answer "not found", even in
-a namespace you share. Administrators see every test. Click the
+a namespace you share. Administrators see every test; a role can also show you every test of your namespaces, or the
+tests of the people who share a group with you (only in your namespaces). Click the
 date to open the full result. The gear icon of the table sets the page size and the visible columns (remembered in
 your browser).
 

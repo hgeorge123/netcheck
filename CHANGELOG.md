@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.1](https://github.com/hgeorge123/netcheck/compare/v1.4.0...v1.4.1) (2026-11-06)
+
+
+### Documentation
+
+* add the administration manual ([b571972](https://github.com/hgeorge123/netcheck/commit/b57197290aa175d030793ba1e06a47c5e4c90984))
+* add the administration manual ([dbf4645](https://github.com/hgeorge123/netcheck/commit/dbf4645729ea10824b902c80c9266c70dacd3498))
+* keep the Word review PDF apart from the manual's PDF ([b7332b4](https://github.com/hgeorge123/netcheck/commit/b7332b430093f60035cd96205c56167268992e54))
+
 ## [1.4.0](https://github.com/hgeorge123/netcheck/compare/v1.3.1...v1.4.0) (2026-11-05)
 
 

@@ -1,0 +1,211 @@
+@page { size: A4; margin: 18mm 17mm 20mm 17mm; }
+@page cover { margin: 0; }
+
+:root {
+  --ink: #16191f;
+  --muted: #5f6b7a;
+  --brand: #0972d3;
+  --brand-dark: #033160;
+  --line: #d1d5db;
+  --soft: #f2f8fd;
+  --tip: #e9f7ee;
+  --tip-line: #037f0c;
+  --warn: #fff7e6;
+  --warn-line: #b97800;
+  --danger: #fdeceb;
+  --danger-line: #d91515;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Open Sans", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+  background: #fff;
+}
+
+/* ---------- Cover ---------- */
+.cover {
+  page: cover;
+  height: 297mm;
+  width: 210mm;
+  position: relative;
+  background: linear-gradient(160deg, #0f1b2a 0%, #0a3a6b 55%, #0972d3 100%);
+  color: #fff;
+  break-after: page;
+  overflow: hidden;
+}
+.cover .inner { position: absolute; left: 22mm; right: 22mm; top: 55mm; }
+.cover img { width: 34mm; height: 34mm; }
+.cover .brand { font-size: 15pt; letter-spacing: .5px; opacity: .9; margin-top: 6mm; }
+.cover h1 { break-before: auto; font-size: 34pt; line-height: 1.12; margin: 14mm 0 6mm; font-weight: 700; border: 0; padding: 0; color: #fff; }
+.cover .subtitle { font-size: 14pt; opacity: .92; max-width: 150mm; }
+.cover .meta { position: absolute; left: 22mm; right: 22mm; bottom: 24mm; font-size: 10pt; opacity: .85; border-top: 1px solid rgba(255, 255, 255, .35); padding-top: 5mm; }
+.cover .meta div { margin: 1mm 0; }
+
+/* ---------- Headings ---------- */
+h1, h2, h3, h4 { color: var(--brand-dark); line-height: 1.25; }
+h1 {
+  break-before: page;
+  font-size: 22pt;
+  margin: 0 0 6mm;
+  padding-bottom: 3mm;
+  border-bottom: 3px solid var(--brand);
+}
+h1 .num { color: var(--brand); margin-right: 3mm; }
+h1.part {
+  font-size: 26pt;
+  border: 0;
+  margin-top: 70mm;
+  text-align: left;
+}
+h1.part + p.part-desc { font-size: 12.5pt; color: var(--muted); max-width: 140mm; }
+h2 { font-size: 14.5pt; margin: 8mm 0 3mm; break-after: avoid; }
+h3 { font-size: 12pt; margin: 6mm 0 2mm; break-after: avoid; }
+h4 { font-size: 10.5pt; margin: 4mm 0 1mm; break-after: avoid; color: var(--ink); }
+p { margin: 0 0 3mm; orphans: 3; widows: 3; }
+ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+li { margin: 0 0 1.2mm; }
+li > ul, li > ol { margin-top: 1.2mm; }
+
+/* ---------- Inline ---------- */
+.ui {
+  font-weight: 600;
+  background: #eef3f8;
+  border: 1px solid #c7d4e2;
+  border-radius: 3px;
+  padding: 0 1.2mm;
+  white-space: nowrap;
+}
+code, .code {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 9pt;
+  background: #f4f4f4;
+  border-radius: 3px;
+  padding: 0 1mm;
+}
+pre {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 8.6pt;
+  background: #0f1b2a;
+  color: #e6edf3;
+  border-radius: 4px;
+  padding: 3mm 4mm;
+  white-space: pre-wrap;
+  word-break: break-word;
+  break-inside: avoid;
+  margin: 0 0 4mm;
+}
+pre .c { color: #8fb3d9; }
+.key { font-weight: 700; color: var(--brand-dark); }
+
+/* ---------- Boxes ---------- */
+.box {
+  border-left: 4px solid var(--brand);
+  background: var(--soft);
+  border-radius: 0 4px 4px 0;
+  padding: 2.5mm 4mm;
+  margin: 0 0 4mm;
+  break-inside: avoid;
+}
+.box > :last-child { margin-bottom: 0; }
+.box .t { font-weight: 700; display: block; margin-bottom: 1mm; }
+.box.tip { border-color: var(--tip-line); background: var(--tip); }
+.box.warn { border-color: var(--warn-line); background: var(--warn); }
+.box.danger { border-color: var(--danger-line); background: var(--danger); }
+.box.example { border-color: #7d4fd6; background: #f5f0ff; }
+
+/* ---------- Steps ---------- */
+ol.steps { counter-reset: step; list-style: none; padding-left: 0; }
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 10mm;
+  margin-bottom: 2.4mm;
+  min-height: 7mm;
+}
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: -0.2mm;
+  width: 6.5mm;
+  height: 6.5mm;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  font-size: 9pt;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Figures ---------- */
+body { counter-reset: fig; }
+figure {
+  margin: 2mm 0 5mm;
+  break-inside: avoid;
+  text-align: center;
+}
+figure img {
+  max-width: 100%;
+  max-height: 200mm;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+figure.dialog img { max-width: 72%; }
+figure.small img { max-width: 50%; }
+figure.medium img { max-width: 85%; }
+figure.tall img { max-height: 225mm; }
+figcaption {
+  counter-increment: fig;
+  font-size: 9pt;
+  color: var(--muted);
+  margin-top: 1.5mm;
+}
+figcaption::before { content: var(--fig-label, "Figura ") counter(fig) ". "; font-weight: 700; color: var(--ink); }
+html[lang="en"] figcaption::before { content: "Figure " counter(fig) ". "; }
+
+/* ---------- Tables ---------- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 4mm;
+  font-size: 9.5pt;
+  break-inside: auto;
+}
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th, td { border: 1px solid var(--line); padding: 1.6mm 2.2mm; text-align: left; vertical-align: top; }
+th { background: #e9eff6; color: var(--brand-dark); font-weight: 700; }
+td.c, th.c { text-align: center; }
+table.compact td, table.compact th { padding: 1.1mm 2mm; }
+
+/* ---------- TOC ---------- */
+#toc h1 { break-before: auto; }
+#toc ol { list-style: none; padding: 0; margin: 0; }
+#toc li { margin: 0; }
+#toc a { color: var(--ink); text-decoration: none; display: flex; align-items: baseline; }
+#toc a .t { flex: 0 1 auto; }
+#toc a .dots { flex: 1 1 auto; border-bottom: 1px dotted #9aa5b1; margin: 0 2mm; transform: translateY(-1mm); }
+#toc a .p { flex: 0 0 auto; min-width: 7mm; text-align: right; color: var(--muted); }
+#toc li.l1 { font-weight: 700; margin-top: 2.2mm; font-size: 10.5pt; }
+#toc li.l1.part { color: var(--brand); margin-top: 4mm; font-size: 11pt; }
+#toc li.l1.part a { color: var(--brand); }
+#toc li.l2 { padding-left: 7mm; font-size: 9.5pt; margin-top: .6mm; }
+
+/* Marker read back from the PDF text to number the table of contents. */
+.pm { font-size: 1px; color: #fff; letter-spacing: 0; }
+
+.lead { font-size: 11.5pt; color: #2b3440; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+.keep { break-inside: avoid; }
+.pb { break-before: page; }
+
+#toc a .n { flex: 0 0 auto; display: inline-block; min-width: 8mm; color: var(--brand); }
+table.keep { break-inside: avoid; }

@@ -1,0 +1,1430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NetCheck — Administration manual</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<section class="cover">
+  <div class="inner">
+    <img src="../brand/netcheck-mark.png" alt="">
+    <div class="brand">NetCheck</div>
+    <h1 class="notoc">Administration manual</h1>
+    <div class="subtitle">A complete, step-by-step, illustrated guide to every option in the application. Written for people starting from scratch.</div>
+  </div>
+  <div class="meta">
+    <div>Edition: November 2026 · Language: English</div>
+    <div>Includes: custom roles, local groups, check types and disabling accounts</div>
+  </div>
+</section>
+
+<section id="toc">
+  <h1 class="notoc">Contents</h1>
+  <ol></ol>
+</section>
+
+<h1 class="notoc">How to use this manual</h1>
+<p class="lead">This manual explains <strong>every</strong> screen and option in NetCheck, from signing in for the first time to
+sharing out permissions between teams. You do not need to know anything about networks or Kubernetes: each technical term is
+explained the first time it appears, and it is also in the <a href="#glosario">glossary</a> at the end.</p>
+
+<h3 class="notoc">How it is organized</h3>
+<table>
+  <thead><tr><th>Part</th><th>What you will find</th><th>Read it if…</th></tr></thead>
+  <tbody>
+    <tr><td><strong>I. Getting started</strong></td><td>What NetCheck is, basic concepts, how to sign in and how to find your way around the screen</td><td>You are using NetCheck for the first time</td></tr>
+    <tr><td><strong>II. Using NetCheck</strong></td><td>Creating tests, reading the results, the history, tokens and your proxies</td><td>You want to understand what users do (an administrator is a user too)</td></tr>
+    <tr><td><strong>III. Administration</strong></td><td>Every page of the <span class="ui">Administration</span> menu, option by option</td><td>You manage users, permissions or the configuration</td></tr>
+    <tr><td><strong>IV. How-to guides and operations</strong></td><td>Recipes for common tasks, tasks that need cluster access, troubleshooting, glossary and limits</td><td>You have a specific task or something is not working</td></tr>
+  </tbody>
+</table>
+
+<h3 class="notoc">Conventions</h3>
+<ul>
+  <li>Text you see on the screen (buttons, menus, fields) looks like this: <span class="ui">Create user</span>.</li>
+  <li>Text you type exactly as shown, such as a name or a command, looks like this: <code>nc-allow</code>.</li>
+  <li>Numbered steps (with a blue circle) are followed in order.</li>
+  <li>Colored boxes highlight information: <strong style="color:#0972d3">blue</strong> = note, <strong style="color:#037f0c">green</strong> = tip, <strong style="color:#b97800">amber</strong> = caution, <strong style="color:#d91515">red</strong> = careful (something that cannot be undone or that affects other people).</li>
+</ul>
+
+<div class="box example"><span class="t">About the pictures</span>The screenshots were taken in a test lab with sample data
+(users such as <code>alice.smith</code> or <code>carol.white</code>, namespaces such as <code>nc-allow</code> or <code>nc-open</code>).
+In your installation you will see your own names, but the screens and buttons are the same.</div>
+
+<!-- ===================================================== PART I -->
+<h1 class="part">Part I · Getting started</h1>
+<p class="part-desc">What NetCheck is, the words you are going to read, how to sign in and how the screen is laid out.</p>
+
+<h1><span class="num">1</span>What NetCheck is</h1>
+<p class="lead">NetCheck is a web tool that answers one very specific question: <strong>“from this place in our Kubernetes
+cluster, can we reach this destination?”</strong>.</p>
+
+<p>Picture an office building with many rooms (in Kubernetes, each room would be a <em>namespace</em>). Each room has its
+own rules about which outside doors it may knock on. When an application fails because it “cannot reach” a database or
+an API, the first thing to find out is whether the problem is <em>in the network</em> (the room is not allowed to knock on that door) or in
+the application itself.</p>
+
+<p>To find out, NetCheck does the following each time someone runs a test:</p>
+<ol class="steps">
+  <li>It creates a small temporary program, the <strong>probe</strong>, inside the chosen namespace. The probe is subject to the same
+  network rules as the applications in that namespace.</li>
+  <li>The probe tries to reach the destination in the way you ask (look up its name, open a connection, request a web page,
+  ping it…).</li>
+  <li>NetCheck collects what happened, explains it in plain language and <strong>deletes the probe</strong>. Nothing is left installed.</li>
+</ol>
+
+<h2>What it does and what it does not do</h2>
+<div class="two">
+<div>
+<h4>It does</h4>
+<ul>
+  <li>Check connectivity with DNS, TCP, UDP, HTTP, HTTPS, ping and traceroute.</li>
+  <li>Explain the result and suggest what to change (for example, a network rule or a request to the firewall team).</li>
+  <li>Prepare the output the firewall team usually asks for in their tickets.</li>
+  <li>Keep a test history and an audit log of changes.</li>
+  <li>Let you control who can test, from where, to where and with which type of test.</li>
+</ul>
+</div>
+<div>
+<h4>It does not</h4>
+<ul>
+  <li>It does not run free-form commands or scan networks: it only runs the checks the form offers.</li>
+  <li>It does not change network rules or configure firewalls: it only <strong>observes</strong> and suggests.</li>
+  <li>It does not install anything in your applications.</li>
+  <li>It does not let you reach protected destinations, such as the cloud credentials service or the Kubernetes API.</li>
+</ul>
+</div>
+</div>
+
+<h2>Who uses NetCheck</h2>
+<table class="keep">
+  <thead><tr><th>Profile</th><th>What they do in NetCheck</th></tr></thead>
+  <tbody>
+    <tr><td><strong>User</strong></td><td>Runs tests from the namespaces assigned to them and looks at their results.</td></tr>
+    <tr><td><strong>Administrator</strong></td><td>Everything above in all namespaces, and also manages users, groups, roles, access rules and all the configuration.</td></tr>
+    <tr><td><strong>Custom role</strong></td><td>Whatever the administrator decides: for example, only some tests or some administration pages (chapter 15).</td></tr>
+    <tr><td><strong>Platform team</strong></td><td>Installs and upgrades NetCheck in the cluster with Helm. Some tasks can only be done from there (chapter 28).</td></tr>
+  </tbody>
+</table>
+
+<h1><span class="num">2</span>Basic concepts</h1>
+<p>These are the words you will see most often. You do not need to learn them by heart: come back to this page whenever you need to. There is
+a fuller list in the <a href="#glosario">glossary</a>.</p>
+<table>
+  <thead><tr><th style="width:24%">Term</th><th>What it means, in plain words</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Kubernetes</strong></td><td>The platform where the company's applications run. NetCheck lives inside it.</td></tr>
+    <tr><td><strong>Cluster</strong></td><td>A set of servers managed together by Kubernetes.</td></tr>
+    <tr><td><strong>Namespace</strong></td><td>A separate space inside the cluster, usually one per application or per team (<code>payments</code>, <code>orders</code>…). Tests are run <em>from</em> a namespace.</td></tr>
+    <tr><td><strong>Pod</strong></td><td>The smallest unit that runs an application in Kubernetes. The NetCheck probe is a temporary Pod.</td></tr>
+    <tr><td><strong>Probe</strong></td><td>The temporary Pod NetCheck creates to take measurements and deletes when it finishes.</td></tr>
+    <tr><td><strong>NetworkPolicy</strong></td><td>A Kubernetes network rule that says which destinations a namespace can (or cannot) connect to. It is the most common cause of blocks.</td></tr>
+    <tr><td><strong>Destination</strong></td><td>What you want to reach: a name (<code>api.example.com</code>) or an IP address (<code>10.20.30.40</code>).</td></tr>
+    <tr><td><strong>Port</strong></td><td>The “door number” of the service at the destination. For example, 443 for secure websites or 5432 for PostgreSQL.</td></tr>
+    <tr><td><strong>DNS</strong></td><td>The system that turns names into IP addresses, like a phone book.</td></tr>
+    <tr><td><strong>TCP / UDP</strong></td><td>The two basic ways of sending data over the network. TCP sets up a connection (like a phone call); UDP sends separate messages (like letters).</td></tr>
+    <tr><td><strong>HTTP / HTTPS</strong></td><td>The protocol of web pages and APIs. HTTPS is the encrypted version and uses certificates.</td></tr>
+    <tr><td><strong>Ping / traceroute</strong></td><td>Ping checks whether a machine answers; traceroute shows the hops (routers) the traffic passes through. Many networks filter them even when everything else works.</td></tr>
+    <tr><td><strong>Proxy</strong></td><td>A go-between that the company makes some outgoing traffic pass through.</td></tr>
+    <tr><td><strong>Certificate / certificate authority (CA)</strong></td><td>The certificate proves the identity of an HTTPS server; the authority is who signs it. NetCheck trusts the public ones and the ones you add.</td></tr>
+    <tr><td><strong>CIDR</strong></td><td>A way of writing a range of IP addresses: <code>10.0.0.0/8</code> means all the ones that start with 10.</td></tr>
+    <tr><td><strong>SSO (single sign-on)</strong></td><td>Signing in with your company account (Microsoft, Google, GitHub…) instead of a NetCheck password.</td></tr>
+    <tr><td><strong>Role</strong></td><td>A set of permissions (what you can do). There are two built-in ones, <strong>User</strong> and <strong>Administrator</strong>, and you can create others.</td></tr>
+    <tr><td><strong>Group</strong></td><td>A set of people who get a role together in some namespaces.</td></tr>
+    <tr><td><strong>API token</strong></td><td>A key that lets a program (for example, a deployment pipeline) run tests on behalf of a person.</td></tr>
+    <tr><td><strong>Helm</strong></td><td>The tool the platform team uses to install and upgrade NetCheck in the cluster.</td></tr>
+  </tbody>
+</table>
+
+<h1><span class="num">3</span>Signing in to NetCheck</h1>
+
+<h2>3.1 The sign-in page</h2>
+<p>Open in your browser the address the platform team gave you (for example <code>https://netcheck.yourcompany.com</code>).
+You will see the sign-in page:</p>
+<figure class="medium"><img src="img/en/01-login.png"><figcaption>Sign-in page, with the language selector at the top right.</figcaption></figure>
+
+<ol class="steps">
+  <li><strong>Choose the language</strong> in the <span class="ui">Language</span> selector at the top right corner
+  (<span class="ui">English</span> or <span class="ui">Español</span>). NetCheck is in English by default, whatever your
+  browser's language. Your choice is saved to your account when you sign in and applies in any browser.</li>
+  <li>Type your username in <span class="ui">Username</span>.</li>
+  <li>Type your password in <span class="ui">Password</span>.</li>
+  <li>Click <span class="ui">Sign in</span>.</li>
+</ol>
+
+<div class="box"><span class="t">If your company uses single sign-on (SSO)</span>Besides the form you will see a button such as
+<span class="ui">Sign in with GitHub</span> or <span class="ui">Sign in with Microsoft</span>. Use it with your company
+account: you do not have a NetCheck password. If, when you come back, a message says that no access rule grants you access,
+ask an administrator to create a rule for your group or your user (chapter 16).</div>
+
+<h2>3.2 What happens if you make a mistake</h2>
+<ul>
+  <li>If the username or password is wrong, the message is always generic: it does not say which of the two failed. This is a security measure.</li>
+  <li>After <strong>5 failed attempts in a row</strong> the account is locked for <strong>15 minutes</strong>. Wait, or ask an administrator to unlock it (chapter 13).</li>
+  <li>If you see <em>“Too many sign-in attempts”</em>, wait a minute: it is a per-IP-address limit against automated attacks.</li>
+  <li>Forgot your password? An administrator can reset it and give you a temporary one.</li>
+</ul>
+
+<h2>3.3 First time: change the temporary password</h2>
+<p>The first time you sign in, or after an administrator resets your password, you sign in with a
+<strong>temporary</strong> password. NetCheck asks you to change it before you do anything else.</p>
+<ol class="steps">
+  <li>In <span class="ui">Current password</span>, type the temporary password you were given.</li>
+  <li>In <span class="ui">New password</span>, type a new one of <strong>at least 12 characters</strong>. It cannot be the same as your username.</li>
+  <li>Type it again in <span class="ui">Confirm new password</span>.</li>
+  <li>Click <span class="ui">Save password</span>.</li>
+</ol>
+<div class="box tip"><span class="t">Tip</span>A long phrase that is easy to remember (<code>coffee-at-eight-no-sugar</code>) is
+safer than a short word with odd symbols.</div>
+
+<h2>3.4 First sign-in of the initial administrator</h2>
+<p>When NetCheck is installed, an <code>admin</code> account is created with a random password. The platform team gets it from the
+cluster (chapter 28) and hands it to you over a secure channel. You use it to sign in for the first time, change it, and from then on you can
+create the other users. It is good practice to create personal accounts for each administrator and not to share the
+<code>admin</code> account.</p>
+
+<h1><span class="num">4</span>Getting to know the screen</h1>
+<p>NetCheck uses the same layout as the AWS console. You will always see these parts:</p>
+<figure><img src="img/en/02-dashboard.png"><figcaption>The main screen: top bar, side menu and the current page.</figcaption></figure>
+
+<table>
+  <thead><tr><th style="width:26%">Area</th><th>What it is for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Top bar</strong></td><td>The logo (takes you back to the start), the <strong>preferences</strong> button (gear wheel) and your name, which opens the user menu.</td></tr>
+    <tr><td><strong>Side menu</strong></td><td><span class="ui">Dashboard</span>, <span class="ui">Create test</span>, <span class="ui">Test history</span>, <span class="ui">My proxies</span>, <span class="ui">My API tokens</span> and, if you are an administrator, the <span class="ui">Administration</span> section. You can fold it away with the <code>‹</code> arrow.</td></tr>
+    <tr><td><strong>Breadcrumbs</strong></td><td>The line above the title (for example <em>NetCheck › Administration › Users</em>). Each part is a link to go back.</td></tr>
+    <tr><td><strong>Help panel</strong></td><td>The <strong>ⓘ</strong> icon on the right, or the <span class="ui">Info</span> link next to some titles, opens a summary of how to read the results.</td></tr>
+  </tbody>
+</table>
+
+<h2>4.1 The user menu</h2>
+<p>Click your name in the top bar. The first line shows your username, your role and the NetCheck version. Below it:</p>
+<figure class="medium"><img src="img/en/03-user-menu.png"><figcaption>User menu.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:30%">Option</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">Preferences</span></td><td>Choose the interface language.</td></tr>
+    <tr><td><span class="ui">Change password</span></td><td>Change your password. It does not appear for SSO accounts.</td></tr>
+    <tr><td><span class="ui">API tokens</span></td><td>Your tokens for the command line (chapter 10).</td></tr>
+    <tr><td><span class="ui">My proxies</span></td><td>Your personal proxies (chapter 11). It only appears if your role allows it.</td></tr>
+    <tr><td><span class="ui">Sign out</span></td><td>Leave NetCheck in this browser.</td></tr>
+  </tbody>
+</table>
+
+<h2>4.2 Preferences: the language</h2>
+<ol class="steps">
+  <li>Click the gear wheel in the top bar, or <span class="ui">Preferences</span> in the user menu.</li>
+  <li>Choose <span class="ui">English</span> or <span class="ui">Español</span>.</li>
+  <li>Click <span class="ui">Save</span>. The change is saved to your account and applies in any browser.</li>
+</ol>
+<figure class="dialog"><img src="img/en/04-preferences.png"><figcaption>Preferences window.</figcaption></figure>
+<div class="box"><span class="t">Note</span>The language changes the application's text, not the data. If someone created a group called
+“Payments team”, it keeps that name whichever language you choose.</div>
+
+<h2>4.3 Changing your password</h2>
+<ol class="steps">
+  <li>User menu › <span class="ui">Change password</span>.</li>
+  <li>Type your current password, the new one (at least 12 characters) and type it again.</li>
+  <li>Click <span class="ui">Save password</span>. Your other sessions open in other browsers are signed out.</li>
+</ol>
+<figure class="medium"><img src="img/en/05-change-password.png"><figcaption>Change password.</figcaption></figure>
+
+<h2>4.4 How long a session lasts</h2>
+<ul>
+  <li>The session ends after <strong>60 minutes without activity</strong> and, in any case, after <strong>12 hours</strong>. NetCheck takes you back to the sign-in page.</li>
+  <li>To leave sooner, use <span class="ui">Sign out</span> in the user menu, especially on shared computers.</li>
+</ul>
+
+<h2>4.5 How the tables work</h2>
+<p>Almost every page shows tables that work the same way:</p>
+<ul>
+  <li><strong>Search:</strong> the search box filters as you type.</li>
+  <li><strong>Sort:</strong> click a column title (the triangle shows the order).</li>
+  <li><strong>Select:</strong> the circle on the left of each row. Buttons such as <span class="ui">Edit</span> or <span class="ui">Delete</span> act on the selected row and stay grey until you pick one.</li>
+  <li><strong>Pages:</strong> the <code>‹ 1 ›</code> arrows move between pages.</li>
+  <li><strong>Table preferences:</strong> the table's gear wheel chooses how many rows to see and which columns to show. Your browser remembers it.</li>
+  <li><strong>Refresh:</strong> the button with the circular arrow loads the data again.</li>
+</ul>
+
+<h1><span class="num">5</span>The dashboard</h1>
+<p>The <span class="ui">Dashboard</span> is the home page. It summarizes the tests of the <strong>last 24 hours</strong>. An administrator sees
+everyone's; a user sees only their own (or the ones their role lets them see).</p>
+<figure><img src="img/en/02-dashboard.png"><figcaption>An administrator's dashboard.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:30%">Block</th><th>What it shows</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Overview</strong></td><td>How many tests there were and how many ended with <em>All checks passed</em>, with <em>Connectivity failures</em> or with <em>Infrastructure errors</em> (chapter 8 explains what each status means).</td></tr>
+    <tr><td><strong>Checks by method</strong></td><td>For each type of test (DNS, TCP…), how many succeeded, how many failed and how many got no answer (timed out).</td></tr>
+    <tr><td><strong>Your access</strong></td><td>How many namespaces you can use and which ones.</td></tr>
+    <tr><td><strong>Recent tests</strong></td><td>The latest tests. Click the date to open the result, or <span class="ui">View all</span> to go to the history.</td></tr>
+  </tbody>
+</table>
+<p>The <span class="ui">Create test</span> button at the top right opens the form for a new test.</p>
+
+<!-- ===================================================== PART II -->
+<h1 class="part">Part II · Using NetCheck</h1>
+<p class="part-desc">What any user does: create tests, understand the results and use the history, tokens and personal
+proxies. As an administrator you need this to help others and to understand what you control from the administration pages.</p>
+
+<h1><span class="num">6</span>Creating a test</h1>
+<p>Click <span class="ui">Create test</span> in the side menu or on the dashboard. The form has several blocks, which you fill in from
+top to bottom.</p>
+<figure><img src="img/en/06-new-test.png"><figcaption>Test type, source and destination.</figcaption></figure>
+
+<h2>6.1 Test type</h2>
+<table>
+  <thead><tr><th style="width:32%">Option</th><th>When to use it</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">Custom checks</span></td><td>You choose what to check and with which settings. It is the default and the most flexible option.</td></tr>
+    <tr><td><span class="ui">Firewall ticket troubleshooting</span></td><td>You produce in one go the output the firewall team usually asks for. Chapter 7 explains it.</td></tr>
+  </tbody>
+</table>
+
+<h2>6.2 Source and destination</h2>
+<ul>
+  <li><span class="ui">Source namespace</span>: where the test runs from. Only the namespaces you can use appear. The test
+  runs <em>with the network rules of that namespace</em>: choose the namespace of the application that has the problem.</li>
+  <li><span class="ui">Destination</span>: <strong>only</strong> a name (<code>api.payments.svc.cluster.local</code>) or an IP address
+  (IPv4 or IPv6). Do not type <code>https://</code>, ports or paths: you set the port and the path in each check.</li>
+</ul>
+
+<h2>6.3 Checks</h2>
+<p>Tick one or more cards, or click <span class="ui">Select all</span>. They run one after another in a single probe.
+Only the checks that administrators left enabled and that your role allows in the chosen namespace appear. If you change
+namespace and one of them is no longer available, the form removes it and tells you.</p>
+<figure><img src="img/en/07-new-test-checks.png"><figcaption>Check cards. The tags show whether a check needs a name or a port.</figcaption></figure>
+
+<table>
+  <thead><tr><th style="width:18%">Check</th><th>What it verifies</th><th style="width:18%">Port</th><th style="width:18%">Same as</th></tr></thead>
+  <tbody>
+    <tr><td><strong>DNS resolution</strong></td><td>That the name turns into an IP from the namespace. It needs a name, not an IP.</td><td>—</td><td><code>getent ahosts</code></td></tr>
+    <tr><td><strong>TCP connection</strong></td><td>That a connection to the port can be opened.</td><td>Required, no default value</td><td><code>nc -z</code>, <code>telnet</code></td></tr>
+    <tr><td><strong>UDP</strong></td><td>That a UDP service answers: generic port, DNS server or NTP server.</td><td>Generic: required; DNS 53; NTP 123</td><td><code>nc -u</code>, <code>dig</code></td></tr>
+    <tr><td><strong>HTTP</strong></td><td>That a website or API answers over unencrypted HTTP.</td><td>80 (editable)</td><td><code>curl http://…</code></td></tr>
+    <tr><td><strong>HTTPS</strong></td><td>The same, encrypted, checking the certificate.</td><td>443 (editable)</td><td><code>curl https://…</code></td></tr>
+    <tr><td><strong>Ping (ICMP)</strong></td><td>That the destination answers ping.</td><td>—</td><td><code>ping -c N</code></td></tr>
+    <tr><td><strong>Traceroute (ICMP)</strong></td><td>The hops the traffic passes through.</td><td>—</td><td><code>traceroute -I</code></td></tr>
+  </tbody>
+</table>
+<div class="box"><span class="t">Why does TCP have no default port?</span>So that nobody tests, by mistake, a port that is not the
+one their service uses. HTTP and HTTPS use 80 and 443 because they are the standard ones, but you can change them.</div>
+
+<h2>6.4 Check settings</h2>
+<p>When you tick a card, its settings appear in the <span class="ui">Check settings</span> block:</p>
+<figure><img src="img/en/07b-new-test-settings.png"><figcaption>DNS, TCP, HTTP, ping and traceroute settings.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:22%">Check</th><th>Settings</th></tr></thead>
+  <tbody>
+    <tr><td>DNS resolution</td><td><span class="ui">Address family</span>: IPv4 and IPv6, IPv4 only (A) or IPv6 only (AAAA).</td></tr>
+    <tr><td>TCP connection</td><td><span class="ui">Port</span> (required) and <span class="ui">Connection</span> (direct or through a proxy, see below).</td></tr>
+    <tr><td>UDP</td><td><span class="ui">What to test over UDP</span>: <em>Generic port</em>, <em>DNS server</em> or <em>NTP server</em>, and the port.</td></tr>
+    <tr><td>HTTP / HTTPS</td><td><span class="ui">Port</span>, <span class="ui">Method</span> (GET or HEAD), <span class="ui">Path</span> (for example <code>/health</code>) and <span class="ui">Connection</span>. Redirects are not followed: you will see the 3xx code and where it points.</td></tr>
+    <tr><td>HTTPS</td><td><span class="ui">Ignore certificate errors</span>: the request goes on even if the certificate has expired, is for another name or is signed by an unknown authority; the result lists each problem as a warning (like <code>curl --insecure</code>).</td></tr>
+    <tr><td>Ping (ICMP)</td><td><span class="ui">Echo requests</span>: from 1 to 10, one per second.</td></tr>
+    <tr><td>Traceroute (ICMP)</td><td><span class="ui">Max hops</span>: from 1 to 30, at most one second per hop.</td></tr>
+  </tbody>
+</table>
+
+<h3>The three UDP modes</h3>
+<p>UDP does not set up a connection: the probe sends a message and the destination may or may not answer. That is why NetCheck only offers what can
+be tested safely:</p>
+<table>
+  <thead><tr><th style="width:20%">Mode</th><th>What it sends</th><th>How to read it</th></tr></thead>
+  <tbody>
+    <tr><td>Generic port</td><td>Empty messages (up to three)</td><td>An answer = open. “Port unreachable” = closed (but the machine was reached). <strong>Silence = inconclusive</strong>.</td></tr>
+    <tr><td>DNS server</td><td>A standard DNS query</td><td>Any DNS answer, even an error, proves the server can be reached.</td></tr>
+    <tr><td>NTP server</td><td>A time request</td><td>Shows the server's <em>stratum</em> and how far the probe's clock is off.</td></tr>
+  </tbody>
+</table>
+
+<h3>Connection: direct or through a proxy</h3>
+<p>If you or the administrators have proxies set up, TCP, HTTP and HTTPS show the <span class="ui">Connection</span> setting:</p>
+<ul>
+  <li><span class="ui">Direct</span> (default): tests the direct path from the Pod.</li>
+  <li><span class="ui">Through proxy …</span>: the check goes through that proxy. The list shows <span class="ui">My proxies</span> first and then the <span class="ui">Shared</span> ones; the ones with their own authority carry the <em>with CA</em> tag.</li>
+</ul>
+<p>Use it when your applications reach the destination through the proxy. A success proves the path through the proxy, not the direct one.</p>
+
+<h2>6.5 Advanced and preview</h2>
+<figure><img src="img/en/08-request-preview.png"><figcaption>Advanced and Request preview blocks.</figcaption></figure>
+<ul>
+  <li><span class="ui">Advanced</span> › <span class="ui">Timeout per check (seconds)</span>: how long to wait for an answer in DNS, TCP, UDP, HTTP and HTTPS. 5 s by default, 10 s at most.</li>
+  <li><span class="ui">Request preview</span>: shows exactly what will be sent. Useful to review before you run it, or to copy into a script.</li>
+  <li>The note at the end says how many seconds the probe waits before it starts, to give the network rules time to apply.</li>
+</ul>
+
+<h2>6.6 Running the test</h2>
+<ol class="steps">
+  <li>Review the form. Fields with errors are marked in red with an explanation.</li>
+  <li>Click <span class="ui">Run test</span>. The <span class="ui">Clear</span> button empties the form.</li>
+  <li>The result page opens and updates by itself while the probe works (usually 5 to 30 seconds; ping and traceroute take longer).</li>
+</ol>
+<div class="box warn"><span class="t">Destination denied</span>If the <strong>destination policy</strong> does not allow the destination or the port
+(chapter 18), or it is a protected destination such as the cloud metadata service, the test is rejected <strong>without sending any
+traffic</strong> and the message gives the exact reason. An administrator can change the policy if the destination should be allowed.</div>
+
+<h1><span class="num">7</span>Firewall ticket test</h1>
+<p>When you open a ticket with the firewall team, they usually ask for the output of <code>date</code>, <code>hostname</code>, <code>ping</code>,
+<code>traceroute</code>, <code>telnet</code> and <code>curl</code> against the destination and the port, all together. NetCheck prepares it in one click.</p>
+<ol class="steps">
+  <li>In <span class="ui">Create test</span>, choose <span class="ui">Firewall ticket troubleshooting</span>.</li>
+  <li>Choose the <span class="ui">Source namespace</span> and type the <span class="ui">Destination</span> (IP or name).</li>
+  <li>Type the <span class="ui">Port</span> from the ticket (the one telnet and curl use).</li>
+  <li>In <span class="ui">curl protocol</span> leave <em>Automatic</em> (443 and 8443 use HTTPS; the rest, HTTP) or choose HTTP or HTTPS.</li>
+  <li>Click <span class="ui">Run test</span>.</li>
+</ol>
+<figure><img src="img/en/12-firewall-form.png"><figcaption>Firewall ticket form: you only need the destination and the port.</figcaption></figure>
+
+<p>A single probe runs <code>ping -c 4</code>, <code>traceroute</code> (20 hops), <code>telnet &lt;port&gt;</code> and
+<code>curl -v</code> against <code>/</code>, plus <code>date</code> and <code>hostname</code>. The result includes the
+<span class="ui">Firewall ticket report</span> block with <span class="ui">Copy report</span> and
+<span class="ui">Download .txt</span> so you can attach it:</p>
+<figure class="tall"><img src="img/en/13-firewall-report.png"><figcaption>Firewall ticket report.</figcaption></figure>
+
+<h3>How to read the report</h3>
+<ul>
+  <li>Each block reproduces the usual output of the command with the <strong>measured</strong> values. Nothing is made up: what the probe does not measure is left out.</li>
+  <li><strong>Test source:</strong> cluster, namespace, name and IP of the probe Pod, and name and IP of the <strong>node (server)</strong>.</li>
+  <li><strong>IP the firewall will see:</strong> for destinations outside the cluster network it is usually the IP of the <strong>node</strong> (address translation or SNAT); inside, the IP of the <strong>Pod</strong>. Ask for the rule for the right one.</li>
+  <li>There is no <code>ifconfig</code>: by design, the probe has no access to the server's interfaces. The node IP is already in the source block.</li>
+  <li>Ping and traceroute to a Kubernetes <em>Service</em> get no answer: this is normal. What matters for the ticket is <code>telnet</code> and <code>curl</code>.</li>
+  <li>If an administrator disabled some of these checks (chapter 19), the report says <em>not run (disabled by an administrator)</em>.</li>
+</ul>
+
+<h1><span class="num">8</span>Reading the result</h1>
+<p>The result page has several blocks. At the top, <span class="ui">Copy JSON</span> copies the whole result (useful to
+attach it to an incident) and <span class="ui">Run again</span> opens the form filled in with the same values.</p>
+<figure><img src="img/en/09-result-top.png"><figcaption>Test details and fidelity notice.</figcaption></figure>
+
+<h2>8.1 Details and overall status</h2>
+<p>The <span class="ui">Details</span> block shows the status, the namespace, the destination, who requested it, the dates, the IP of the probe
+Pod, the node, the Job name, the cluster and the test ID (with a button to copy it).</p>
+<table>
+  <thead><tr><th style="width:28%">Status</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td>Queued / Running</td><td>The probe is being created or is taking measurements.</td></tr>
+    <tr><td><strong>All checks passed</strong></td><td>Every check succeeded.</td></tr>
+    <tr><td><strong>Connectivity failures</strong></td><td>At least one network check failed (refused, no answer, DNS, no ICMP reply…).</td></tr>
+    <tr><td><strong>Infrastructure error</strong></td><td>NetCheck could not run the probe (permissions, namespace quota, image…). <strong>It is not a network result</strong>: tell the platform team and give them the test ID.</td></tr>
+  </tbody>
+</table>
+
+<h2>8.2 Fidelity notice</h2>
+<p>The result is the <strong>probe's</strong> result, and its labels and IP are not those of your application. The notice says how close they are:</p>
+<ul>
+  <li><strong>Namespace-wide policies (likely):</strong> the egress rules apply the same way to the probe and to your application.</li>
+  <li><strong>Some policies use specific selectors:</strong> a rule only affects Pods with certain labels; your application may have different rules.</li>
+  <li><strong>No native egress NetworkPolicies visible</strong> or <strong>Fidelity unknown</strong>.</li>
+</ul>
+<p>There can always be other layers you cannot see from here: security groups, policies on the destination side or firewalls.</p>
+
+<h2>8.3 Path</h2>
+<p>The <span class="ui">Path</span> block draws where the traffic goes and where it stops, using only measured data: the probe Pod and its
+node, the traceroute hops (if you included it) and the destination with the result of each check. Hops that do not answer are
+grouped together; without a traceroute the middle section shows as <em>not measured</em>.</p>
+<figure><img src="img/en/09b-result-path.png"><figcaption>Path block.</figcaption></figure>
+
+<h2>8.4 Checks and their details</h2>
+<p>The <span class="ui">Checks</span> table has one row per check with its status and a suggested diagnosis. Select
+a row to see its details below, in tabs:</p>
+<figure><img src="img/en/10-check-detail.png"><figcaption>Checks table and details of the selected HTTP check.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:24%">Tab</th><th>Content</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">Summary</span></td><td>Diagnosis, resolved IPs, IP and port used, IPs denied by the policy, HTTP code, TLS version, certificate and timings (or the ping and traceroute tables).</td></tr>
+    <tr><td><span class="ui">Output</span></td><td>The probe's technical trace.</td></tr>
+    <tr><td><span class="ui">Equivalent command</span></td><td>An approximate command (<code>getent</code>, <code>nc</code>, <code>curl</code>, <code>ping</code>, <code>traceroute</code>) to reproduce it by hand, with a <span class="ui">Copy</span> button. The probe does not run it.</td></tr>
+    <tr><td><span class="ui">JSON</span></td><td>The full result of that check.</td></tr>
+  </tbody>
+</table>
+<figure><img src="img/en/11-equivalent-command.png"><figcaption>Equivalent command tab.</figcaption></figure>
+
+<h3>How to read each result</h3>
+<table class="compact">
+  <thead><tr><th style="width:30%">Result</th><th>What it means</th><th style="width:28%">What it does NOT mean</th></tr></thead>
+  <tbody>
+    <tr><td>TCP <strong>succeeded</strong></td><td>There is a network path to that port.</td><td>That the application works.</td></tr>
+    <tr><td>TCP <strong>connection refused</strong></td><td>The packet arrived and something answered “no” (nothing is listening on the port, or the Service has no endpoints).</td><td>A NetworkPolicy block.</td></tr>
+    <tr><td>TCP <strong>timed out</strong></td><td>Nobody answered: it may be a NetworkPolicy, a security group, an ACL, the routing or a destination that is down.</td><td>Proof that a NetworkPolicy is blocking it.</td></tr>
+    <tr><td>DNS <strong>NXDOMAIN</strong></td><td>The name does not exist for that DNS server.</td><td>A network problem.</td></tr>
+    <tr><td>DNS <strong>timed out</strong></td><td>The DNS server could not be reached (a policy blocking port 53?).</td><td>—</td></tr>
+    <tr><td>HTTP/HTTPS <strong>200–299</strong></td><td>The service answered correctly.</td><td>—</td></tr>
+    <tr><td>HTTP/HTTPS <strong>401, 403, 404, 5xx</strong></td><td>There is connectivity; the problem is in the application. It is shown as a warning.</td><td>A network problem.</td></tr>
+    <tr><td>TLS <strong>certificate not valid</strong></td><td>It connected, but the certificate failed: expired, for another name, unknown authority or self-signed.</td><td>A network block.</td></tr>
+    <tr><td>HTTPS <strong>trusted through</strong> an authority <em>configured in NetCheck</em></td><td>The certificate is valid thanks to an authority added in NetCheck (chapters 20 and 21).</td><td>That other clients accept it without that authority.</td></tr>
+    <tr><td>Through a proxy: <strong>proxy unreachable</strong></td><td>The block is between the Pod and the proxy.</td><td>A block towards the destination.</td></tr>
+    <tr><td>Through a proxy: <strong>403 / 407</strong></td><td>The proxy answered: its policy does not allow it, or it requires authentication.</td><td>A network block.</td></tr>
+    <tr><td>Through a proxy: <strong>502 / 503 / 504</strong></td><td>The Pod reaches the proxy; the problem is further on.</td><td>That the Pod-to-proxy path is blocked.</td></tr>
+    <tr><td>UDP <strong>no reply</strong></td><td>Inconclusive: open but silent, or filtered.</td><td>A block.</td></tr>
+    <tr><td>Ping <strong>no reply</strong></td><td>No answer to the ping arrived.</td><td>That TCP is blocked: ping is often filtered.</td></tr>
+    <tr><td>Traceroute <strong>incomplete</strong></td><td>The destination was not reached; the <code>*</code> hops did not answer.</td><td>Packet loss.</td></tr>
+    <tr><td><strong>Destination denied</strong></td><td>The NetCheck policy does not allow that destination; no traffic was sent.</td><td>A network result.</td></tr>
+  </tbody>
+</table>
+
+<h2>8.5 What is missing</h2>
+<p>Every finished test ends with the <span class="ui">What is missing</span> block, which says what needs to change, if anything:</p>
+<figure><img src="img/en/10b-missing.png"><figcaption>What is missing block with the request for the firewall team.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:36%">Situation</th><th>What the block says</th></tr></thead>
+  <tbody>
+    <tr><td>Every check got an answer</td><td><strong>Nothing is missing.</strong> No network rules need changing; errors that did get an answer (refused, TLS, HTTP code) come from the destination.</td></tr>
+    <tr><td>Some checks got no answer and egress NetworkPolicies apply to the namespace</td><td><strong>A NetworkPolicy change is probably needed</strong>, with a YAML proposal built from the measured IPs, ports and protocols (<span class="ui">Suggested NetworkPolicy</span> tab).</td></tr>
+    <tr><td>Some checks got no answer and no egress NetworkPolicy applies</td><td><strong>No NetworkPolicy change is needed</strong>: the block is almost certainly outside the cluster.</td></tr>
+  </tbody>
+</table>
+<p>In blocked cases, the <span class="ui">Firewall request</span> tab has a ready-to-copy text with the source, the IPs
+of the Pod and the node, what did not answer and what does work from the same Pod. NetCheck never applies anything: it proposes it to whoever must
+make the change.</p>
+
+<h1><span class="num">9</span>Test history</h1>
+<p><span class="ui">Test history</span> lists the tests, from newest to oldest.</p>
+<figure><img src="img/en/14-history.png"><figcaption>An administrator's test history.</figcaption></figure>
+<ul>
+  <li>Filter by <strong>namespace</strong> and by <strong>status</strong> with the two drop-down lists.</li>
+  <li>Click the date to open the full result.</li>
+  <li>The <em>Category</em> column sums up why it failed, and <em>Requested by</em> says who ran it.</li>
+</ul>
+<table>
+  <thead><tr><th style="width:36%">Who</th><th>Which tests they see</th></tr></thead>
+  <tbody>
+    <tr><td>Administrator</td><td>All of them, from every user and namespace.</td></tr>
+    <tr><td>User (built-in role)</td><td>Only the ones they ran, from the web or with their tokens. Other people's tests do not appear and their links answer “not found”, even if they share a namespace.</td></tr>
+    <tr><td>Role with <em>Every test of its namespaces</em></td><td>Their own and all the tests of the namespaces they can use.</td></tr>
+    <tr><td>Role with <em>The tests of the people sharing a group</em></td><td>Their own and those of the people in their groups, only in their namespaces.</td></tr>
+  </tbody>
+</table>
+<p>By default, the technical output is kept for 15 days and everything else for 45 days. Administrators can change this (chapter 22).</p>
+
+<h1><span class="num">10</span>My API tokens and the command line</h1>
+<p>An <strong>API token</strong> lets a program, such as a deployment pipeline, run tests on your behalf with the
+<code>netcheck-cli</code> tool. It acts with your permissions (your namespaces and the destination policy), but <strong>it can only run
+and read tests</strong>: it cannot manage users or configuration.</p>
+<figure><img src="img/en/15-my-tokens.png"><figcaption>My API tokens.</figcaption></figure>
+<h3>Creating a token</h3>
+<ol class="steps">
+  <li>Open <span class="ui">My API tokens</span> in the side menu (or user menu › <span class="ui">API tokens</span>).</li>
+  <li>Click <span class="ui">Create token</span>.</li>
+  <li>In <span class="ui">Name</span> describe what it is for (for example, “payments deploy pipeline”).</li>
+  <li>In <span class="ui">Expires after</span> choose 30, 90, 180 or 365 days.</li>
+  <li>Click <span class="ui">Create token</span>. <strong>The token is shown only once</strong>: copy it and store it in the pipeline's secrets, never in the code.</li>
+</ol>
+<figure class="dialog"><img src="img/en/16-create-token.png"><figcaption>Creating an API token.</figcaption></figure>
+<p>The table shows the name, how the token starts, when it was created, when it expires and when it was last used. To stop using one,
+select it and click <span class="ui">Revoke</span>: it stops working right away. The button to create tokens only appears if your role
+allows it.</p>
+<h3>Using it with the command line</h3>
+<pre>export NETCHECK_URL=https://netcheck.yourcompany.com
+export NETCHECK_TOKEN=nck_...
+netcheck-cli run -n payments -t db.corp.example -c dns -c tcp:5432</pre>
+<p><code>netcheck-cli</code> runs the test, waits for the result and exits with a code: <code>0</code> all correct, <code>1</code>
+connectivity failures, <code>2</code> the test could not run, <code>3</code> usage or API error (for example, a test
+type that is disabled or not allowed by your role).</p>
+
+<h1><span class="num">11</span>My proxies</h1>
+<p><span class="ui">My proxies</span> stores <strong>personal</strong> proxies: only you see and use them. Not even
+administrators see their name or address; if they open one of your tests, they only see <em>“Personal proxy of &lt;user&gt;”</em>.
+The page only appears if your role allows it.</p>
+<figure><img src="img/en/17-my-proxies.png"><figcaption>My proxies (empty).</figcaption></figure>
+<ol class="steps">
+  <li>Click <span class="ui">Add proxy</span>.</li>
+  <li><span class="ui">Name</span>: a short name in lowercase letters, digits and dashes (for example <code>corp</code>).</li>
+  <li><span class="ui">Host name or IP</span> and <span class="ui">Port</span> of the proxy (usually 3128 or 8080).</li>
+  <li>Only if the proxy inspects TLS, paste its authority in <span class="ui">Certificate authorities of this proxy</span> (PEM format). Never paste private keys.</li>
+  <li>Click <span class="ui">Save</span>. You can now choose it in <span class="ui">Connection</span> when you create a test.</li>
+</ol>
+<figure class="dialog"><img src="img/en/18-add-personal-proxy.png"><figcaption>Adding a personal proxy.</figcaption></figure>
+<ul>
+  <li>At most 10 personal proxies per person. They are deleted if the account is deleted.</li>
+  <li>The proxy must be a destination the destination policy allows.</li>
+  <li>Authentication is not supported: only proxies that let the cluster in by its source address.</li>
+  <li>DNS, UDP, ping, traceroute and the firewall ticket always take the direct path.</li>
+</ul>
+
+<!-- ===================================================== PART III -->
+<h1 class="part">Part III · Administration</h1>
+<p class="part-desc">Every page of the Administration menu, option by option: what it is for, how to use it and what to keep in
+mind.</p>
+
+<h1><span class="num">12</span>Map of the administration pages</h1>
+<p>Administrators see the <span class="ui">Administration</span> section in the side menu. Each page controls one part of
+NetCheck, and changes apply <strong>at once</strong>, without reinstalling anything.</p>
+<div class="two">
+<figure style="margin:0"><img src="img/en/19-admin-nav.png" style="max-width:78%"><figcaption>The administration menu.</figcaption></figure>
+<div>
+<table class="compact">
+  <thead><tr><th>Page</th><th>What it is for</th><th class="c">Ch.</th></tr></thead>
+  <tbody>
+    <tr><td>Users</td><td>Accounts, passwords, status</td><td class="c">13</td></tr>
+    <tr><td>Groups</td><td>Give a role to several people</td><td class="c">14</td></tr>
+    <tr><td>Roles</td><td>What each role allows</td><td class="c">15</td></tr>
+    <tr><td>Access rules</td><td>Who signs in with SSO</td><td class="c">16</td></tr>
+    <tr><td>Namespaces</td><td>Where you can test from</td><td class="c">17</td></tr>
+    <tr><td>Destination policy</td><td>Where you can test to</td><td class="c">18</td></tr>
+    <tr><td>Check types</td><td>Which tests exist</td><td class="c">19</td></tr>
+    <tr><td>Certificate authorities</td><td>Trusted certificates</td><td class="c">20</td></tr>
+    <tr><td>Proxies</td><td>Shared proxies</td><td class="c">21</td></tr>
+    <tr><td>Data retention</td><td>How long data is kept</td><td class="c">22</td></tr>
+    <tr><td>Active sessions</td><td>Who is signed in</td><td class="c">23</td></tr>
+    <tr><td>API tokens</td><td>Everybody's tokens</td><td class="c">24</td></tr>
+    <tr><td>System and versions</td><td>Version and settings</td><td class="c">25</td></tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+<h2>12.1 Who can do what</h2>
+<table class="compact">
+  <thead><tr><th>Can…</th><th class="c">User</th><th class="c">Administrator</th></tr></thead>
+  <tbody>
+    <tr><td>Sign in, choose the language and change their password</td><td class="c">✔</td><td class="c">✔</td></tr>
+    <tr><td>Run tests</td><td class="c">In their namespaces</td><td class="c">In all available ones</td></tr>
+    <tr><td>See the dashboard and the history</td><td class="c">Only their tests*</td><td class="c">All</td></tr>
+    <tr><td>Have personal proxies and create API tokens</td><td class="c">✔</td><td class="c">✔</td></tr>
+    <tr><td>Manage users, groups, roles and access rules</td><td class="c">—</td><td class="c">✔</td></tr>
+    <tr><td>Namespaces, destination policy, check types, authorities, shared proxies, retention, sessions, everybody's tokens, system</td><td class="c">—*</td><td class="c">✔</td></tr>
+  </tbody>
+</table>
+<p>* A <strong>custom role</strong> can widen what a person sees or give them some administration pages (chapter 15).
+Users, groups, roles and access rules are <strong>always</strong> reserved for the Administrator role.</p>
+
+<div class="box"><span class="t">Namespaces nobody can use</span>
+<ul style="margin-bottom:0">
+  <li>The namespace where NetCheck is installed is not available to anyone, not even administrators, except accounts with the <span class="ui">Allow tests in the NetCheck namespace</span> box ticked.</li>
+  <li>The system namespaces (<code>kube-system</code>, <code>kube-public</code>, <code>kube-node-lease</code> and <code>default</code>) are never available.</li>
+</ul></div>
+
+<h2>12.2 How users, groups, roles and rules fit together</h2>
+<p>This is the part that raises the most questions, so it is worth going through it calmly before you start:</p>
+<table>
+  <thead><tr><th style="width:20%">Piece</th><th>Answers…</th><th style="width:34%">Who keeps the list of people</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Role</strong></td><td><em>What</em> can be done? (which tests, which history, proxies, tokens, parts of the administration)</td><td>—</td></tr>
+    <tr><td><strong>User</strong></td><td>The specific account: its status (enabled or not), its own role and its namespaces</td><td>NetCheck (you)</td></tr>
+    <tr><td><strong>Local group</strong></td><td>Give a role in some namespaces to several accounts at once; it also defines “my team” for seeing its tests</td><td>NetCheck (you add and remove members)</td></tr>
+    <tr><td><strong>Access rule</strong></td><td>Who from SSO can sign in and with which role, based on their group in the identity provider</td><td>The identity provider (Entra ID, Okta, GitHub…)</td></tr>
+  </tbody>
+</table>
+<p>A person can get permissions through several routes at once. They <strong>add up per namespace</strong>, and the result, with where it
+comes from, is shown in <strong>Effective permissions</strong> (13.5). <strong>Disabling</strong> an account overrides everything.</p>
+
+<h1><span class="num">13</span>Users</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Users</span> lists every account:</p>
+<figure><img src="img/en/20-users.png"><figcaption>List of users.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:24%">Column</th><th>What it shows</th></tr></thead>
+  <tbody>
+    <tr><td>Username</td><td>The name used to sign in. Yours has <em>(you)</em> next to it.</td></tr>
+    <tr><td>Name</td><td>The display name, which appears in the history.</td></tr>
+    <tr><td>Role</td><td>Administrator (blue), User (grey) or a custom role (green).</td></tr>
+    <tr><td>Namespaces</td><td>The ones they can use. <em>All</em> means all of them, including ones created later. The <em>NetCheck</em> tag means they can use the NetCheck namespace.</td></tr>
+    <tr><td>Sign-in</td><td><em>Password</em> (local NetCheck account) or <em>SSO</em> (single sign-on).</td></tr>
+    <tr><td>Status</td><td>See the next table.</td></tr>
+    <tr><td>Last sign-in</td><td>When they last signed in.</td></tr>
+  </tbody>
+</table>
+<table>
+  <thead><tr><th style="width:24%">Status</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Active</strong></td><td>Can sign in.</td></tr>
+    <tr><td><strong>Temporary password</strong></td><td>Must change the password at the next sign-in.</td></tr>
+    <tr><td><strong>Locked</strong></td><td>Too many failed attempts. It unlocks by itself after 15 minutes, or with <span class="ui">Unlock</span>.</td></tr>
+    <tr><td><strong>Disabled</strong></td><td>Cannot sign in; their sessions were ended and their tokens do not work.</td></tr>
+  </tbody>
+</table>
+<p>The search box filters by username, name or namespace. To act on an account, <strong>select it</strong> with the
+circle on the left and open <span class="ui">Actions</span>:</p>
+<figure><img src="img/en/21-user-actions.png"><figcaption>Actions menu with an account selected.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:28%">Action</th><th>What it does</th><th style="width:12%">Section</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">Edit</span></td><td>Change display name, status, role and namespaces, and see their effective permissions.</td><td>13.2</td></tr>
+    <tr><td><span class="ui">Reset password</span></td><td>Give them a new temporary password. Does not apply to SSO accounts.</td><td>13.6</td></tr>
+    <tr><td><span class="ui">Unlock</span></td><td>Remove the lock caused by failed attempts. Only active if the account is locked.</td><td>13.7</td></tr>
+    <tr><td><span class="ui">Disable</span> / <span class="ui">Enable</span></td><td>Cut off or give back access without deleting the account.</td><td>13.8</td></tr>
+    <tr><td><span class="ui">Delete</span></td><td>Delete the account for good.</td><td>13.9</td></tr>
+  </tbody>
+</table>
+
+<h2>13.1 Creating a user</h2>
+<ol class="steps">
+  <li>Click <span class="ui">Create user</span>.</li>
+  <li><span class="ui">Username</span>: between 3 and 64 characters, using lowercase letters, digits, <code>.</code>, <code>_</code> or <code>-</code> (for example <code>maria.lopez</code>). <strong>It cannot be changed later.</strong></li>
+  <li><span class="ui">Display name</span> (optional): the name you will see in the history, for example “María López”.</li>
+  <li><span class="ui">Temporary password</span>: type one of at least 12 characters or click <span class="ui">Generate</span> and copy it with the icon. The person will have to change it when they sign in.</li>
+  <li><span class="ui">Role</span>: <em>User</em>, <em>Administrator</em> or one of the custom roles (with its description below).</li>
+  <li><span class="ui">Namespaces</span> (except for Administrator): <em>All namespaces</em> or <em>Selected namespaces</em> (see 13.3).</li>
+  <li>Tick <span class="ui">Allow tests in the NetCheck namespace</span> only if this person must troubleshoot NetCheck's own network (13.4).</li>
+  <li>Click <span class="ui">Create user</span>. A green notice confirms it was created.</li>
+</ol>
+<figure><img src="img/en/22-create-user-account.png"><figcaption>Create user: account and role.</figcaption></figure>
+<figure><img src="img/en/22b-create-user-all.png"><figcaption>Create user: namespaces, NetCheck namespace box and final button.</figcaption></figure>
+<div class="box danger"><span class="t">Share the temporary password safely</span>Send it over a secure channel and never in the same
+message as the username. If it gets lost, just reset it.</div>
+<p>If the user already exists, the password is too short or you did not choose namespaces, the form shows the error next to the field.</p>
+
+<h2>13.2 Editing a user</h2>
+<p><span class="ui">Actions</span> › <span class="ui">Edit</span> opens the account's page. The username cannot be changed;
+everything else can:</p>
+<figure><img src="img/en/24-edit-user-account.png"><figcaption>Edit user: account, status and role.</figcaption></figure>
+<ul>
+  <li><span class="ui">Display name</span>.</li>
+  <li><span class="ui">Status</span>: the <em>Enabled</em>/<em>Disabled</em> switch. You cannot disable your own account.</li>
+  <li><span class="ui">Role</span>. You cannot take the administrator role away from yourself.</li>
+  <li><span class="ui">Namespaces</span> and the NetCheck namespace box.</li>
+</ul>
+<p>Click <span class="ui">Save</span> at the bottom of the page. The changes apply at once.</p>
+
+<h2>13.3 Namespaces: all or a list</h2>
+<figure><img src="img/en/24b-edit-user-namespaces.png"><figcaption>An account's namespaces.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:28%">Option</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">All namespaces</span></td><td><strong>Dynamic</strong> access to every namespace that exists and to those created later, except the system ones, the excluded ones and the NetCheck one. A new namespace shows up for them in less than a minute.</td></tr>
+    <tr><td><span class="ui">Selected namespaces</span></td><td>Only the ones you pick from the list (read live from the cluster, with a search box). Even if more are created, they will not see them.</td></tr>
+  </tbody>
+</table>
+<figure><img src="img/en/23-create-user-selected.png"><figcaption>Choosing namespaces from the list.</figcaption></figure>
+<p>If a chosen namespace disappears from the cluster or is excluded, it is marked as <em>No longer available</em>.</p>
+
+<h2>13.4 The NetCheck namespace</h2>
+<p>The <span class="ui">Allow tests in the NetCheck namespace (netcheck)</span> box is unticked by default and works for
+any role. Tick it only for people who must troubleshoot NetCheck's own network (for example, the platform team). An account
+can have only this box and no other namespace.</p>
+
+<h2>13.5 Effective permissions</h2>
+<p>At the bottom of each user's page, <span class="ui">Effective permissions</span> shows what that person can do
+<strong>right now</strong> and where it comes from. Use it to answer “why can't I…?”.</p>
+<figure><img src="img/en/24c-effective-permissions.png"><figcaption>Effective permissions of an account with the “Network on-call” role.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:24%">Block</th><th>What it shows</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Roles</strong></td><td>Each role they have, in which namespaces and where it comes <strong>from</strong>: <em>This account</em>, <em>Group …</em> (local group) or <em>Access rule for the group / for the user …</em> (SSO).</td></tr>
+    <tr><td><strong>By namespace</strong></td><td>Which checks they can run in each namespace and whether they can use the firewall ticket.</td></tr>
+    <tr><td><strong>Other permissions</strong></td><td>Proxies, tokens, wider history and administration pages.</td></tr>
+  </tbody>
+</table>
+
+<h2>13.6 Resetting a password</h2>
+<ol class="steps">
+  <li>Select the account and click <span class="ui">Actions</span> › <span class="ui">Reset password</span>.</li>
+  <li>NetCheck suggests a temporary password; you can type another one or click <span class="ui">Generate</span>. Copy it with the icon.</li>
+  <li>Click <span class="ui">Reset</span>.</li>
+</ol>
+<figure class="dialog"><img src="img/en/25-reset-password.png"><figcaption>Reset password.</figcaption></figure>
+<p>When you confirm, <strong>all</strong> of that person's sessions are ended, and they must change the password when they sign in. It also removes
+a lock.</p>
+
+<h2>13.7 Unlocking</h2>
+<p>After 5 failed attempts in a row the account is locked for 15 minutes (both values can be changed in the installation).
+<span class="ui">Actions</span> › <span class="ui">Unlock</span> removes the lock at once. The option is only active if the account
+is locked.</p>
+
+<h2>13.8 Disabling and enabling</h2>
+<p>Disabling cuts off access <strong>without deleting the account</strong>. It is the right way to remove access temporarily, and the
+only one that really works with SSO accounts.</p>
+<ol class="steps">
+  <li>Select the account and click <span class="ui">Actions</span> › <span class="ui">Disable</span>.</li>
+  <li>Read the warning and click <span class="ui">Disable</span>.</li>
+</ol>
+<figure class="dialog"><img src="img/en/26-disable-user.png"><figcaption>Confirmation to disable.</figcaption></figure>
+<ul>
+  <li>The account cannot sign in, even if an access rule applies to it.</li>
+  <li>Its sessions end at once and its API tokens stop working.</li>
+  <li>Its tests stay in the history.</li>
+  <li>To give access back: select it and click <span class="ui">Actions</span> › <span class="ui">Enable</span>.</li>
+  <li>You cannot disable yourself, or disable the last administrator.</li>
+</ul>
+
+<h2>13.9 Deleting</h2>
+<p><span class="ui">Actions</span> › <span class="ui">Delete</span> deletes the account <strong>for good</strong>, with its sessions, API
+tokens and personal proxies. The test history it created is kept with its name.</p>
+<figure class="dialog"><img src="img/en/27-delete-user.png"><figcaption>Confirmation to delete.</figcaption></figure>
+<div class="box danger"><span class="t">Deleting cannot be undone</span>If you only want to block access for a while, disable the
+account. With an SSO account, deleting it does not remove its access: if a rule still applies to it, it is created again the next
+time it signs in.</div>
+
+<h2>13.10 Single sign-on (SSO) accounts</h2>
+<ul>
+  <li>They appear in the list by themselves the first time someone signs in with the identity provider, with <em>SSO</em> in the <em>Sign-in</em> column.</li>
+  <li>Their role and namespaces come from the <strong>access rules</strong> (chapter 16) and are worked out again at each sign-in and each time a rule changes.</li>
+  <li>When you edit them you will see the groups they brought at their last sign-in. They can only be enabled or disabled; <em>Reset password</em> does not apply.</li>
+  <li>You can also add them to local groups (chapter 14) once they have signed in at least once.</li>
+</ul>
+
+<h1><span class="num">14</span>Groups</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Groups</span> gives a role, with its namespaces, to several people at once. It
+is ideal for teams: “the payments team can test from <code>payments</code> and see the whole team's tests”.</p>
+<figure><img src="img/en/28-groups.png"><figcaption>List of groups.</figcaption></figure>
+<p>The table shows the name and description, the role, the namespaces, the members and the last change.</p>
+
+<h2>14.1 Creating or editing a group</h2>
+<ol class="steps">
+  <li>Click <span class="ui">Create group</span> (or select one and click <span class="ui">Edit</span>).</li>
+  <li><span class="ui">Name</span> (for example “Payments team”) and a <span class="ui">Description (optional)</span>.</li>
+  <li><span class="ui">Members</span>: pick the people in <span class="ui">Choose members</span>. They can be local accounts or SSO accounts that have signed in at least once.</li>
+  <li><span class="ui">Role</span>: User, Administrator or a custom role.</li>
+  <li><span class="ui">Namespaces</span> (except for Administrator): all or a list, and the NetCheck namespace box.</li>
+  <li>Click <span class="ui">Save</span>. It applies at once.</li>
+</ol>
+<figure class="dialog"><img src="img/en/29-edit-group.png"><figcaption>Editing a group.</figcaption></figure>
+
+<h2>14.2 How it works</h2>
+<ul>
+  <li>Members <strong>keep</strong> their own role and namespaces, and get the group's role <strong>as well</strong>, only in the group's namespaces.</li>
+  <li>Leaving the group (or deleting it) removes what the group gave; each person's own role stays.</li>
+  <li>For the groups in your identity provider (Entra ID, Okta, GitHub…) use <strong>Access rules</strong>: they apply without adding anyone by hand.</li>
+</ul>
+<div class="box warn"><span class="t">Groups with the Administrator role</span>They make their members administrators. NetCheck always keeps
+at least one enabled administrator (counting those from groups), and <strong>nobody can take away their own administrator role</strong>
+by changing their account, changing a group or leaving it.</div>
+
+<h2>14.3 Seeing the group's tests</h2>
+<p>If the group's role has the <em>The tests of the people sharing a group, in its namespaces</em> permission, its members see,
+besides their own, the tests of their group mates, only in the namespaces they themselves can use. Personal
+proxies stay private: the others only see <em>Personal proxy of …</em>.</p>
+
+<h2>14.4 Deleting a group</h2>
+<p>Select it and click <span class="ui">Delete</span>. Its members lose what the group gave them; their own role stays.
+All group changes are recorded in the audit log, with their members.</p>
+
+<h1><span class="num">15</span>Roles</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Roles</span> defines what each role allows. <strong>User</strong> and
+<strong>Administrator</strong> are built in and cannot be changed. You can create <strong>custom roles</strong> to give
+exactly the permissions needed.</p>
+<figure><img src="img/en/30-roles.png"><figcaption>List of roles with their permissions and who they are given to.</figcaption></figure>
+<p>The <em>Given to</em> column says how many users, access rules and groups have each role.</p>
+
+<h2>15.1 Creating or editing a role</h2>
+<ol class="steps">
+  <li>Click <span class="ui">Create role</span> (or select a custom one and click <span class="ui">Edit</span>).</li>
+  <li>Type a <span class="ui">Name</span> (for example “Network on-call”) and a <span class="ui">Description (optional)</span>, which is shown when the role is chosen.</li>
+  <li>Tick the <span class="ui">Permissions</span> you want to give (next table). Anything you do not tick is forbidden.</li>
+  <li>Click <span class="ui">Save</span>. It applies at once to everyone who has it.</li>
+</ol>
+<figure class="dialog tall"><img src="img/en/31-edit-role.png"><figcaption>Editing a role: all the available permissions.</figcaption></figure>
+
+<h2>15.2 The permissions, one by one</h2>
+<table class="compact">
+  <thead><tr><th style="width:18%">Group</th><th style="width:32%">Permission</th><th>What it allows</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="8"><strong>Checks</strong></td><td>DNS resolution</td><td rowspan="7">Run that type of check. With none ticked, the role can only look at tests.</td></tr>
+    <tr><td>TCP connection</td></tr>
+    <tr><td>UDP</td></tr>
+    <tr><td>HTTP</td></tr>
+    <tr><td>HTTPS</td></tr>
+    <tr><td>Ping (ICMP)</td></tr>
+    <tr><td>Traceroute (ICMP)</td></tr>
+    <tr><td>Firewall ticket</td><td>Use the firewall ticket troubleshooting mode.</td></tr>
+    <tr><td rowspan="2"><strong>Tests it sees</strong></td><td>Every test of its namespaces</td><td>See all the tests of the namespaces they can use, not only their own.</td></tr>
+    <tr><td>The tests of the people sharing a group</td><td>See the tests of their group mates, in their namespaces.</td></tr>
+    <tr><td rowspan="2"><strong>Proxies</strong></td><td>Use the shared proxies</td><td>Choose in tests the proxies that administrators share.</td></tr>
+    <tr><td>Have personal proxies</td><td>See the <span class="ui">My proxies</span> page and use their own proxies.</td></tr>
+    <tr><td><strong>Command line</strong></td><td>Create API tokens</td><td>Create tokens for <code>netcheck-cli</code>.</td></tr>
+    <tr><td rowspan="9"><strong>Administration</strong></td><td>Destination policy</td><td rowspan="9">See and change that administration page. People with any of these permissions see only those pages under <span class="ui">Administration</span>.</td></tr>
+    <tr><td>Certificate authorities</td></tr>
+    <tr><td>Shared proxies</td></tr>
+    <tr><td>Check types</td></tr>
+    <tr><td>Namespaces (exclusions)</td></tr>
+    <tr><td>Data retention</td></tr>
+    <tr><td>Active sessions (see and end)</td></tr>
+    <tr><td>Everybody's API tokens (see and revoke)</td></tr>
+    <tr><td>System and versions</td></tr>
+  </tbody>
+</table>
+<p>The built-in <strong>User</strong> role has every permission except seeing other people's tests and the administration.</p>
+
+<h2>15.3 Delegating part of the administration</h2>
+<p>A role with administration permissions lets you share out the work without giving full control. For example, a “Network team” role with
+<em>Destination policy</em> and <em>Shared proxies</em> will see only those two pages in the menu.</p>
+<div class="box warn"><span class="t">Keep in mind what each part allows</span>
+<ul style="margin-bottom:0">
+  <li><strong>Users, groups, roles and access rules cannot be delegated</strong>: whoever managed them could give themselves any permission.</li>
+  <li>The destination policy decides what can be tested.</li>
+  <li>Active sessions lets you end anyone's session, administrators included.</li>
+  <li>Everybody's API tokens lets you revoke anyone's token.</li>
+</ul></div>
+
+<h2>15.4 Giving a role</h2>
+<p>You can give a role in three ways, each with its own namespaces:</p>
+<ul>
+  <li>To a person: <span class="ui">Users</span> › <span class="ui">Edit</span> › <span class="ui">Role</span> (chapter 13).</li>
+  <li>To a local group: <span class="ui">Groups</span> (chapter 14).</li>
+  <li>To a group in the identity provider: <span class="ui">Access rules</span> (chapter 16).</li>
+</ul>
+
+<h2>15.5 Several roles at once</h2>
+<p>In <strong>each namespace</strong>, a person has the permissions of the roles they were given <strong>for that namespace</strong>.
+Example: “Network on-call in <code>orders</code>” plus “User in <code>payments</code>” allows only the on-call tests
+in <code>orders</code>. Check types disabled in <span class="ui">Check types</span> stay disabled whatever the role.</p>
+
+<h2>15.6 What a user sees when their role does not allow something</h2>
+<ul>
+  <li>The test form only offers the checks allowed in the chosen namespace and says which ones it removed.</li>
+  <li>The API, <code>netcheck-cli</code> and tokens answer <code>403 check_not_allowed</code>, naming the check.</li>
+  <li><span class="ui">My proxies</span> and token creation are hidden if they do not have those permissions.</li>
+</ul>
+
+<h2>15.7 Deleting a role</h2>
+<p>Select it and click <span class="ui">Delete</span>. A role given to someone (users, groups or rules) cannot be deleted:
+the notice says how many it is given to. Give them another role first. Roles are managed only from the web, and every change is recorded in
+the audit log.</p>
+
+<h1><span class="num">16</span>Access rules (single sign-on)</h1>
+<p>With single sign-on turned on, <span class="ui">Administration</span> › <span class="ui">Access rules</span> decides who
+can sign in with the identity provider and with which permissions, <strong>before</strong> they sign in for the first time. Without at least one
+rule that applies to them, nobody can sign in with SSO.</p>
+<figure><img src="img/en/32-access-rules.png"><figcaption>Access rules. The blue notice says SSO is not yet enabled in this installation.</figcaption></figure>
+<div class="box"><span class="t">If SSO is not enabled</span>You will see the notice <em>“Single sign-on is not enabled”</em>.
+You can still prepare the rules: they will apply when the platform team turns it on in the installation.</div>
+
+<h2>16.1 Creating a rule</h2>
+<ol class="steps">
+  <li>Click <span class="ui">Create rule</span>.</li>
+  <li>In <span class="ui">Applies to</span> choose:
+    <ul>
+      <li><span class="ui">Group</span>: the members of a group in the provider (for example <code>acme:payments-team</code> for a GitHub team). Type it exactly as the provider sends it; upper and lower case do not matter.</li>
+      <li><span class="ui">User</span>: one person, by the name NetCheck receives (usually the e-mail address, for example <code>ana@example.com</code>).</li>
+      <li><span class="ui">Any authenticated user</span>: everyone who signs in successfully with the provider.</li>
+    </ul>
+  </li>
+  <li>Choose the <span class="ui">Role</span> and, except for Administrator, the <span class="ui">Namespaces</span> and the NetCheck namespace box.</li>
+  <li>Click <span class="ui">Save</span>. The rule applies at once to existing SSO accounts.</li>
+</ol>
+<figure class="dialog"><img src="img/en/33-create-rule.png"><figcaption>Creating an access rule.</figcaption></figure>
+
+<h2>16.2 How they combine</h2>
+<ul>
+  <li>A person gets <strong>all</strong> the rules that apply to them, each with its own namespaces (section 15.5).</li>
+  <li>If a change leaves an SSO account without any rule, its session is ended and it loses its API tokens.</li>
+  <li>To edit or delete a rule, select it and click <span class="ui">Edit</span> or <span class="ui">Delete</span>.</li>
+  <li>Every change is recorded in the audit log.</li>
+</ul>
+<div class="box tip"><span class="t">Access rules or local groups?</span>Use rules when the identity provider already keeps the list of
+people (whoever leaves the company group loses access automatically). Use local groups for local accounts or to
+group people who do not share a group in the provider.</div>
+
+<h1><span class="num">17</span>Namespaces</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Namespaces</span> lists every namespace in the cluster and whether it can be used
+to run tests. From here you can <strong>exclude</strong> any of them, with immediate effect.</p>
+<figure><img src="img/en/34-namespaces.png"><figcaption>Namespaces and their status.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:30%">Status</th><th>What it means</th><th style="width:22%">Can it be changed from the web?</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Available</strong></td><td>Tests can be run (depending on each user's namespaces).</td><td>Yes: <span class="ui">Exclude</span></td></tr>
+    <tr><td><strong>Excluded in the web</strong></td><td>An administrator excluded it here; you can see who, when and why.</td><td>Yes: <span class="ui">Include again</span></td></tr>
+    <tr><td><strong>Excluded in Helm</strong></td><td>Excluded in the installation.</td><td>No: with Helm</td></tr>
+    <tr><td><strong>System (always excluded)</strong></td><td><code>default</code>, <code>kube-system</code>, <code>kube-public</code>, <code>kube-node-lease</code>.</td><td>No, never</td></tr>
+    <tr><td><strong>NetCheck namespace</strong></td><td>Only for accounts with the matching box ticked.</td><td>In each account</td></tr>
+  </tbody>
+</table>
+
+<h2>17.1 Excluding a namespace</h2>
+<ol class="steps">
+  <li>Select an available namespace and click <span class="ui">Exclude</span>, or click <span class="ui">Exclude by name</span> for one that does not exist yet (it will be excluded as soon as it is created).</li>
+  <li>Type a <span class="ui">Reason (optional)</span>, for example “PCI scope”.</li>
+  <li>Confirm with <span class="ui">Exclude</span>.</li>
+</ol>
+<figure class="dialog"><img src="img/en/35-exclude-namespace.png"><figcaption>Excluding a namespace by name.</figcaption></figure>
+<ul>
+  <li><strong>Immediate effect:</strong> it disappears from every user's list (administrators included) and new tests from it are rejected. The history is kept.</li>
+  <li><strong>Include again:</strong> select it and click <span class="ui">Include again</span>. It only works with exclusions made in the web.</li>
+  <li>Every change is recorded in the audit log.</li>
+</ul>
+<div class="box"><span class="t">Why can't I remove the Helm exclusions here?</span>Helm and system exclusions are
+also enforced by Kubernetes with its admission control, which rejects any probe in those namespaces even if the application failed.
+Removing them from the web would require NetCheck to be able to change its own protections, which would be a privilege escalation. The web
+can only <strong>add</strong> exclusions, which always restrict more.</div>
+<p>If the installation uses the fixed namespace list mode, only the ones configured in Helm are shown, and a notice says so.</p>
+
+<h1><span class="num">18</span>Destination policy</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Destination policy</span> decides <strong>where to</strong> you can test:
+names, networks and ports. Changes apply to the next test, without restarting anything. The header says who made the last
+change and when.</p>
+<figure><img src="img/en/36-policy-top.png"><figcaption>Quick settings and allowed hostnames.</figcaption></figure>
+
+<h2>18.1 The blocks on the page</h2>
+<table>
+  <thead><tr><th style="width:26%">Block</th><th>What it controls</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">Quick settings</span></td><td><span class="ui">Allow everything</span> (any name, network and port) or <span class="ui">Cluster and private networks only</span> (names <code>*.svc.cluster.local</code> and networks 10/8, 172.16/12, 192.168/16). They only fill in the form: nothing changes until you click <span class="ui">Save</span>.</td></tr>
+    <tr><td><span class="ui">Allowed hostnames</span></td><td>Domain suffixes (<code>.svc.cluster.local</code>, <code>.corp.example.com</code>). <code>*</code> allows any name.</td></tr>
+    <tr><td><span class="ui">Allowed networks</span></td><td>IPv4/IPv6 ranges in CIDR format. Every resolved IP must be in one of them; <code>0.0.0.0/0</code> and <code>::/0</code> allow any address.</td></tr>
+    <tr><td><span class="ui">Allowed ports</span></td><td><span class="ui">From</span>–<span class="ui">To</span> ranges for TCP, UDP, HTTP and HTTPS. Ping and traceroute do not use a port.</td></tr>
+    <tr><td><span class="ui">Denied networks</span></td><td>Always denied, even if they are inside an allowed network (for example, a sensitive subnet).</td></tr>
+    <tr><td><span class="ui">Platform protections</span></td><td>Cloud metadata, the Kubernetes API, loopback, link-local, multicast and reserved ranges. They are set in the installation and <strong>cannot be removed from the web</strong>.</td></tr>
+    <tr><td><span class="ui">Check a destination</span></td><td>Says whether a name or an IP (and port) is allowed <strong>without sending traffic</strong>.</td></tr>
+  </tbody>
+</table>
+<figure><img src="img/en/36b-policy-networks.png"><figcaption>Allowed networks and ports.</figcaption></figure>
+
+<h2>18.2 Changing the policy</h2>
+<ol class="steps">
+  <li>Use a quick setting or edit the blocks: <span class="ui">Add</span> creates a line and <span class="ui">Remove</span> deletes it.</li>
+  <li>Badly written values are marked in red (for example “Invalid CIDR”). An empty allow list would deny everything, and the page warns you.</li>
+  <li>The <em>“You have unsaved changes”</em> notice appears. Click <span class="ui">Save</span> at the bottom (or <span class="ui">Cancel</span> to throw them away).</li>
+  <li>Check the result with <span class="ui">Check a destination</span>.</li>
+</ol>
+<figure><img src="img/en/37-policy-protections.png"><figcaption>Denied networks, platform protections and checking a destination (here, the cloud metadata address, which is always denied).</figcaption></figure>
+
+<h2>18.3 Checking a destination</h2>
+<ol class="steps">
+  <li>Type a <span class="ui">Hostname or IP</span> and, if you like, a <span class="ui">Port (optional)</span>.</li>
+  <li>Click <span class="ui">Check</span>. You will see <em>Allowed by the policy</em> or <em>Denied</em> with the exact reason.</li>
+</ol>
+<p>For a name, the suffix is checked; the probe checks again the IPs it resolves to before connecting. The check
+uses the <strong>saved</strong> policy, not pending changes.</p>
+
+<h2>18.4 The Kubernetes API in the protections</h2>
+<p>NetCheck reads from the cluster the exact addresses of the Kubernetes API server and refreshes them every 30 seconds. Until
+it has read them, it shows instead the ranges configured in the installation, which are usually whole subnets. If they still appear a
+minute after startup, NetCheck cannot read those addresses: the Pod log explains why, and the platform team
+must fix it.</p>
+
+<h2>18.5 Policy managed by Helm</h2>
+<p>The Helm values are only the <strong>initial</strong> policy; after that, what you save here is what counts. If the installation uses
+<code>destinationsManagedBy: helm</code>, the page is <strong>read-only</strong> with the <em>“Managed in Helm”</em> notice,
+and changes are made in the Helm values. Tests already running keep the policy they were created with.</p>
+
+<h1><span class="num">19</span>Check types</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Check types</span> turns each type of test on or off <strong>for
+everybody, administrators included</strong>: DNS, TCP, UDP, HTTP, HTTPS, ping, traceroute and the firewall ticket mode. Everything
+is enabled by default.</p>
+<figure><img src="img/en/38-check-types.png"><figcaption>Available check types.</figcaption></figure>
+<ol class="steps">
+  <li>Use each type's switch to set it to <em>Disabled</em> (or <em>Enabled</em>). The page warns you that there are unsaved changes.</li>
+  <li>Click <span class="ui">Save</span> (or <span class="ui">Discard changes</span>). It applies to new tests at once.</li>
+</ol>
+<h3>What happens to a disabled type</h3>
+<ul>
+  <li>It disappears from the test form. <span class="ui">Run again</span> on an old test removes it and says so.</li>
+  <li>The API, <code>netcheck-cli</code> and tokens reject it with <code>403 check_type_disabled</code>; the CLI exits with code 3.</li>
+  <li><strong>Firewall ticket:</strong> disabling the mode removes it from the form. Disabling some of its tests (for example ping and traceroute) leaves them out of the ticket, and the report says <em>not run (disabled by an administrator)</em>.</li>
+  <li>Tests already run keep their results.</li>
+</ul>
+<p>At least one type must stay enabled. Every change is recorded in the audit log. If the installation uses
+<code>checkTypesManagedBy: helm</code>, the page is read-only.</p>
+
+<h1><span class="num">20</span>Certificate authorities</h1>
+<p>HTTPS checks verify certificates only against <strong>public</strong> authorities. A server with a
+certificate from the corporate PKI, or a firewall that decrypts TLS traffic along the way, would show up as <em>signed by an
+authority the probe does not trust</em>. <span class="ui">Administration</span> › <span class="ui">Certificate authorities</span>
+adds authorities that <strong>every</strong> HTTPS check trusts, on top of the public ones, with or without a proxy.</p>
+<figure><img src="img/en/39-cas.png"><figcaption>Trusted authorities.</figcaption></figure>
+<p>The table shows the subject, who issued it (<em>Itself (root)</em> if it is a root), the expiry date (expired ones are marked) and the SHA-256
+fingerprint, so you can compare it with the one the PKI team gives you.</p>
+
+<h2>20.1 Adding authorities</h2>
+<ol class="steps">
+  <li>Click <span class="ui">Add certificates</span>.</li>
+  <li>Paste the certificate in PEM format, from <code>-----BEGIN CERTIFICATE-----</code> to <code>-----END CERTIFICATE-----</code>. You can paste several: a bundle is split up by itself and duplicates are dropped.</li>
+  <li>Click <span class="ui">Add certificates</span> to save. New tests use them at once.</li>
+</ol>
+<figure class="dialog"><img src="img/en/40-add-ca.png"><figcaption>Pasting an authority in PEM.</figcaption></figure>
+<ul>
+  <li>Only <strong>authority</strong> certificates are accepted. Server certificates, anything that is not PEM and any private key are rejected. Never paste private keys.</li>
+  <li>At most 50 certificates and 64 KiB in total.</li>
+  <li>To stop trusting one, select it and click <span class="ui">Remove</span>.</li>
+  <li>When a certificate is validated thanks to one of them, the result says so and the equivalent command adds <code>--cacert</code>. If a public website such as <code>www.google.com</code> shows up as validated by your corporate authority, something along the way is inspecting TLS.</li>
+</ul>
+
+<h2>20.2 Here or in the proxy?</h2>
+<p>NetCheck trusts non-public authorities in two places. Choose based on <strong>who issued the certificate</strong> the
+check receives:</p>
+<table>
+  <thead><tr><th>Situation</th><th style="width:26%">Where the authority goes</th><th style="width:26%">Who trusts it</th></tr></thead>
+  <tbody>
+    <tr><td>Your servers have certificates from the <strong>corporate PKI</strong></td><td>Here</td><td>Every HTTPS check</td></tr>
+    <tr><td>A <strong>firewall decrypts TLS transparently</strong> (with no proxy configured)</td><td>Here</td><td>Every HTTPS check</td></tr>
+    <tr><td>An <strong>HTTP proxy that inspects TLS</strong> and is chosen in <span class="ui">Connection</span> (Zscaler, Netskope, Squid…)</td><td>In that proxy (chapter 21)</td><td>Only HTTPS checks through that proxy</td></tr>
+  </tbody>
+</table>
+<div class="box warn"><span class="t">Do not put a proxy's authority here</span>If you do, checks that do <em>not</em> go through the proxy would
+also trust it, and an unexpected interception on a direct path would look valid instead of being
+detected. A check through a proxy trusts both lists.</div>
+<p>With <code>trustedCasManagedBy: helm</code> the list comes from the Helm values and the page is read-only.</p>
+
+<h1><span class="num">21</span>Shared proxies</h1>
+<p>When your applications reach a destination through a company proxy, testing the direct path answers the wrong
+question. <span class="ui">Administration</span> › <span class="ui">Proxies</span> sets up proxies that users can choose for
+TCP, HTTP and HTTPS. It is always <strong>optional</strong>: by default each check uses the direct path, and with no proxies the option does not
+even appear.</p>
+<figure><img src="img/en/41-proxies.png"><figcaption>Configured proxies: one for every user and another for administrators only.</figcaption></figure>
+<table>
+  <thead><tr><th></th><th>Shared proxies</th><th>Personal proxies</th></tr></thead>
+  <tbody>
+    <tr><td>Where</td><td><span class="ui">Administration</span> › <span class="ui">Proxies</span></td><td><span class="ui">My proxies</span> (chapter 11)</td></tr>
+    <tr><td>Who manages them</td><td>Administrators (or a role with <em>Shared proxies</em>)</td><td>Only their owner</td></tr>
+    <tr><td>Who uses them</td><td>Every user, or administrators only</td><td>Only their owner</td></tr>
+    <tr><td>Limit</td><td>20</td><td>10 per person</td></tr>
+  </tbody>
+</table>
+
+<h2>21.1 Adding or editing a proxy</h2>
+<ol class="steps">
+  <li>Click <span class="ui">Add proxy</span> (or select one and click <span class="ui">Edit</span>).</li>
+  <li><span class="ui">Name</span>: users will see it; lowercase letters, digits and dashes (for example <code>corp-egress</code>).</li>
+  <li><span class="ui">Host name or IP</span> and <span class="ui">Port</span> (usually 3128 or 8080).</li>
+  <li><span class="ui">Share with every user</span>: ticked, any user with permission can choose it; unticked, only administrators.</li>
+  <li>Only if the proxy inspects TLS: paste its authority in <span class="ui">Certificate authorities of this proxy</span>.</li>
+  <li>Click <span class="ui">Save</span>.</li>
+</ol>
+<figure class="dialog"><img src="img/en/42-edit-proxy.png"><figcaption>Editing a shared proxy.</figcaption></figure>
+
+<h2>21.2 How a check goes through the proxy</h2>
+<ul>
+  <li><strong>TCP and HTTPS:</strong> the probe asks the proxy for a <code>CONNECT</code> tunnel to the destination (like <code>curl --proxy</code>).</li>
+  <li><strong>HTTP:</strong> the probe sends the request to the proxy with the full URL and the proxy forwards it (like <code>curl -x</code>).</li>
+  <li>The result shows where the problem is: the proxy <strong>cannot be reached</strong>, <strong>refuses</strong> it (403), <strong>requires authentication</strong> (407), <strong>cannot reach the destination</strong> (502/503/504) or <strong>does not answer in time</strong>.</li>
+</ul>
+
+<h2>21.3 Rules and privacy</h2>
+<ul>
+  <li>Each proxy must be a destination the policy allows (address and port). This is checked when you save and in every test.</li>
+  <li>It is the proxy, not the probe, that resolves and connects to the destination, so the destination is only checked by name and port.</li>
+  <li>Authentication is not supported: the probe never carries credentials.</li>
+  <li>A shared proxy's authorities are used by whoever can choose it, without seeing them: the <span class="ui">Connection</span> list only marks it <em>with CA</em>.</li>
+  <li>If an administrator opens a test that went through a personal proxy, they only see <em>“Personal proxy of &lt;user&gt;”</em>.</li>
+  <li>With <code>proxiesManagedBy: helm</code> the page is read-only. Personal proxies are always managed in the web.</li>
+</ul>
+
+<h1><span class="num">22</span>Data retention</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Data retention</span> sets how long NetCheck keeps data. The
+changes apply within an hour, without restarting anything.</p>
+<figure><img src="img/en/43-retention.png"><figcaption>Retention periods.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:34%">Setting</th><th>What is deleted when the period ends</th><th class="c" style="width:16%">Default</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">Technical output (days)</span></td><td>The raw output of each check. The result, the diagnosis and the timings are kept.</td><td class="c">15</td></tr>
+    <tr><td><span class="ui">Test history and audit log (days)</span></td><td>The tests with all their results and the audit events.</td><td class="c">45</td></tr>
+  </tbody>
+</table>
+<ol class="steps">
+  <li>Change the values (between 1 and 3650 days; the history must be at least as long as the technical output).</li>
+  <li>Click <span class="ui">Save</span>.</li>
+</ol>
+<div class="box danger"><span class="t">Shortening a period deletes data</span>At the next purge (every hour) the oldest data is deleted
+and cannot be recovered. The page warns you before saving. If you might need it, ask for a backup first (chapter 28).</div>
+<p>Queued or running tests are never deleted. The Helm values are only the starting values.</p>
+
+<h1><span class="num">23</span>Active sessions</h1>
+<p><span class="ui">Administration</span> › <span class="ui">Active sessions</span> shows who is signed in right now.</p>
+<figure><img src="img/en/44-sessions.png"><figcaption>Active sessions.</figcaption></figure>
+<ul>
+  <li><strong>Summary:</strong> <em>Connected users</em> (different accounts with activity within the idle timeout), <em>Active sessions</em> and the <em>Idle timeout</em> (60 minutes by default).</li>
+  <li><strong>Table:</strong> user, role, sign-in time, last activity (updated at most once a minute), client IP and browser.</li>
+  <li><strong>Ending a session:</strong> select it and click <span class="ui">Sign out session</span>. Useful, for example, if someone left their session open on a shared computer. Your own session shows as <em>This session</em> and cannot be ended from here.</li>
+</ul>
+<div class="box"><span class="t">Client IP</span>It is only the real one if the installation knows the network of the load balancer or Gateway
+(<code>auth.trustedProxyCidrs</code>). Otherwise, you will see the IP of the proxy in between.</div>
+
+<h1><span class="num">24</span>API tokens (everybody's)</h1>
+<p><span class="ui">Administration</span> › <span class="ui">API tokens</span> lists the tokens of <strong>every</strong> user: name,
+how it starts, owner, creation date, expiry date and last use.</p>
+<figure><img src="img/en/45-admin-tokens.png"><figcaption>All API tokens.</figcaption></figure>
+<p>Select one and click <span class="ui">Revoke</span> when it is no longer needed or may have leaked. Pipelines that use it
+fail right away with an authentication error. Expired tokens are deleted by themselves. Creating and revoking tokens is recorded in the audit log.</p>
+
+<h1><span class="num">25</span>System and versions</h1>
+<p><span class="ui">Administration</span> › <span class="ui">System and versions</span> is a read-only information page:</p>
+<figure><img src="img/en/46-system-version.png"><figcaption>Running version and version history.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:28%">Block</th><th>What it shows</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">Running version</span></td><td>Version, commit, build date, Helm chart version and the images (with their fingerprint) of NetCheck and of the probe.</td></tr>
+    <tr><td><span class="ui">Version history</span></td><td>Each version that has started in this installation, with when it was first seen, its last start and number of starts. It tells you what was deployed and when.</td></tr>
+    <tr><td><span class="ui">Platform settings</span></td><td>Cluster, namespace scope, NetCheck namespace, checks per test, maximum duration and the wait for policies to be scheduled. They are set in Helm.</td></tr>
+    <tr><td><strong>Destination policy</strong></td><td>Summary of the policy and the state of the protections; <span class="ui">Edit policy</span> opens its page.</td></tr>
+    <tr><td><strong>Data retention</strong></td><td>Summary of the periods; <span class="ui">Edit retention</span> opens its page.</td></tr>
+  </tbody>
+</table>
+<figure><img src="img/en/46b-system-settings.png"><figcaption>Platform settings, policy and retention.</figcaption></figure>
+<p>Upgrades are <strong>not</strong> done from the web: the platform team does them with Helm (chapter 28). Afterwards,
+the new version shows up here as the running version.</p>
+
+<h1><span class="num">26</span>Security rules NetCheck always enforces</h1>
+<p>These rules protect the installation and cannot be turned off:</p>
+<ul>
+  <li>You cannot delete or disable yourself, take away your own administrator role (directly or through a group) or end your own session from <span class="ui">Active sessions</span>.</li>
+  <li>The <strong>last</strong> enabled administrator cannot be deleted, disabled or demoted.</li>
+  <li>Changing or resetting a password ends that person's other sessions.</li>
+  <li>Sign-in error messages are always generic so they do not reveal whether a user exists.</li>
+  <li>Lock after failed attempts and a limit on attempts per IP.</li>
+  <li>Probes can never reach the platform protections (cloud metadata, Kubernetes API…).</li>
+  <li>Every administration change is recorded in the audit log, which never stores passwords, tokens or the content of certificates.</li>
+</ul>
+<div class="box"><span class="t">No built-in MFA</span>NetCheck has no second authentication factor. If you need one, use your company's single
+sign-on, which will apply its own MFA.</div>
+
+<!-- ===================================================== PART IV -->
+<h1 class="part">Part IV · How-to guides and operations</h1>
+<p class="part-desc">Recipes for the most common tasks, what can only be done with cluster access, how to solve problems, the
+glossary and the application's limits.</p>
+
+<h1><span class="num">27</span>Step-by-step recipes</h1>
+<p>Each recipe sums up the steps for a specific task and points to the chapter where it is explained in detail.</p>
+
+<h2>27.1 Give access to a new person</h2>
+<ol class="steps">
+  <li><span class="ui">Administration</span> › <span class="ui">Users</span> › <span class="ui">Create user</span>.</li>
+  <li>Type the username and the display name; click <span class="ui">Generate</span> and copy the temporary password.</li>
+  <li>Role <em>User</em> and, under namespaces, <em>Selected namespaces</em> with the ones for their application.</li>
+  <li><span class="ui">Create user</span>.</li>
+  <li>Send them the NetCheck address and their username over one channel, and the temporary password over another. They will have to change it when they sign in.</li>
+</ol>
+<p>Details in chapter 13.</p>
+
+<h2>27.2 Give a whole team access to its namespaces</h2>
+<ol class="steps">
+  <li>If the team uses SSO and has a group in the provider: <span class="ui">Access rules</span> › <span class="ui">Create rule</span> › <em>Group</em>, with the team's role and namespaces (chapter 16).</li>
+  <li>If they are local accounts: <span class="ui">Groups</span> › <span class="ui">Create group</span>, add the members and choose the role and the namespaces (chapter 14).</li>
+  <li>Check the result in <span class="ui">Users</span> › <span class="ui">Edit</span> › <span class="ui">Effective permissions</span> for one of them.</li>
+</ol>
+
+<h2>27.3 Let a team see each other's tests</h2>
+<ol class="steps">
+  <li><span class="ui">Roles</span> › <span class="ui">Create role</span>, for example “Team (sees the group's tests)”.</li>
+  <li>Tick the checks they need and, under <em>Tests it sees</em>, <em>The tests of the people sharing a group</em> (or <em>Every test of its namespaces</em> if they must see everything in those namespaces).</li>
+  <li>Give that role to the team's local group or access rule.</li>
+</ol>
+
+<h2>27.4 Delegate the destination policy to the network team</h2>
+<ol class="steps">
+  <li><span class="ui">Roles</span> › <span class="ui">Create role</span> “Network team”.</li>
+  <li>Tick their checks and, under <em>Administration</em>, <em>Destination policy</em> (and <em>Shared proxies</em> if they manage those too).</li>
+  <li>Give it to the network team's people or group. Their menu will show only those administration pages.</li>
+</ol>
+
+<h2>27.5 Remove someone's access right away</h2>
+<ol class="steps">
+  <li><span class="ui">Users</span>, select the account › <span class="ui">Actions</span> › <span class="ui">Disable</span>.</li>
+  <li>Their sessions and tokens are cancelled at once.</li>
+  <li>If you suspect a token has leaked, also check <span class="ui">API tokens</span> and revoke the ones involved.</li>
+</ol>
+
+<h2>27.6 Someone cannot sign in</h2>
+<table>
+  <thead><tr><th style="width:34%">What you see in Users</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td>Status <em>Locked</em></td><td><span class="ui">Actions</span> › <span class="ui">Unlock</span>, or wait 15 minutes.</td></tr>
+    <tr><td>They forgot the password</td><td><span class="ui">Actions</span> › <span class="ui">Reset password</span> and send them the temporary one.</td></tr>
+    <tr><td>Status <em>Disabled</em></td><td><span class="ui">Actions</span> › <span class="ui">Enable</span>, if they should have access again.</td></tr>
+    <tr><td>SSO account that does not appear, or a “no access rule…” message</td><td>Create an access rule for their group or their user (chapter 16).</td></tr>
+    <tr><td>“Too many sign-in attempts” message</td><td>Wait a minute (per-IP-address limit).</td></tr>
+  </tbody>
+</table>
+
+<h2>27.7 Someone cannot see a namespace</h2>
+<ol class="steps">
+  <li>Look at their <span class="ui">Effective permissions</span>: do they have that namespace?</li>
+  <li>If not, add it to their account, to a group or to their access rule.</li>
+  <li>If they do, look at <span class="ui">Namespaces</span>: it may be <em>Excluded in the web</em> (click <span class="ui">Include again</span>), excluded in Helm, or a system namespace.</li>
+  <li>If the namespace is new, wait a minute.</li>
+</ol>
+
+<h2>27.8 Restrict where people can test to</h2>
+<ol class="steps">
+  <li><span class="ui">Destination policy</span> › <span class="ui">Cluster and private networks only</span> (or edit the blocks by hand).</li>
+  <li>Add the company domains in <span class="ui">Allowed hostnames</span>, for example <code>.corp.example.com</code>.</li>
+  <li>Add the sensitive subnets in <span class="ui">Denied networks</span>.</li>
+  <li><span class="ui">Save</span> and check with <span class="ui">Check a destination</span>.</li>
+</ol>
+
+<h2>27.9 Forbid a type of test</h2>
+<ul>
+  <li><strong>For everybody:</strong> <span class="ui">Check types</span>, turn it off and <span class="ui">Save</span> (chapter 19).</li>
+  <li><strong>Only for some people:</strong> create a role without that check and give it to them (chapter 15).</li>
+</ul>
+
+<h2>27.10 An internal website gives a certificate error</h2>
+<ol class="steps">
+  <li>Open the result and look at the <span class="ui">Summary</span> tab of the HTTPS check: if it says the authority is not trusted, ask the PKI team for the authority's certificate (PEM) and its SHA-256 fingerprint.</li>
+  <li><span class="ui">Certificate authorities</span> › <span class="ui">Add certificates</span>, paste it and save.</li>
+  <li>Compare the fingerprint in the table with the one you were given, and run the test again.</li>
+  <li>If the error only appears when going through a proxy that inspects TLS, the authority belongs in that proxy (chapter 21), not here.</li>
+</ol>
+
+<h2>27.11 Test through the company proxy</h2>
+<ol class="steps">
+  <li><span class="ui">Proxies</span> › <span class="ui">Add proxy</span>: name, host, port and <span class="ui">Share with every user</span>.</li>
+  <li>Make sure the destination policy allows the proxy's address and port.</li>
+  <li>In <span class="ui">Create test</span>, in a TCP, HTTP or HTTPS check, choose <span class="ui">Connection</span> › <em>Through proxy …</em>.</li>
+</ol>
+
+<h1><span class="num">28</span>Tasks that need cluster access</h1>
+<p>Some tasks are not done from the web, but with <strong>Helm</strong> and <strong>kubectl</strong>, the Kubernetes command-line
+tools. The platform team, which has access to the cluster, usually does them. This chapter helps you know what to ask for.</p>
+<div class="box"><span class="t">About the commands</span>Replace <code>&lt;version&gt;</code> with the right NetCheck version and
+<code>values.yaml</code> with your installation's configuration file. The NetCheck namespace is usually <code>netcheck</code>.</div>
+
+<h2>28.1 Get the initial admin password</h2>
+<pre>kubectl -n netcheck get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo</pre>
+<p>It is temporary: it must be changed at the first sign-in.</p>
+
+<h2>28.2 Upgrade NetCheck</h2>
+<pre>helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version &lt;version&gt; \
+  -n netcheck -f values.yaml --wait --timeout 10m</pre>
+<ul>
+  <li>Read the release notes (CHANGELOG) first.</li>
+  <li>During the restart the tool is unavailable for a few seconds; tests in progress are recovered or marked as an infrastructure error.</li>
+  <li>Database migrations run by themselves at startup.</li>
+  <li>Check the result in <span class="ui">System and versions</span>.</li>
+</ul>
+
+<h2>28.3 Change the installation's configuration</h2>
+<p>Helm exclusions, limits, log level, SSO and similar settings are changed by editing <code>values.yaml</code> and running
+<code>helm upgrade</code>. The Pod restarts with the new configuration; if a value is not valid, it does not start and the log says
+which one.</p>
+
+<h2>28.4 Backups</h2>
+<ul>
+  <li>All the data (users, history and audit log) is in the <code>netcheck-data</code> volume.</li>
+  <li><strong>Recommended:</strong> scheduled snapshots of the volume with your storage or cloud tools (for example, AWS Backup).</li>
+  <li><strong>Cold copy (maximum consistency):</strong> stop NetCheck, take the snapshot and start it again:</li>
+</ul>
+<pre>kubectl -n netcheck scale deploy/netcheck --replicas=0
+<span class="c"># take the volume snapshot</span>
+kubectl -n netcheck scale deploy/netcheck --replicas=1</pre>
+<p>To restore, a volume is created from the snapshot, in the same zone, and NetCheck is installed pointing to it with
+<code>persistence.existingClaim</code>.</p>
+
+<h2>28.5 Recover administrator access</h2>
+<p>If nobody can sign in as an administrator (forgotten password, account locked or disabled):</p>
+<pre><span class="c"># 1. Turn on recovery: admin goes back to the password in the Secret</span>
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version &lt;version&gt; -n netcheck -f values.yaml \
+  --set auth.bootstrapAdmin.recoverOnStart=true --wait
+kubectl -n netcheck get secret netcheck-bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo
+<span class="c"># 2. Sign in as admin and change the password (required)</span>
+<span class="c"># 3. Turn recovery off straight away</span>
+helm upgrade netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version &lt;version&gt; -n netcheck -f values.yaml --wait</pre>
+<p>The recovery is recorded in the audit log and in the Pod log. Only someone with administrator access to the cluster can do it.</p>
+<div class="box warn"><span class="t">With Argo CD or Flux</span>If the password in the Secret changes by itself at every sync, the installation
+must use its own Secret (<code>auth.bootstrapAdmin.existingSecret</code>). The installation guide explains how to create it.</div>
+
+<h2>28.6 Audit log and logs</h2>
+<ul>
+  <li><strong>Audit log:</strong> sign-ins and sign-outs, passwords, user changes, ended sessions, tokens, access rules, tests run or rejected, destination policy, retention, namespaces, authorities, proxies, check types, roles and groups. It never contains passwords, tokens or the content of certificates. There is no viewer in the web yet.</li>
+  <li><strong>Pod logs:</strong> <code>kubectl -n netcheck logs deploy/netcheck</code>.</li>
+  <li><strong>Log level</strong> (<code>logLevel</code>): <code>debug</code>, <code>info</code> (default), <code>warn</code> or <code>error</code>.</li>
+</ul>
+
+<h2>28.7 Uninstall</h2>
+<pre>helm uninstall netcheck -n netcheck
+<span class="c"># These are kept on purpose (data and credentials). Delete them only if you are sure:</span>
+kubectl -n netcheck delete pvc netcheck-data
+kubectl -n netcheck delete secret netcheck-bootstrap-admin
+kubectl delete namespace netcheck</pre>
+<div class="box danger"><span class="t">Careful</span>Deleting the <code>netcheck-data</code> volume removes users, history and
+audit log for good.</div>
+
+<h1><span class="num">29</span>Troubleshooting</h1>
+<h2>29.1 Problems you see in the web</h2>
+<table class="compact">
+  <thead><tr><th style="width:30%">Symptom</th><th style="width:32%">Likely cause</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td>“Not allowed by the NetCheck destination policy”</td><td>Protected destination (metadata, API, loopback…) or restricted by the policy</td><td>The message gives the exact reason. Review <span class="ui">Destination policy</span> and use <span class="ui">Check a destination</span>.</td></tr>
+    <tr><td>A check does not appear in the form</td><td>Disabled in Check types, or not allowed by the role in that namespace</td><td>Review <span class="ui">Check types</span> and the person's <span class="ui">Effective permissions</span>.</td></tr>
+    <tr><td><code>check_type_disabled</code> or <code>check_not_allowed</code> error in the CLI</td><td>The same, from a pipeline</td><td>Same as above.</td></tr>
+    <tr><td>A namespace does not appear</td><td>Not assigned, excluded, a system namespace or just created</td><td>Recipe 27.7.</td></tr>
+    <tr><td>The NetCheck namespace does not appear</td><td>Hidden by design</td><td>Tick the <span class="ui">Allow tests in the NetCheck namespace</span> box on that account.</td></tr>
+    <tr><td>Every test ends in <em>Infrastructure error</em></td><td>NetCheck cannot talk to the Kubernetes API, or there is a permissions problem</td><td>Tell the platform team and give them the test ID.</td></tr>
+    <tr><td>“Namespace … has no room for the probe Pod”</td><td>A namespace quota is full; the message says which one and how much is missing</td><td>The namespace owner raises the quota. The probe needs 50m of CPU and 32Mi of memory (requests), 200m and 64Mi (limits), one Pod and one Job.</td></tr>
+    <tr><td>Ping or traceroute: “ICMP is not permitted inside the probe”</td><td>The node does not support the setting needed, or an external admission policy blocks it</td><td>Tell the platform team.</td></tr>
+    <tr><td>Ping gets no answer but TCP works</td><td>ICMP filtered by the network</td><td>This is normal. Test with TCP or HTTP(S) on the real port.</td></tr>
+    <tr><td>My application cannot connect but NetCheck says it succeeded</td><td>The probe may have different rules from the application</td><td>Review the fidelity notice and share the result with the platform team.</td></tr>
+    <tr><td>The client IP in Active sessions is always the same</td><td>The installation does not know the load balancer's network</td><td>Ask for <code>auth.trustedProxyCidrs</code> to be configured.</td></tr>
+    <tr><td>Lots of “Too many sign-in attempts” at sign-in</td><td>Per-IP limit; or everyone arrives with the same load balancer IP</td><td>Same as above.</td></tr>
+    <tr><td>The initial admin password does not work</td><td>The Secret changed after the admin was created (common with Argo CD)</td><td>Recover access (28.5) and use your own Secret.</td></tr>
+  </tbody>
+</table>
+
+<h2>29.2 Installation problems (platform team)</h2>
+<table class="compact">
+  <thead><tr><th style="width:30%">Symptom</th><th style="width:34%">Likely cause</th><th>First command</th></tr></thead>
+  <tbody>
+    <tr><td>Pod and volume in <code>Pending</code></td><td>No storage driver, or missing permissions</td><td><code>kubectl -n netcheck describe pvc netcheck-data</code></td></tr>
+    <tr><td>Pod in <code>CrashLoopBackOff</code></td><td>Invalid configuration</td><td><code>kubectl -n netcheck logs deploy/netcheck --previous</code></td></tr>
+    <tr><td>Pod in <code>ImagePullBackOff</code></td><td>The nodes cannot reach the image registry</td><td>Check the internet access or the image mirror</td></tr>
+    <tr><td>The web page does not load</td><td>Problem in the inbound route (HTTPRoute or Ingress)</td><td><code>kubectl -n netcheck describe httproute netcheck</code> or <code>describe ingress netcheck</code></td></tr>
+  </tbody>
+</table>
+
+<h2>29.3 Known limitations</h2>
+<ul>
+  <li><strong>No high availability:</strong> a single replica on a single-zone volume.</li>
+  <li>The result is that of the <strong>probe Pod</strong>, not of a specific application.</li>
+  <li>On nodes that do not enforce NetworkPolicies (for example AWS Fargate) the result does not reflect the policies.</li>
+  <li>No built-in second factor (use your company's SSO).</li>
+  <li>No audit log viewer in the web.</li>
+</ul>
+
+<h1 id="glosario"><span class="num">30</span>Glossary</h1>
+<table class="compact">
+  <thead><tr><th style="width:26%">Term</th><th>Definition</th></tr></thead>
+  <tbody>
+    <tr><td>Access rule</td><td>Decides who signs in with SSO and with which role and namespaces.</td></tr>
+    <tr><td>Administrator</td><td>Built-in role with every permission, including managing users, groups, roles and access rules.</td></tr>
+    <tr><td>API token</td><td>Key that lets a program use NetCheck on behalf of a person.</td></tr>
+    <tr><td>Audit log</td><td>Record of who did what and when.</td></tr>
+    <tr><td>Certificate authority (CA)</td><td>Organization that signs certificates. NetCheck trusts the public ones and the ones you add.</td></tr>
+    <tr><td>Check</td><td>Each of the individual tests inside a test (DNS, TCP…).</td></tr>
+    <tr><td>CIDR</td><td>Notation for an IP range, such as <code>10.0.0.0/8</code>.</td></tr>
+    <tr><td>Cluster</td><td>Set of servers managed by Kubernetes.</td></tr>
+    <tr><td>CNI</td><td>The Kubernetes network component that enforces NetworkPolicies (Calico, Cilium…).</td></tr>
+    <tr><td>Corporate PKI</td><td>The infrastructure the company uses to issue its own certificates.</td></tr>
+    <tr><td>Destination policy</td><td>List of names, networks and ports you can test to.</td></tr>
+    <tr><td>DNS</td><td>System that turns names into IP addresses.</td></tr>
+    <tr><td>Fidelity</td><td>How close the probe's result is to the one your application would get.</td></tr>
+    <tr><td>Helm</td><td>Tool for installing and upgrading applications in Kubernetes.</td></tr>
+    <tr><td>ICMP</td><td>The protocol ping and traceroute use.</td></tr>
+    <tr><td>Identity provider</td><td>The company account system (Entra ID, Okta, Google, GitHub…).</td></tr>
+    <tr><td>Job</td><td>Kubernetes object that runs a task until it finishes. Each test creates one.</td></tr>
+    <tr><td>Kubernetes API</td><td>The central service that controls the cluster. NetCheck uses it to create the probes; the probes can never reach it.</td></tr>
+    <tr><td>Local group</td><td>Set of NetCheck accounts that get a role together.</td></tr>
+    <tr><td>Namespace</td><td>Separate space inside the cluster, usually one per application or team.</td></tr>
+    <tr><td>NetworkPolicy</td><td>Kubernetes network rule that limits a namespace's connections.</td></tr>
+    <tr><td>Node</td><td>Each server in the cluster.</td></tr>
+    <tr><td>OIDC</td><td>The standard NetCheck uses to talk to the identity provider for SSO.</td></tr>
+    <tr><td>PEM</td><td>Text format of a certificate, between <code>-----BEGIN CERTIFICATE-----</code> and <code>-----END CERTIFICATE-----</code>.</td></tr>
+    <tr><td>Pod</td><td>Smallest unit that runs in Kubernetes.</td></tr>
+    <tr><td>Probe</td><td>Temporary Pod NetCheck creates to take measurements.</td></tr>
+    <tr><td>Proxy</td><td>Go-between that outgoing traffic passes through.</td></tr>
+    <tr><td>Role</td><td>Set of permissions.</td></tr>
+    <tr><td>Service</td><td>Stable Kubernetes name used to reach a group of Pods. It does not answer ping.</td></tr>
+    <tr><td>SHA-256 fingerprint</td><td>A unique identifier of a certificate, to check that it is the right one.</td></tr>
+    <tr><td>SNAT</td><td>Source address translation: going out, traffic usually leaves with the node's IP.</td></tr>
+    <tr><td>SSO</td><td>Single sign-on with your company account.</td></tr>
+    <tr><td>TLS</td><td>The encryption used by HTTPS.</td></tr>
+    <tr><td>User (role)</td><td>Built-in role that runs tests in its namespaces and sees only its own tests.</td></tr>
+  </tbody>
+</table>
+
+<h1><span class="num">31</span>Reference values and limits</h1>
+<table class="compact">
+  <thead><tr><th style="width:52%">Item</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Minimum password length</td><td>12 characters</td></tr>
+    <tr><td>Lock after failed attempts</td><td>5 attempts in a row → 15 minutes (configurable in the installation)</td></tr>
+    <tr><td>Session length</td><td>60 minutes without activity; 12 hours at most</td></tr>
+    <tr><td>Username</td><td>3–64 characters: lowercase letters, digits, <code>.</code>, <code>_</code>, <code>-</code></td></tr>
+    <tr><td>Ping requests</td><td>1–10, one per second</td></tr>
+    <tr><td>Traceroute hops</td><td>1–30</td></tr>
+    <tr><td>Timeout per check</td><td>5 s by default, 10 s at most</td></tr>
+    <tr><td>Firewall ticket</td><td><code>ping -c 4</code>, 20-hop traceroute, telnet and <code>curl -v</code></td></tr>
+    <tr><td>API token expiry</td><td>30, 90, 180 or 365 days</td></tr>
+    <tr><td>Shared proxies</td><td>20 at most</td></tr>
+    <tr><td>Personal proxies</td><td>10 per person</td></tr>
+    <tr><td>Certificate authorities</td><td>50 certificates and 64 KiB at most</td></tr>
+    <tr><td>Technical output retention</td><td>15 days by default (1–3650)</td></tr>
+    <tr><td>History and audit log retention</td><td>45 days by default (1–3650)</td></tr>
+    <tr><td>Purge of old data</td><td>Every hour</td></tr>
+    <tr><td>Time for a new namespace to appear</td><td>Less than a minute</td></tr>
+    <tr><td>Probe resources</td><td>Requests 50m CPU / 32Mi memory; limits 200m / 64Mi; 16Mi of temporary storage</td></tr>
+    <tr><td><code>netcheck-cli</code> exit codes</td><td>0 success · 1 connectivity failures · 2 could not run · 3 usage or API error</td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

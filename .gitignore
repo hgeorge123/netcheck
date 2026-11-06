@@ -11,5 +11,9 @@ web/test-results/
 web/playwright-report/
 web/tsconfig.tsbuildinfo
 
+# Generated files of the administration manual (see docs/manual/README.md).
+docs/manual/out/
+docs/manual/tools/node_modules/
+
 # go-winres output of tools/build-cli.sh (removed after each build).
 /cmd/netcheck-cli/rsrc_*.syso

@@ -24,7 +24,7 @@ try {
     $info = "{0}: pages={1} compat={2} tocs={3} tables={4} inline={5} fields={6}" -f (Split-Path $full -Leaf), $doc.ComputeStatistics(2), $doc.CompatibilityMode, $doc.TablesOfContents.Count, $doc.Tables.Count, $doc.InlineShapes.Count, $doc.Fields.Count
     $info
     $doc.Save()
-    $pdf = [IO.Path]::ChangeExtension($full, '.pdf')
+    $pdf = [IO.Path]::ChangeExtension($full, '.word-review.pdf')
     $doc.ExportAsFixedFormat($pdf, 17)
     # This Word build drops the automation connection after exporting; the document is already saved by then.
     try { $doc.Close($noSave) } catch { "Word dropped the connection after exporting (the document is already saved)" }

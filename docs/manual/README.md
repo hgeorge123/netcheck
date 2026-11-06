@@ -51,7 +51,8 @@ powershell -File docs\manual\tools\finish-docx.ps1 -Files docs\manual\out\NetChe
 ```
 
 `finish-docx.ps1` opens each document in a hidden Word window, updates the table of contents and the figure numbers,
-saves the document and exports a PDF next to it, so you can check the result.
+saves the document and exports `<name>.word-review.pdf` next to it, so you can check the result. That file is only for
+review: the PDFs to publish are the ones from `build-pdf.js`.
 
 ## Retake the screenshots
 

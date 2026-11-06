@@ -1,7 +1,8 @@
 # Administrator guide
 
 This guide is for the people who **install and operate** NetCheck and for those who **manage users** from the web
-interface. For day-to-day use, see the [user guide](user-guide.md).
+interface. For day-to-day use, see the [user guide](user-guide.md). If you are new to NetCheck, the
+[administration manual](manual/README.md), in PDF, explains every screen step by step and with images.
 
 - **Part I:** what gets deployed, how probes work and which NetworkPolicies are needed.
 - **Part II:** administration from the web (users, roles, namespaces, destination policy, certificate authorities,

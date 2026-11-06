@@ -102,6 +102,7 @@ a local cluster with Calico and sample namespaces in a few minutes.
 | [Installation on Azure AKS](docs/install-aks.md) | AKS specifics: network policy engine, Azure Disk and ZRS, Gateway API or Ingress |
 | [User guide](docs/user-guide.md) | Running tests and reading the results |
 | [Administrator guide](docs/admin-guide.md) | Users, roles, groups, namespaces, destination policy, check types, retention, upgrades, backups, troubleshooting |
+| Administration manual, PDF ([English](https://github.com/hgeorge123/netcheck/releases/download/v1.4.0/NetCheck-Administration-manual-EN.pdf), [Español](https://github.com/hgeorge123/netcheck/releases/download/v1.4.0/NetCheck-Manual-de-administracion-ES.pdf)) | Every screen and option of the web interface, step by step and with images, for people starting from scratch ([how it is built](docs/manual/README.md)) |
 | [Security model](docs/security.md) | Probe sandbox, RBAC, admission policies, destination protections, authentication |
 | [Architecture](docs/architecture.md) | Components, life of a test, data and design choices |
 

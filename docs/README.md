@@ -8,6 +8,7 @@
 | [install-aks.md](install-aks.md) | Step-by-step installation on Azure Kubernetes Service (AKS) |
 | [user-guide.md](user-guide.md) | Creating tests, firewall ticket mode and reading the results |
 | [admin-guide.md](admin-guide.md) | What gets deployed, users, namespaces, destination policy, certificate authorities, proxies, check types, roles, groups, data retention, operations and troubleshooting |
+| [manual/](manual/README.md) | Administration manual in PDF, in English and Spanish: every screen and option of the web interface, step by step and with images, for people starting from scratch |
 | [sso.md](sso.md) | Single sign-on with an OIDC provider or with GitHub, GitLab, LDAP and SAML through Dex; access rules |
 | [cli.md](cli.md) | API tokens and `netcheck-cli` to run tests from pipelines |
 | [security.md](security.md) | Security model and residual risks |

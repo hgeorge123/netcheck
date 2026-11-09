@@ -734,12 +734,13 @@ describe('UserFormPage for an SSO account', () => {
   });
 });
 
+// The toggles are found by their label: Cloudscape gives them the switch role in some versions and the checkbox role in others.
 describe('CheckTypesPage', () => {
   it('switches a check type off for everybody', async () => {
     const admin = mockAdmin();
     const notify = vi.fn();
     renderI18n(<CheckTypesPage admin={admin} notify={notify} />);
-    const traceroute = await screen.findByRole('checkbox', { name: 'Traceroute (ICMP)' });
+    const traceroute = await screen.findByLabelText('Traceroute (ICMP)');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     await userEvent.click(traceroute);
     expect(screen.getByText('You have unsaved changes.')).toBeInTheDocument();
@@ -750,9 +751,9 @@ describe('CheckTypesPage', () => {
 
   it('keeps at least one check enabled', async () => {
     renderI18n(<CheckTypesPage admin={mockAdmin()} notify={vi.fn()} />);
-    await screen.findByRole('checkbox', { name: 'DNS resolution' });
+    await screen.findByLabelText('DNS resolution');
     for (const name of ['DNS resolution', 'TCP connection', 'UDP', 'HTTP', 'HTTPS', 'Ping (ICMP)', 'Traceroute (ICMP)']) {
-      await userEvent.click(screen.getByRole('checkbox', { name }));
+      await userEvent.click(screen.getByLabelText(name));
     }
     expect(screen.getByText('At least one check type must stay enabled.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
@@ -761,7 +762,7 @@ describe('CheckTypesPage', () => {
   it('is read-only when managed in Helm', async () => {
     renderI18n(<CheckTypesPage admin={mockAdmin({ checkTypes: vi.fn().mockResolvedValue(checkTypesView(false)) })} notify={vi.fn()} />);
     expect(await screen.findByText(/checkTypesManagedBy is helm/)).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'UDP' })).toBeDisabled();
+    expect(screen.getByLabelText('UDP')).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
   });
 });

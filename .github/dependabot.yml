@@ -18,6 +18,15 @@ updates:
     groups:
       cloudscape:
         patterns: ["@cloudscape-design/*"]
+      # Packages that only install together: each one requires the same major version of the others.
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      vite:
+        patterns: ["vite", "vitest", "@vitest/*", "@vitejs/*"]
+    ignore:
+      # typescript-eslint supports TypeScript below 6.1 only. Remove this once it supports newer versions.
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
   - package-ecosystem: docker
     commit-message:
       prefix: deps

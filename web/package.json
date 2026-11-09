@@ -12,9 +12,9 @@
     "docs:screenshots": "playwright test"
   },
   "dependencies": {
-    "@cloudscape-design/collection-hooks": "^1.0.110",
-    "@cloudscape-design/components": "^3.0.1403",
-    "@cloudscape-design/global-styles": "^1.0.71",
+    "@cloudscape-design/collection-hooks": "^1.0.111",
+    "@cloudscape-design/components": "^3.0.1410",
+    "@cloudscape-design/global-styles": "^1.0.72",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

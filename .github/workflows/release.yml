@@ -169,6 +169,9 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/netcheck
           subject-digest: ${{ steps.app.outputs.digest }}
           push-to-registry: true
+          # Since v4 the action also creates an artifact storage record, which needs the
+          # artifact-metadata permission and is meant for organizations. Not needed here.
+          create-storage-record: false
       - name: Attest the probe image provenance
         if: steps.state.outputs.build == 'true'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -176,6 +179,7 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/netcheck-probe
           subject-digest: ${{ steps.probe.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
 
       # Before pinning: a release with fixable High or Critical
       # vulnerabilities fails here and release/images turns red.

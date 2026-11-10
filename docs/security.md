@@ -229,6 +229,10 @@ or Critical vulnerability fail the `dependencies` check, and `govulncheck` fails
 vulnerable Go function. The images carry an SBOM and SLSA build provenance, and the images and the chart are signed with
 [Sigstore](https://www.sigstore.dev/) keyless signing, bound to that workflow. The release notes list every digest.
 
+The commands below need [cosign](https://github.com/sigstore/cosign) 3. Since version 1.4.2 the signatures are stored
+in the Sigstore bundle format, which cosign 2 does not find by default: with cosign 2.6, add `--new-bundle-format` to
+`cosign verify`. Releases up to 1.4.1 were signed with cosign 2 and verify with either version.
+
 Verify an image signature (the same command works for `netcheck-probe` and for the GHCR copies):
 
 ```bash

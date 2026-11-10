@@ -45,6 +45,8 @@ Images are built for `linux/amd64` and `linux/arm64`. The same images, with the 
 
 ## Verify the image
 
+Use cosign 3, or add `--new-bundle-format` with cosign 2.6:
+
 <!-- x-release-please-start-version -->
 ```bash
 cosign verify hgeorge123/netcheck-probe:1.4.2 \

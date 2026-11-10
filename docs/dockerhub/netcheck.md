@@ -57,7 +57,8 @@ Images are built for `linux/amd64` and `linux/arm64`. The same images, with the 
 
 ## Verify the image
 
-Every release is built by GitHub Actions, carries an SBOM and build provenance, and is signed with Sigstore:
+Every release is built by GitHub Actions, carries an SBOM and build provenance, and is signed with Sigstore. Use
+cosign 3, or add `--new-bundle-format` with cosign 2.6:
 
 <!-- x-release-please-start-version -->
 ```bash

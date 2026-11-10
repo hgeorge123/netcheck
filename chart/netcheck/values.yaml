@@ -33,20 +33,20 @@ image:
   # -- Release version of the image, set by the release workflow. With a
   # digest it is only informative (repo:tag@digest); without one it is used
   # alone, which is only accepted in development.
-  tag: "1.4.1"
+  tag: "1.4.2"
   # -- REQUIRED in production: image digest (sha256:...), set by the release
   # workflow. Tags can be moved; the digest cannot.
-  digest: "sha256:00bafe90917be6d42649f5a1d4b6246bd2437ac8f98c389ba0c891be06c04bda"
+  digest: "sha256:509138365264dcad1bee015299c1a6cfdaa0fa2729ecd0eda6c945c2699515b9"
   pullPolicy: IfNotPresent
 
 probeImage:
   # -- Probe image (runs in the source namespaces).
   repository: docker.io/hgeorge123/netcheck-probe
   # -- Release version of the image (informative), set by the release workflow.
-  tag: "1.4.1"
+  tag: "1.4.2"
   # -- REQUIRED. sha256 digest, set by the release workflow. The admission
   # policy pins this exact reference.
-  digest: "sha256:28bcce7f1e2b11f1e13c241a592455c6560d8ef0469adce267f6ab4215cb8bfd"
+  digest: "sha256:1936d80b83ee9f68d023166fc2f7d3caa4750315df46ba5b47cdf45684dbc46b"
 
 # -- Only needed for private registries. The published images are public; EKS
 # nodes pull from same-account ECR with the node IAM role.

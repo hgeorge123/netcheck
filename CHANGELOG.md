@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.2](https://github.com/hgeorge123/netcheck/compare/v1.4.1...v1.4.2) (2026-11-10)
+
+
+### Dependencies
+
+* add the Vite client types for TypeScript 6 ([5ef882d](https://github.com/hgeorge123/netcheck/commit/5ef882d1d7046444b509c6ced9bf787fe8f18a86))
+* bump @playwright/test from 1.64.1 to 1.65.0 in /web ([64f66a0](https://github.com/hgeorge123/netcheck/commit/64f66a029f63ee8d69124367c0eb5e25bf2c5798))
+* bump eslint from 9.39.5 to 10.14.0 in /web ([3656891](https://github.com/hgeorge123/netcheck/commit/3656891ead13bffcd1ac5b4ce2255338739058e8))
+* bump github.com/go-jose/go-jose/v4 from 4.1.6 to 4.1.9 ([c97ef09](https://github.com/hgeorge123/netcheck/commit/c97ef09f91a3a50f09990bc65d26514b3aa625db))
+* bump globals from 17.13.0 to 17.14.0 in /web ([947c5f2](https://github.com/hgeorge123/netcheck/commit/947c5f20f9a2584afea2c6cdaa5749c5c5033d6a))
+* bump golang.org/x/oauth2 from 0.36.0 to 0.38.0 ([7f51031](https://github.com/hgeorge123/netcheck/commit/7f51031701b3140323164270e70ddc680e5f9f5d))
+* bump golang.org/x/sys from 0.49.0 to 0.50.0 ([e0a7ceb](https://github.com/hgeorge123/netcheck/commit/e0a7cebe72550144685e4d8c69873e4c76e94a1b))
+* bump jsdom from 25.0.1 to 31.0.0 in /web ([bcde4fe](https://github.com/hgeorge123/netcheck/commit/bcde4fe1db04ff6e06a482f3c83a31c5693125d5))
+* bump modernc.org/sqlite from 1.60.1 to 1.61.1 ([a520337](https://github.com/hgeorge123/netcheck/commit/a52033702059e3be956b80155bf55713bfb2b645))
+* bump the kubernetes group across 1 directory with 3 updates ([4218c28](https://github.com/hgeorge123/netcheck/commit/4218c2863e883a21eb27675f6fbbcea4b1fafacd))
+* bump typescript from 5.9.3 to 6.0.3 in /web ([6df3438](https://github.com/hgeorge123/netcheck/commit/6df343872a007fa4298ead12a543968e904b72a3))
+* bump typescript-eslint ([e6719ab](https://github.com/hgeorge123/netcheck/commit/e6719ab198da0571226d1358cc0f8fd8f0ca7a09))
+* update React to 19, Vite to 8 and Cloudscape ([c57b8f1](https://github.com/hgeorge123/netcheck/commit/c57b8f182497e7d954503fb1750fcb3ba600a476))
+* update the ESLint plugins for ESLint 10 ([32cec78](https://github.com/hgeorge123/netcheck/commit/32cec7880781f9af5894d79bdc6dfdb85ef66f6e))
+
 ## [1.4.1](https://github.com/hgeorge123/netcheck/compare/v1.4.0...v1.4.1) (2026-11-06)
 
 

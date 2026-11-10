@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.3](https://github.com/hgeorge123/netcheck/compare/v1.4.2...v1.4.3) (2026-11-10)
+
+
+### Documentation
+
+* explain which cosign version verifies the signatures ([242fd84](https://github.com/hgeorge123/netcheck/commit/242fd8403d8de74d2cc7bf2f853a7791b3775be7))
+* explain which cosign version verifies the signatures ([dc66ffb](https://github.com/hgeorge123/netcheck/commit/dc66ffb4e80e95c05868b0384031126f456b7184))
+
 ## [1.4.2](https://github.com/hgeorge123/netcheck/compare/v1.4.1...v1.4.2) (2026-11-10)
 
 

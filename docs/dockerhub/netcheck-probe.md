@@ -26,7 +26,7 @@ allow the NetCheck controller to create Jobs with exactly that image and a locke
 
 <!-- x-release-please-start-version -->
 ```bash
-helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.4.2 \
+helm upgrade --install netcheck oci://ghcr.io/hgeorge123/charts/netcheck --version 1.4.3 \
   --namespace netcheck -f values.yaml
 ```
 <!-- x-release-please-end -->
@@ -49,7 +49,7 @@ Use cosign 3, or add `--new-bundle-format` with cosign 2.6:
 
 <!-- x-release-please-start-version -->
 ```bash
-cosign verify hgeorge123/netcheck-probe:1.4.2 \
+cosign verify hgeorge123/netcheck-probe:1.4.3 \
   --certificate-identity https://github.com/hgeorge123/netcheck/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```

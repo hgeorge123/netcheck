@@ -190,7 +190,7 @@ jobs:
           PROBE_IMAGE: ${{ env.REGISTRY }}/netcheck-probe@${{ steps.probe.outputs.digest }}
         run: bash .github/scripts/scan-images.sh "${APP_IMAGE}" "${PROBE_IMAGE}"
 
-      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
         if: steps.state.outputs.build == 'true'
       - name: Pin the images in the release pull request
         if: steps.state.outputs.build == 'true'
@@ -324,7 +324,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag }}
           persist-credentials: false
-      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
 
       - name: Check the pinned images in the chart
         env:
